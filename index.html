@@ -16,10 +16,11 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            font-size: 12px;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background: white;
             border-radius: 15px;
@@ -30,16 +31,16 @@
         header {
             background: linear-gradient(135deg, #1e5ba8 0%, #2d74c4 100%);
             color: white;
-            padding: 30px;
+            padding: 25px;
             position: relative;
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
 
         .logo-container {
-            width: 120px;
-            height: 80px;
+            width: 100px;
+            height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -57,19 +58,19 @@
         }
 
         h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
+            font-size: 24px;
+            margin-bottom: 8px;
         }
 
         .subtitle {
             opacity: 0.9;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .role-toggle {
             position: absolute;
-            top: 30px;
-            right: 30px;
+            top: 25px;
+            right: 25px;
             display: flex;
             gap: 10px;
             align-items: center;
@@ -77,9 +78,9 @@
 
         .role-badge {
             background: rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
+            padding: 6px 14px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
         }
 
@@ -88,12 +89,13 @@
         }
 
         .btn {
-            padding: 8px 20px;
+            padding: 6px 16px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
+            font-size: 12px;
         }
 
         .btn-primary {
@@ -118,14 +120,15 @@
         }
 
         .tab {
-            padding: 15px 30px;
+            padding: 12px 25px;
             cursor: pointer;
             transition: all 0.3s;
             border-bottom: 3px solid transparent;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            font-size: 13px;
         }
 
         .tab:hover {
@@ -139,49 +142,49 @@
         }
 
         .content {
-            padding: 30px;
+            padding: 20px;
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
             background: linear-gradient(135deg, #1e5ba8 0%, #2d74c4 100%);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 15px;
+            border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .stat-value {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .stat-label {
             opacity: 0.9;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .controls {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 15px;
             flex-wrap: wrap;
         }
 
         .search-box {
             flex: 1;
-            min-width: 250px;
-            padding: 10px 15px;
+            min-width: 200px;
+            padding: 8px 12px;
             border: 2px solid #e2e8f0;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .search-box:focus {
@@ -192,12 +195,13 @@
         .btn-export {
             background: #10b981;
             color: white;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
+            font-size: 12px;
         }
 
         .btn-export:hover {
@@ -207,13 +211,14 @@
         .btn-add {
             background: #1e5ba8;
             color: white;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
             display: none;
+            font-size: 12px;
         }
 
         .btn-add.admin-only {
@@ -222,7 +227,7 @@
 
         .table-container {
             overflow-x: auto;
-            border-radius: 10px;
+            border-radius: 8px;
             border: 1px solid #e2e8f0;
         }
 
@@ -230,25 +235,53 @@
             width: 100%;
             border-collapse: collapse;
             background: white;
+            font-size: 11px;
         }
 
         th {
             background: #f8fafc;
-            padding: 12px;
+            padding: 8px 6px;
             text-align: left;
             font-weight: 600;
             color: #334155;
             border-bottom: 2px solid #e2e8f0;
             white-space: nowrap;
+            font-size: 11px;
         }
 
         td {
-            padding: 12px;
+            padding: 6px 6px;
             border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap;
         }
 
         tr:hover {
             background: #f8fafc;
+        }
+
+        /* Status color coding */
+        .status-sold {
+            background-color: #fee2e2 !important;
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        .status-buyer-looking {
+            background-color: #d1fae5 !important;
+            color: #065f46;
+            font-weight: 600;
+        }
+
+        .status-buyer-submitted {
+            background-color: #e9d5ff !important;
+            color: #6b21a8;
+            font-weight: 600;
+        }
+
+        .status-seller-looking {
+            background-color: #dbeafe !important;
+            color: #1e40af;
+            font-weight: 600;
         }
 
         .editable {
@@ -260,11 +293,20 @@
             background: #fef3c7;
         }
 
+        td.read-only {
+            cursor: default;
+        }
+
+        td.read-only:hover {
+            background: inherit;
+        }
+
         .edit-input {
             width: 100%;
-            padding: 5px;
+            padding: 4px;
             border: 2px solid #1e5ba8;
             border-radius: 3px;
+            font-size: 11px;
         }
 
         .modal {
@@ -286,7 +328,7 @@
 
         .modal-content {
             background: white;
-            padding: 30px;
+            padding: 25px;
             border-radius: 10px;
             max-width: 400px;
             width: 90%;
@@ -294,29 +336,30 @@
         }
 
         .modal-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             color: #334155;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .form-label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
             color: #475569;
+            font-size: 13px;
         }
 
         .form-input {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 2px solid #e2e8f0;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .form-input:focus {
@@ -338,11 +381,11 @@
         .delete-btn {
             background: #ef4444;
             color: white;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border: none;
             border-radius: 3px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             display: none;
         }
 
@@ -357,7 +400,7 @@
         footer {
             background: #1e293b;
             color: white;
-            padding: 30px;
+            padding: 25px;
             text-align: center;
         }
 
@@ -367,16 +410,16 @@
         }
 
         .footer-company {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         .footer-contact {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            font-size: 14px;
+            gap: 6px;
+            font-size: 13px;
         }
 
         .footer-contact a {
@@ -396,7 +439,7 @@
 
             .role-toggle {
                 position: static;
-                margin-top: 20px;
+                margin-top: 15px;
             }
 
             .tabs {
@@ -417,7 +460,7 @@
     <div class="container">
         <header>
             <div class="logo-container">
-                <img src="Q3 Consultancy Logo Sized.png" alt="Q3 Consultancy" onerror="this.parentElement.innerHTML='<div style=\'color:white;font-size:32px;font-weight:bold;\'>Q3</div>'">
+                <img src="Q3 Consultancy Logo Sized.png" alt="Q3 Consultancy" onerror="this.parentElement.innerHTML='<div style=\'color:white;font-size:28px;font-weight:bold;\'>Q3</div>'">
             </div>
             <div class="header-text">
                 <h1>Aviation Trading Portal</h1>
@@ -432,13 +475,13 @@
 
         <div class="tabs">
             <div class="tab active" onclick="switchTab('engines')">
-                <span style="font-size: 20px;">⚙️</span> Engines
+                <span style="font-size: 18px;">⚙️</span> Engines
             </div>
             <div class="tab" onclick="switchTab('aircraft-sale')">
-                <span style="font-size: 20px;">✈️</span> Aircraft Sale
+                <span style="font-size: 18px;">✈️</span> Aircraft Sale
             </div>
             <div class="tab" onclick="switchTab('aircraft-lease')">
-                <span style="font-size: 20px;">🛩️</span> Aircraft Lease
+                <span style="font-size: 18px;">🛩️</span> Aircraft Lease
             </div>
         </div>
 
@@ -464,7 +507,7 @@
             <div class="footer-content">
                 <div class="footer-company">Q3 Consultancy</div>
                 <div class="footer-contact">
-                    <a href="/cdn-cgi/l/email-protection#3445415d5a574d74451907571a575b59">📧 <span class="__cf_email__" data-cfemail="a9d8dcc0c7cad0e9d8849aca87cac6c4">[email&#160;protected]</span></a>
+                    <a href="/cdn-cgi/l/email-protection#a6d7d3cfc8c5dfe6d78b95c588c5c9cb">📧 <span class="__cf_email__" data-cfemail="b1c0c4d8dfd2c8f1c09c82d29fd2dedc">[email&#160;protected]</span></a>
                     <a href="tel:+971589362400">📱 +971 (0) 589 362 400 (UAE)</a>
                 </div>
             </div>
@@ -496,13 +539,57 @@
 
         // Hidden columns for external viewers
         const HIDDEN_COLUMNS = {
-            'Engines': ["Seller's Price \n(USD)", "Team Commission\n(USD)", "Buyer(s)"],
-            'Aircraft Sale': ["Seller's Price \n(USD)", "Team Commission\n(USD)", "Buyer(s)"],
-            'Aircraft Lease': ["Seller's Price \n(USD)", "Team Commission\n(USD)", "Buyer(s)"]
+            'Engines': [
+                "Seller's Price \n(USD)", 
+                "Team Commission\n(USD)", 
+                "Buyer(s)", 
+                "Seller / Broker",
+                "Unnamed: 17", 
+                "Unnamed: 18", 
+                "Unnamed: 19", 
+                "Unnamed: 20"
+            ],
+            'Aircraft Sale': [
+                "Seller's Price \n(USD)", 
+                "Team Commission\n(USD)", 
+                "Buyer(s)", 
+                "Seller / Broker",
+                "Unnamed: 15", 
+                "Unnamed: 16", 
+                "Unnamed: 17"
+            ],
+            'Aircraft Lease': [
+                "Seller's Price \n(USD)", 
+                "Team Commission\n(USD)", 
+                "Buyer(s)", 
+                "Seller / Broker",
+                "Unnamed: 15", 
+                "Unnamed: 16", 
+                "Unnamed: 17"
+            ]
         };
 
         // Hide closed deals for external viewers
-        const HIDE_CLOSED_DEALS = true;
+        const HIDE_CLOSED_DEALS = false;
+
+        // Status color mapping
+        function getStatusClass(statusValue) {
+            if (!statusValue) return '';
+            const status = statusValue.toString().toLowerCase();
+            if (status.includes('sold to another buyer')) return 'status-sold';
+            if (status.includes('buyer: looking for a seller')) return 'status-buyer-looking';
+            if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
+            if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
+            return '';
+        }
+
+        // Check if row should be hidden (for non-admin)
+        function shouldHideRow(row) {
+            if (isAdmin) return false;
+            const status = row['Status'] || '';
+            // Hide "[Sold to another Buyer]" rows for non-admin
+            return status.toString().toLowerCase().includes('sold to another buyer');
+        }
 
         // Convert columns/data format to array of objects
         function convertData(rawData) {
@@ -530,7 +617,7 @@
                 }
                 rawData = await response.json();
                 data = convertData(rawData);
-                console.log('Data loaded successfully:', Object.keys(data));
+                console.log('✅ Data loaded successfully');
                 renderTable();
                 updateStats();
             } catch (error) {
@@ -540,8 +627,7 @@
                     <div style="padding: 40px; text-align: center; color: #ef4444;">
                         <h2>❌ Error Loading Data</h2>
                         <p style="margin-top: 10px;">Failed to load data.json</p>
-                        <p style="margin-top: 10px; font-size: 14px; color: #64748b;">Error: ${error.message}</p>
-                        <p style="margin-top: 20px; font-size: 14px;">Please make sure data.json exists in the repository.</p>
+                        <p style="margin-top: 10px; font-size: 12px; color: #64748b;">Error: ${error.message}</p>
                     </div>
                 `;
             }
@@ -563,14 +649,8 @@
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
-            // Filter rows (hide closed deals for external viewers)
-            let filteredData = sheetData;
-            if (!isAdmin && HIDE_CLOSED_DEALS) {
-                filteredData = sheetData.filter(row => {
-                    const status = row['Status'] || '';
-                    return status.toString().toLowerCase() !== 'closed';
-                });
-            }
+            // Filter rows
+            let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
             // Build table header
             let html = '<thead><tr>';
@@ -587,9 +667,16 @@
                 html += '<tr>';
                 visibleColumns.forEach(col => {
                     const value = row[col] !== null && row[col] !== undefined ? row[col] : '';
-                    const editableClass = isAdmin ? 'editable' : '';
-                    const onclick = isAdmin ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'")}')"` : '';
-                    html += `<td class="${editableClass}" ${onclick} data-row="${index}" data-col="${col}">${value}</td>`;
+                    const editableClass = isAdmin ? 'editable' : 'read-only';
+                    const onclick = isAdmin ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
+                    
+                    // Apply status color if this is the Status column
+                    let statusClass = '';
+                    if (col === 'Status') {
+                        statusClass = getStatusClass(value);
+                    }
+                    
+                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col="${col}">${value}</td>`;
                 });
                 if (isAdmin) {
                     html += `<td><button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button></td>`;
@@ -675,33 +762,41 @@
         function updateStats() {
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
-            const allColumns = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
-            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
-
-            let totalRecords = sheetData.length;
-            if (!isAdmin && HIDE_CLOSED_DEALS) {
-                totalRecords = sheetData.filter(row => {
-                    const status = row['Status'] || '';
-                    return status.toString().toLowerCase() !== 'closed';
-                }).length;
-            }
+            
+            // Count visible records
+            let totalRecords = sheetData.filter(row => !shouldHideRow(row)).length;
 
             const statsGrid = document.getElementById('statsGrid');
-            statsGrid.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">${totalRecords}</div>
-                    <div class="stat-label">Total Records</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${visibleColumns.length}</div>
-                    <div class="stat-label">Columns Visible</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${isAdmin ? 'Full' : 'Limited'}</div>
-                    <div class="stat-label">Access Level</div>
-                </div>
-            `;
+            
+            // For non-admin: only show total records
+            if (!isAdmin) {
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${totalRecords}</div>
+                        <div class="stat-label">Total Records</div>
+                    </div>
+                `;
+            } else {
+                // For admin: show all stats
+                const allColumns = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
+                const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
+                const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+                
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${totalRecords}</div>
+                        <div class="stat-label">Total Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${allColumns.length}</div>
+                        <div class="stat-label">Columns Visible</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">Full</div>
+                        <div class="stat-label">Access Level</div>
+                    </div>
+                `;
+            }
         }
 
         // Filter table
@@ -729,13 +824,7 @@
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
-            let filteredData = sheetData;
-            if (!isAdmin && HIDE_CLOSED_DEALS) {
-                filteredData = sheetData.filter(row => {
-                    const status = row['Status'] || '';
-                    return status.toString().toLowerCase() !== 'closed';
-                });
-            }
+            let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
             // Build CSV
             let csv = visibleColumns.join(',') + '\n';
