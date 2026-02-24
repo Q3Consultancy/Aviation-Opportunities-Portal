@@ -39,18 +39,31 @@
             overflow: hidden;
         }
 
-        /* Watermark background for header */
+        /* Abstract curved lines watermark */
         header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -10%;
+            right: -10%;
+            bottom: -50%;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,0.03) 35px, rgba(255,255,255,0.03) 70px),
+                repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(255,255,255,0.03) 35px, rgba(255,255,255,0.03) 70px);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        header::after {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="10" y="50" font-family="Arial" font-size="40" fill="rgba(255,255,255,0.08)" font-weight="bold">Q3</text></svg>');
-            background-repeat: repeat;
-            background-size: 150px 150px;
-            opacity: 0.4;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(255,255,255,0.05) 0%, transparent 50%);
             pointer-events: none;
         }
 
@@ -215,6 +228,36 @@
             border-color: #1e5ba8;
         }
 
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-input {
+            padding: 6px 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 11px;
+            min-width: 100px;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: #1e5ba8;
+        }
+
+        .btn-clear-filters {
+            background: #64748b;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
         .btn-export {
             background: #10b981;
             color: white;
@@ -324,9 +367,9 @@
             font-weight: 600;
         }
 
-        .status-seller-looking, .status-lessor-looking {
-            background-color: #d1fae5 !important;
-            color: #065f46;
+        .status-seller-looking, .status-lessor-looking, .status-lessee-looking {
+            background-color: #dbeafe !important;
+            color: #1e40af;
             font-weight: 600;
         }
 
@@ -377,6 +420,7 @@
             font-size: 16px;
             cursor: pointer;
             transition: transform 0.2s;
+            text-decoration: none;
         }
 
         .file-icon:hover {
@@ -390,12 +434,13 @@
         .file-link {
             color: #1e5ba8;
             text-decoration: none;
-            font-size: 10px;
+            font-size: 16px;
             margin-right: 4px;
         }
 
         .file-link:hover {
-            text-decoration: underline;
+            transform: scale(1.2);
+            display: inline-block;
         }
 
         .modal {
@@ -578,6 +623,9 @@
             <div class="tab" onclick="switchTab('aircraft-lease')">
                 <span style="font-size: 18px;">🛩️</span> Aircraft Lease
             </div>
+            <div class="tab" onclick="switchTab('parts')">
+                <span style="font-size: 18px;">🔧</span> Parts
+            </div>
         </div>
 
         <div class="content">
@@ -591,6 +639,10 @@
                 <button class="btn-add" id="addBtn" onclick="showAddDealModal()">➕ Add Deal</button>
             </div>
 
+            <div class="filter-row" id="filterRow">
+                <!-- Column filters will be populated by JavaScript -->
+            </div>
+
             <div class="table-container">
                 <table id="dataTable">
                     <!-- Table will be populated by JavaScript -->
@@ -602,7 +654,7 @@
             <div class="footer-content">
                 <div class="footer-company">Q3 Consultancy</div>
                 <div class="footer-contact">
-                    <a href="/cdn-cgi/l/email-protection#7405011d1a170d34055947175a171b19">📧 Email</a>
+                    <a href="/cdn-cgi/l/email-protection#49383c20272a300938647a2a672a2624">📧 Email</a>
                     <span>📱 +971 (0) 589 362 400 🇦🇪</span>
                 </div>
             </div>
@@ -633,6 +685,7 @@
         let data = {};
         let sortColumn = null;
         let sortDirection = 'asc';
+        let columnFilters = {};
 
         // Today's date in DD/MMM/YYYY format
         const today = new Date();
@@ -641,57 +694,23 @@
 
         // Country flag mapping
         const countryFlags = {
-            'USA': '🇺🇸',
-            'UK': '🇬🇧',
-            'UAE': '🇦🇪',
-            'Germany': '🇩🇪',
-            'France': '🇫🇷',
-            'Canada': '🇨🇦',
-            'Australia': '🇦🇺',
-            'Singapore': '🇸🇬',
-            'Japan': '🇯🇵',
-            'China': '🇨🇳',
-            'India': '🇮🇳',
-            'Brazil': '🇧🇷',
-            'Mexico': '🇲🇽',
-            'Spain': '🇪🇸',
-            'Italy': '🇮🇹',
-            'Netherlands': '🇳🇱',
-            'Switzerland': '🇨🇭',
-            'Sweden': '🇸🇪',
-            'Norway': '🇳🇴',
-            'Denmark': '🇩🇰',
-            'Ireland': '🇮🇪',
-            'Turkey': '🇹🇷',
-            'South Korea': '🇰🇷',
-            'Russia': '🇷🇺',
-            'Saudi Arabia': '🇸🇦',
-            'Qatar': '🇶🇦',
-            'Kuwait': '🇰🇼',
-            'Bahrain': '🇧🇭',
-            'Oman': '🇴🇲',
-            'Israel': '🇮🇱',
-            'South Africa': '🇿🇦',
-            'New Zealand': '🇳🇿',
-            'Thailand': '🇹🇭',
-            'Malaysia': '🇲🇾',
-            'Indonesia': '🇮🇩',
-            'Philippines': '🇵🇭',
-            'Vietnam': '🇻🇳',
-            'Egypt': '🇪🇬',
-            'Nigeria': '🇳🇬',
-            'Kenya': '🇰🇪',
-            'Argentina': '🇦🇷',
-            'Chile': '🇨🇱',
-            'Colombia': '🇨🇴',
-            'Peru': '🇵🇪'
+            'USA': '🇺🇸', 'UK': '🇬🇧', 'UAE': '🇦🇪', 'Germany': '🇩🇪', 'France': '🇫🇷',
+            'Canada': '🇨🇦', 'Australia': '🇦🇺', 'Singapore': '🇸🇬', 'Japan': '🇯🇵',
+            'China': '🇨🇳', 'India': '🇮🇳', 'Brazil': '🇧🇷', 'Mexico': '🇲🇽',
+            'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Netherlands': '🇳🇱', 'Switzerland': '🇨🇭',
+            'Sweden': '🇸🇪', 'Norway': '🇳🇴', 'Denmark': '🇩🇰', 'Ireland': '🇮🇪',
+            'Turkey': '🇹🇷', 'South Korea': '🇰🇷', 'Russia': '🇷🇺', 'Saudi Arabia': '🇸🇦',
+            'Qatar': '🇶🇦', 'Kuwait': '🇰🇼', 'Bahrain': '🇧🇭', 'Oman': '🇴🇲',
+            'Israel': '🇮🇱', 'South Africa': '🇿🇦', 'New Zealand': '🇳🇿',
+            'Thailand': '🇹🇭', 'Malaysia': '🇲🇾', 'Indonesia': '🇮🇩',
+            'Philippines': '🇵🇭', 'Vietnam': '🇻🇳', 'Egypt': '🇪🇬',
+            'Nigeria': '🇳🇬', 'Kenya': '🇰🇪', 'Argentina': '🇦🇷',
+            'Chile': '🇨🇱', 'Colombia': '🇨🇴', 'Peru': '🇵🇪'
         };
 
         // Add flag to location text
         function addFlagToLocation(location) {
             if (!location) return '';
-            
-            // Extract country code from brackets
             const match = location.match(/\[([^\]]+)\]/);
             if (match) {
                 const country = match[1];
@@ -709,29 +728,35 @@
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
                 "Buyer(s)", 
-                "Seller / Broker",
-                "Unnamed: 17", 
-                "Unnamed: 18", 
-                "Unnamed: 19", 
-                "Unnamed: 20"
+                "Buyer(s) 2",
+                "Buyer(s) 3",
+                "Buyer(s) 4",
+                "Buyer(s) 5",
+                "Seller / Broker"
             ],
             'Aircraft Sale': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
                 "Buyer(s)", 
-                "Seller / Broker",
-                "Unnamed: 15", 
-                "Unnamed: 16", 
-                "Unnamed: 17"
+                "Buyer(s) 2",
+                "Buyer(s) 3",
+                "Buyer(s) 4",
+                "Seller / Broker"
             ],
             'Aircraft Lease': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
                 "Buyer(s)", 
-                "Seller / Broker",
-                "Unnamed: 15", 
-                "Unnamed: 16", 
-                "Unnamed: 17"
+                "Buyer(s) 2",
+                "Buyer(s) 3",
+                "Buyer(s) 4",
+                "Seller / Broker"
+            ],
+            'Parts': [
+                "Seller's Price \n(USD)", 
+                "Team Commission\n(USD)", 
+                "Buyer(s)",
+                "Seller / Broker"
             ]
         };
 
@@ -744,6 +769,7 @@
             if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
             if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
             if (status.includes('lessor: looking for lessee')) return 'status-lessor-looking';
+            if (status.includes('lessee: looking for lessor')) return 'status-lessee-looking';
             if (status.includes('buyer: reviewing data')) return 'status-buyer-reviewing';
             if (status.includes('buyer: finalizing loi and apa')) return 'status-buyer-finalizing';
             return '';
@@ -789,18 +815,15 @@
                 let valA = a[column];
                 let valB = b[column];
 
-                // Handle null/undefined
                 if (valA === null || valA === undefined) valA = '';
                 if (valB === null || valB === undefined) valB = '';
 
-                // Try numeric comparison
                 const numA = parseFloat(valA);
                 const numB = parseFloat(valB);
                 if (!isNaN(numA) && !isNaN(numB)) {
                     return sortDirection === 'asc' ? numA - numB : numB - numA;
                 }
 
-                // String comparison
                 const strA = valA.toString().toLowerCase();
                 const strB = valB.toString().toLowerCase();
                 if (sortDirection === 'asc') {
@@ -811,6 +834,47 @@
             });
 
             renderTable();
+        }
+
+        // Render column filters
+        function renderFilters() {
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            if (sheetData.length === 0) return;
+
+            const allColumns = Object.keys(sheetData[0]);
+            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
+            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+
+            const filterRow = document.getElementById('filterRow');
+            let html = '';
+            
+            visibleColumns.forEach(col => {
+                const filterId = `filter-${col.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                const filterValue = columnFilters[col] || '';
+                html += `<input type="text" 
+                    class="filter-input" 
+                    id="${filterId}" 
+                    placeholder="Filter ${col}..." 
+                    value="${filterValue}"
+                    onkeyup="updateColumnFilter('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}', this.value)">`;
+            });
+            
+            html += '<button class="btn-clear-filters" onclick="clearAllFilters()">Clear Filters</button>';
+            filterRow.innerHTML = html;
+        }
+
+        // Update column filter
+        function updateColumnFilter(column, value) {
+            columnFilters[column] = value.toLowerCase();
+            filterTable();
+        }
+
+        // Clear all filters
+        function clearAllFilters() {
+            columnFilters = {};
+            renderFilters();
+            filterTable();
         }
 
         // Load data
@@ -824,6 +888,7 @@
                 data = convertData(rawData);
                 console.log('✅ Data loaded successfully');
                 renderTable();
+                renderFilters();
                 updateStats();
             } catch (error) {
                 console.error('Error loading data:', error);
@@ -849,12 +914,10 @@
                 return;
             }
 
-            // Get columns
             const allColumns = Object.keys(sheetData[0]);
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
-            // Filter rows
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
             // Build table header with sort functionality
@@ -874,7 +937,6 @@
                 visibleColumns.forEach(col => {
                     let value = row[col] !== null && row[col] !== undefined ? row[col] : '';
                     
-                    // Add flags to location
                     if (col === 'Location') {
                         value = addFlagToLocation(value);
                     }
@@ -882,17 +944,15 @@
                     // Handle Files column
                     if (col === 'Files') {
                         if (isAdmin) {
-                            // Admin can upload files
                             const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
                             html += `<td class="file-upload-cell">
                                 <span class="file-icon" onclick="uploadFile(${index})" title="Upload file">📎</span>
                                 <input type="file" id="file-${index}" class="file-upload-input" onchange="handleFileUpload(${index}, this)" accept=".pdf,.jpg,.jpeg,.png">
-                                ${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank">📄</a>`).join('')}
+                                ${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank" title="View/Download file">📄</a>`).join('')}
                             </td>`;
                         } else {
-                            // Non-admin can only view files
                             const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
-                            html += `<td>${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank">📄</a>`).join('') || ''}</td>`;
+                            html += `<td>${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank" title="View/Download file">📄</a>`).join('') || ''}</td>`;
                         }
                         return;
                     }
@@ -900,7 +960,6 @@
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
                     const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
                     
-                    // Apply status color if this is the Status column
                     let statusClass = '';
                     if (col === 'Status') {
                         statusClass = getStatusClass(value);
@@ -928,8 +987,6 @@
             const file = input.files[0];
             if (!file) return;
 
-            // In a real implementation, this would upload to a server
-            // For now, we'll create a local object URL
             const fileURL = URL.createObjectURL(file);
             
             const sheetName = getSheetName(currentTab);
@@ -1000,7 +1057,8 @@
             const mapping = {
                 'engines': 'Engines',
                 'aircraft-sale': 'Aircraft Sale',
-                'aircraft-lease': 'Aircraft Lease'
+                'aircraft-lease': 'Aircraft Lease',
+                'parts': 'Parts'
             };
             return mapping[tab];
         }
@@ -1010,9 +1068,11 @@
             currentTab = tab;
             sortColumn = null;
             sortDirection = 'asc';
+            columnFilters = {};
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.closest('.tab').classList.add('active');
             renderTable();
+            renderFilters();
             updateStats();
         }
 
@@ -1021,12 +1081,10 @@
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             
-            // Count visible records
             let totalRecords = sheetData.filter(row => !shouldHideRow(row)).length;
 
             const statsGrid = document.getElementById('statsGrid');
             
-            // For non-admin: only show total active records with date
             if (!isAdmin) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
@@ -1035,7 +1093,6 @@
                     </div>
                 `;
             } else {
-                // For admin: show all stats
                 const allColumns = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
                 const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
                 const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
@@ -1063,8 +1120,31 @@
             const rows = document.querySelectorAll('#dataTable tbody tr');
             
             rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
+                const cells = row.querySelectorAll('td');
+                let showRow = true;
+
+                // Global search
+                if (searchTerm) {
+                    const text = row.textContent.toLowerCase();
+                    if (!text.includes(searchTerm)) {
+                        showRow = false;
+                    }
+                }
+
+                // Column filters
+                if (showRow) {
+                    cells.forEach(cell => {
+                        const col = cell.getAttribute('data-col');
+                        if (col && columnFilters[col]) {
+                            const cellText = cell.textContent.toLowerCase();
+                            if (!cellText.includes(columnFilters[col])) {
+                                showRow = false;
+                            }
+                        }
+                    });
+                }
+
+                row.style.display = showRow ? '' : 'none';
             });
         }
 
@@ -1084,7 +1164,6 @@
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
-            // Build CSV
             let csv = visibleColumns.join(',') + '\n';
             filteredData.forEach(row => {
                 const values = visibleColumns.map(col => {
@@ -1094,7 +1173,6 @@
                 csv += values.join(',') + '\n';
             });
 
-            // Download
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1126,6 +1204,7 @@
                 document.getElementById('addBtn').classList.add('admin-only');
                 hideLoginModal();
                 renderTable();
+                renderFilters();
                 updateStats();
             } else {
                 alert('Incorrect password');
@@ -1140,6 +1219,7 @@
             document.getElementById('logoutBtn').style.display = 'none';
             document.getElementById('addBtn').classList.remove('admin-only');
             renderTable();
+            renderFilters();
             updateStats();
         }
 
