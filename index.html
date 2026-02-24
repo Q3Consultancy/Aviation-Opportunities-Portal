@@ -731,7 +731,6 @@
 
         // Columns that should display numbers with comma formatting
         const NUMBER_COLUMNS = [
-            'No',
             'Cycles Remaining',
             "Seller's Price \n(USD)",
             'Team Commission\n(USD)',
@@ -982,29 +981,46 @@
                     // Handle Files column
                     if (col === 'Files') {
                         if (isAdmin) {
-                            const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
+                            const fileEntries = parseFileEntries(value);
+                            const sheetLabel = getSheetName(currentTab);
+                            const fileLinksHtml = fileEntries.map((entry, fi) => {
+                                const ext = entry.originalName.split('.').pop() || 'file';
+                                const rowData = filteredData[index];
+                                const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
+                                const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
+                                return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
+                            }).join('');
                             html += `<td class="file-upload-cell">
                                 <span class="file-icon" onclick="uploadFile(${index})" title="Upload file">📎</span>
                                 <input type="file" id="file-${index}" class="file-upload-input" onchange="handleFileUpload(${index}, this)" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.csv">
-                                ${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank" title="View/Download file">📄</a>`).join('')}
+                                ${fileLinksHtml}
                             </td>`;
                         } else {
-                            const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
-                            html += `<td>${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank" title="View/Download file">📄</a>`).join('') || ''}</td>`;
+                            const fileEntries = parseFileEntries(value);
+                            const sheetLabel = getSheetName(currentTab);
+                            const fileLinksHtml = fileEntries.map((entry, fi) => {
+                                const ext = entry.originalName.split('.').pop() || 'file';
+                                const rowData = filteredData[index];
+                                const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
+                                const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
+                                return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
+                            }).join('');
+                            html += `<td>${fileLinksHtml}</td>`;
                         }
                         return;
                     }
 
                     // All columns editable in admin except Files
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
-                    const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
+                    const colIdx = visibleColumns.indexOf(col);
+                    const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, ${colIdx})"` : '';
                     
                     let statusClass = '';
                     if (col === 'Status') {
                         statusClass = getStatusClass(value);
                     }
                     
-                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col="${col}">${value}</td>`;
+                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}">${value}</td>`;
                 });
                 if (isAdmin) {
                     html += `<td><button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button></td>`;
@@ -1027,30 +1043,64 @@
             if (!file) return;
 
             const fileURL = URL.createObjectURL(file);
-            
             const sheetName = getSheetName(currentTab);
-            const currentFiles = data[sheetName][rowIndex]['Files'] || '';
-            const fileList = currentFiles ? currentFiles.split(',').map(f => f.trim()) : [];
-            fileList.push(fileURL);
             
-            data[sheetName][rowIndex]['Files'] = fileList.join(', ');
+            // Get deal number for naming
+            const rowData = data[sheetName][rowIndex];
+            const dealNum = rowData['Deal #'] || rowData['No'] || rowIndex + 1;
+            
+            // Store as JSON entry: url|originalName
+            const fileEntry = `${fileURL}|${file.name}|${dealNum}`;
+            
+            const currentFiles = data[sheetName][rowIndex]['Files'] || '';
+            const fileList = currentFiles ? currentFiles.split(';;').map(f => f.trim()).filter(f => f) : [];
+            fileList.push(fileEntry);
+            
+            data[sheetName][rowIndex]['Files'] = fileList.join(';;');
             renderTable();
             
             alert(`File "${file.name}" uploaded successfully!\nNote: In production, this would be stored on a server.`);
         }
+        
+        // Parse file entries (stored as url|name|dealNum separated by ;;)
+        function parseFileEntries(filesValue) {
+            if (!filesValue) return [];
+            // Handle both old comma-separated URLs and new ;; separated entries
+            if (filesValue.includes(';;') || filesValue.includes('|')) {
+                return filesValue.split(';;').map(f => f.trim()).filter(f => f).map(entry => {
+                    const parts = entry.split('|');
+                    return { url: parts[0] || entry, originalName: parts[1] || 'file', dealNum: parts[2] || '' };
+                });
+            } else {
+                // Legacy: comma-separated URLs
+                return filesValue.split(',').map(f => f.trim()).filter(f => f).map(f => ({
+                    url: f, originalName: 'file', dealNum: ''
+                }));
+            }
+        }
 
         // Edit cell (admin only)
-        function editCell(rowIndex, colName) {
+        function editCell(rowIndex, colIdx) {
             if (!isAdmin) return;
 
             const sheetName = getSheetName(currentTab);
-            const cell = document.querySelector(`td[data-row="${rowIndex}"][data-col="${colName}"]`);
+            const cell = document.querySelector(`td[data-row="${rowIndex}"][data-col-idx="${colIdx}"]`);
+            if (!cell) return;
+            
+            const sheetData = data[sheetName] || [];
+            const allColumns = Object.keys(sheetData[0] || {});
+            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
+            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+            const colName = visibleColumns[colIdx];
+            if (!colName) return;
+            
             const currentValue = data[sheetName][rowIndex][colName];
 
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'edit-input';
-            input.value = currentValue;
+            // Show raw value (without comma formatting) for editing
+            input.value = currentValue !== null && currentValue !== undefined ? currentValue : '';
             input.onblur = function() {
                 saveCell(rowIndex, colName, input.value);
             };
