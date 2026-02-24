@@ -36,30 +36,52 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            overflow: hidden;
+        }
+
+        /* Watermark background for header */
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="10" y="50" font-family="Arial" font-size="40" fill="rgba(255,255,255,0.08)" font-weight="bold">Q3</text></svg>');
+            background-repeat: repeat;
+            background-size: 150px 150px;
+            opacity: 0.4;
+            pointer-events: none;
         }
 
         .logo-container {
-            width: 100px;
-            height: 70px;
+            width: 140px;
+            height: 90px;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 10px;
+            z-index: 1;
+            background: radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, transparent 70%);
+            border-radius: 10px;
         }
 
         .logo-container img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }
 
         .header-text {
             flex: 1;
+            z-index: 1;
         }
 
         h1 {
             font-size: 24px;
             margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .subtitle {
@@ -74,6 +96,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            z-index: 1;
         }
 
         .role-badge {
@@ -247,6 +270,29 @@
             border-bottom: 2px solid #e2e8f0;
             white-space: nowrap;
             font-size: 11px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+
+        th:hover {
+            background: #e2e8f0;
+        }
+
+        th.sortable::after {
+            content: ' ⇅';
+            opacity: 0.3;
+            font-size: 10px;
+        }
+
+        th.sort-asc::after {
+            content: ' ▲';
+            opacity: 1;
+        }
+
+        th.sort-desc::after {
+            content: ' ▼';
+            opacity: 1;
         }
 
         td {
@@ -278,9 +324,21 @@
             font-weight: 600;
         }
 
-        .status-seller-looking {
-            background-color: #dbeafe !important;
-            color: #1e40af;
+        .status-seller-looking, .status-lessor-looking {
+            background-color: #d1fae5 !important;
+            color: #065f46;
+            font-weight: 600;
+        }
+
+        .status-buyer-reviewing {
+            background-color: #fef3c7 !important;
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .status-buyer-finalizing {
+            background-color: #fef3c7 !important;
+            color: #92400e;
             font-weight: 600;
         }
 
@@ -307,6 +365,37 @@
             border: 2px solid #1e5ba8;
             border-radius: 3px;
             font-size: 11px;
+        }
+
+        .file-upload-cell {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .file-icon {
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .file-icon:hover {
+            transform: scale(1.2);
+        }
+
+        .file-upload-input {
+            display: none;
+        }
+
+        .file-link {
+            color: #1e5ba8;
+            text-decoration: none;
+            font-size: 10px;
+            margin-right: 4px;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
         }
 
         .modal {
@@ -431,6 +520,12 @@
             text-decoration: underline;
         }
 
+        .country-flag {
+            display: inline-block;
+            margin-left: 4px;
+            font-size: 14px;
+        }
+
         @media (max-width: 768px) {
             header {
                 flex-direction: column;
@@ -460,7 +555,7 @@
     <div class="container">
         <header>
             <div class="logo-container">
-                <img src="Q3 Consultancy Logo Sized.png" alt="Q3 Consultancy" onerror="this.parentElement.innerHTML='<div style=\'color:white;font-size:28px;font-weight:bold;\'>Q3</div>'">
+                <img src="Q3 Consultancy Logo Sized.png" alt="Q3 Consultancy" onerror="this.parentElement.innerHTML='<div style=\'color:white;font-size:32px;font-weight:bold;text-shadow:0 2px 4px rgba(0,0,0,0.2);\'>Q3</div>'">
             </div>
             <div class="header-text">
                 <h1>Aviation Trading Portal</h1>
@@ -507,8 +602,8 @@
             <div class="footer-content">
                 <div class="footer-company">Q3 Consultancy</div>
                 <div class="footer-contact">
-                    <a href="/cdn-cgi/l/email-protection#a6d7d3cfc8c5dfe6d78b95c588c5c9cb">📧 <span class="__cf_email__" data-cfemail="b1c0c4d8dfd2c8f1c09c82d29fd2dedc">[email&#160;protected]</span></a>
-                    <a href="tel:+971589362400">📱 +971 (0) 589 362 400 (UAE)</a>
+                    <a href="/cdn-cgi/l/email-protection#7405011d1a170d34055947175a171b19">📧 Email</a>
+                    <span>📱 +971 (0) 589 362 400 🇦🇪</span>
                 </div>
             </div>
         </footer>
@@ -536,6 +631,77 @@
         let currentTab = 'engines';
         let rawData = {};
         let data = {};
+        let sortColumn = null;
+        let sortDirection = 'asc';
+
+        // Today's date in DD/MMM/YYYY format
+        const today = new Date();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${months[today.getMonth()]}/${today.getFullYear()}`;
+
+        // Country flag mapping
+        const countryFlags = {
+            'USA': '🇺🇸',
+            'UK': '🇬🇧',
+            'UAE': '🇦🇪',
+            'Germany': '🇩🇪',
+            'France': '🇫🇷',
+            'Canada': '🇨🇦',
+            'Australia': '🇦🇺',
+            'Singapore': '🇸🇬',
+            'Japan': '🇯🇵',
+            'China': '🇨🇳',
+            'India': '🇮🇳',
+            'Brazil': '🇧🇷',
+            'Mexico': '🇲🇽',
+            'Spain': '🇪🇸',
+            'Italy': '🇮🇹',
+            'Netherlands': '🇳🇱',
+            'Switzerland': '🇨🇭',
+            'Sweden': '🇸🇪',
+            'Norway': '🇳🇴',
+            'Denmark': '🇩🇰',
+            'Ireland': '🇮🇪',
+            'Turkey': '🇹🇷',
+            'South Korea': '🇰🇷',
+            'Russia': '🇷🇺',
+            'Saudi Arabia': '🇸🇦',
+            'Qatar': '🇶🇦',
+            'Kuwait': '🇰🇼',
+            'Bahrain': '🇧🇭',
+            'Oman': '🇴🇲',
+            'Israel': '🇮🇱',
+            'South Africa': '🇿🇦',
+            'New Zealand': '🇳🇿',
+            'Thailand': '🇹🇭',
+            'Malaysia': '🇲🇾',
+            'Indonesia': '🇮🇩',
+            'Philippines': '🇵🇭',
+            'Vietnam': '🇻🇳',
+            'Egypt': '🇪🇬',
+            'Nigeria': '🇳🇬',
+            'Kenya': '🇰🇪',
+            'Argentina': '🇦🇷',
+            'Chile': '🇨🇱',
+            'Colombia': '🇨🇴',
+            'Peru': '🇵🇪'
+        };
+
+        // Add flag to location text
+        function addFlagToLocation(location) {
+            if (!location) return '';
+            
+            // Extract country code from brackets
+            const match = location.match(/\[([^\]]+)\]/);
+            if (match) {
+                const country = match[1];
+                const flag = countryFlags[country] || '';
+                if (flag) {
+                    return location.replace(/\]/, `${flag}]`);
+                }
+            }
+            return location;
+        }
 
         // Hidden columns for external viewers
         const HIDDEN_COLUMNS = {
@@ -569,9 +735,6 @@
             ]
         };
 
-        // Hide closed deals for external viewers
-        const HIDE_CLOSED_DEALS = false;
-
         // Status color mapping
         function getStatusClass(statusValue) {
             if (!statusValue) return '';
@@ -580,6 +743,9 @@
             if (status.includes('buyer: looking for a seller')) return 'status-buyer-looking';
             if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
             if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
+            if (status.includes('lessor: looking for lessee')) return 'status-lessor-looking';
+            if (status.includes('buyer: reviewing data')) return 'status-buyer-reviewing';
+            if (status.includes('buyer: finalizing loi and apa')) return 'status-buyer-finalizing';
             return '';
         }
 
@@ -587,7 +753,6 @@
         function shouldHideRow(row) {
             if (isAdmin) return false;
             const status = row['Status'] || '';
-            // Hide "[Sold to another Buyer]" rows for non-admin
             return status.toString().toLowerCase().includes('sold to another buyer');
         }
 
@@ -606,6 +771,46 @@
                 }
             }
             return converted;
+        }
+
+        // Sort table
+        function sortTable(column) {
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+
+            sheetData.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+
+                // Handle null/undefined
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
+
+                // Try numeric comparison
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return sortDirection === 'asc' ? numA - numB : numB - numA;
+                }
+
+                // String comparison
+                const strA = valA.toString().toLowerCase();
+                const strB = valB.toString().toLowerCase();
+                if (sortDirection === 'asc') {
+                    return strA.localeCompare(strB);
+                } else {
+                    return strB.localeCompare(strA);
+                }
+            });
+
+            renderTable();
         }
 
         // Load data
@@ -652,10 +857,11 @@
             // Filter rows
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
-            // Build table header
+            // Build table header with sort functionality
             let html = '<thead><tr>';
             visibleColumns.forEach(col => {
-                html += `<th>${col}</th>`;
+                const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+                html += `<th class="sortable ${sortClass}" onclick="sortTable('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">${col}</th>`;
             });
             if (isAdmin) {
                 html += '<th>Actions</th>';
@@ -666,9 +872,33 @@
             filteredData.forEach((row, index) => {
                 html += '<tr>';
                 visibleColumns.forEach(col => {
-                    const value = row[col] !== null && row[col] !== undefined ? row[col] : '';
-                    const editableClass = isAdmin ? 'editable' : 'read-only';
-                    const onclick = isAdmin ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
+                    let value = row[col] !== null && row[col] !== undefined ? row[col] : '';
+                    
+                    // Add flags to location
+                    if (col === 'Location') {
+                        value = addFlagToLocation(value);
+                    }
+                    
+                    // Handle Files column
+                    if (col === 'Files') {
+                        if (isAdmin) {
+                            // Admin can upload files
+                            const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
+                            html += `<td class="file-upload-cell">
+                                <span class="file-icon" onclick="uploadFile(${index})" title="Upload file">📎</span>
+                                <input type="file" id="file-${index}" class="file-upload-input" onchange="handleFileUpload(${index}, this)" accept=".pdf,.jpg,.jpeg,.png">
+                                ${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank">📄</a>`).join('')}
+                            </td>`;
+                        } else {
+                            // Non-admin can only view files
+                            const fileLinks = value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
+                            html += `<td>${fileLinks.map(link => `<a href="${link}" class="file-link" target="_blank">📄</a>`).join('') || ''}</td>`;
+                        }
+                        return;
+                    }
+
+                    const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
+                    const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
                     
                     // Apply status color if this is the Status column
                     let statusClass = '';
@@ -685,6 +915,32 @@
             });
             html += '</tbody>';
             table.innerHTML = html;
+        }
+
+        // File upload functions
+        function uploadFile(rowIndex) {
+            document.getElementById(`file-${rowIndex}`).click();
+        }
+
+        function handleFileUpload(rowIndex, input) {
+            if (!isAdmin) return;
+            
+            const file = input.files[0];
+            if (!file) return;
+
+            // In a real implementation, this would upload to a server
+            // For now, we'll create a local object URL
+            const fileURL = URL.createObjectURL(file);
+            
+            const sheetName = getSheetName(currentTab);
+            const currentFiles = data[sheetName][rowIndex]['Files'] || '';
+            const fileList = currentFiles ? currentFiles.split(',').map(f => f.trim()) : [];
+            fileList.push(fileURL);
+            
+            data[sheetName][rowIndex]['Files'] = fileList.join(', ');
+            renderTable();
+            
+            alert(`File "${file.name}" uploaded successfully!\nNote: In production, this would be stored on a server.`);
         }
 
         // Edit cell (admin only)
@@ -752,6 +1008,8 @@
         // Switch tabs
         function switchTab(tab) {
             currentTab = tab;
+            sortColumn = null;
+            sortDirection = 'asc';
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.closest('.tab').classList.add('active');
             renderTable();
@@ -768,12 +1026,12 @@
 
             const statsGrid = document.getElementById('statsGrid');
             
-            // For non-admin: only show total records
+            // For non-admin: only show total active records with date
             if (!isAdmin) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-value">${totalRecords}</div>
-                        <div class="stat-label">Total Records</div>
+                        <div class="stat-label">Total Active Records as of ${todayFormatted}</div>
                     </div>
                 `;
             } else {
@@ -785,7 +1043,7 @@
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-value">${totalRecords}</div>
-                        <div class="stat-label">Total Records</div>
+                        <div class="stat-label">Total Active Records as of ${todayFormatted}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${allColumns.length}</div>
