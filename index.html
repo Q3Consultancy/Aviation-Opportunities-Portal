@@ -367,9 +367,15 @@
             font-weight: 600;
         }
 
-        .status-seller-looking, .status-lessor-looking, .status-lessee-looking {
+        .status-seller-looking, .status-lessor-looking {
             background-color: #dbeafe !important;
             color: #1e40af;
+            font-weight: 600;
+        }
+
+        .status-lessee-looking {
+            background-color: #d1fae5 !important;
+            color: #065f46;
             font-weight: 600;
         }
 
@@ -654,7 +660,7 @@
             <div class="footer-content">
                 <div class="footer-company">Q3 Consultancy</div>
                 <div class="footer-contact">
-                    <a href="/cdn-cgi/l/email-protection#88f9fde1e6ebf1c8f9a5bbeba6ebe7e5">📧 Email</a>
+                    <a href="/cdn-cgi/l/email-protection#abdadec2c5c8d2ebda8698c885c8c4c6">📧 Email</a>
                     <span>📱 +971 (0) 589 362 400 🇦🇪</span>
                 </div>
             </div>
@@ -726,7 +732,6 @@
         // Columns that should display numbers with comma formatting
         const NUMBER_COLUMNS = [
             'No',
-            'ESN',
             'Cycles Remaining',
             "Seller's Price \n(USD)",
             'Team Commission\n(USD)',
@@ -990,6 +995,7 @@
                         return;
                     }
 
+                    // All columns editable in admin except Files
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
                     const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, '${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')"` : '';
                     
@@ -1210,7 +1216,9 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${sheetName}_${new Date().toISOString().split('T')[0]}.csv`;
+            // Format: "Q3 Consultancy - SheetName Data - YYYY-MM-DD.csv"
+            const dateStr = new Date().toISOString().split('T')[0];
+            a.download = `Q3 Consultancy - ${sheetName} Data - ${dateStr}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         }
