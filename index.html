@@ -291,6 +291,51 @@
             display: inline-block;
         }
 
+        .btn-save {
+            background: #f59e0b;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: none;
+            font-size: 12px;
+        }
+
+        .btn-save.admin-only {
+            display: inline-block;
+        }
+
+        .btn-save:hover {
+            background: #d97706;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #10b981;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s ease;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .table-container {
             overflow-x: auto;
             border-radius: 8px;
@@ -679,10 +724,10 @@
             </div>
             <div class="header-text">
                 <h1>Aviation Trading Portal</h1>
-                <p class="subtitle">Aircraft & Engine Opportunities - Powered by Q3 Consultancy</p>
+                <p class="subtitle">Aircraft, Engine and Parts Opportunities - Powered by Q3 Consultancy</p>
             </div>
             <div class="role-toggle">
-                <span class="role-badge" id="roleBadge">External Viewer</span>
+                <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
                 <button class="btn btn-primary" id="loginBtn" onclick="showLoginModal()">Admin Login</button>
                 <button class="btn btn-success" id="logoutBtn" onclick="logout()" style="display: none;">Logout</button>
             </div>
@@ -711,6 +756,7 @@
             <div class="controls">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search deals..." onkeyup="filterTable()">
                 <button class="btn-export" onclick="exportToCSV()">📥 Export to CSV</button>
+                <button class="btn-save" id="saveBtn" onclick="saveChanges()">💾 Save</button>
                 <button class="btn-add" id="addBtn" onclick="showAddDealModal()">➕ Add Deal</button>
             </div>
 
@@ -853,7 +899,13 @@
                 "Buyer(s) 3",
                 "Buyer(s) 4",
                 "Buyer(s) 5",
-                "Seller / Broker"
+                "Seller / Broker",
+                "LLP Sheet",
+                "Last Shop Visit",
+                "Last Shop Visit Report",
+                "QEC / Accessory List",
+                "Engine History",
+                "NIS"
             ],
             'Aircraft Sale': [
                 "Seller's Price \n(USD)", 
@@ -862,7 +914,9 @@
                 "Buyer(s) 2",
                 "Buyer(s) 3",
                 "Buyer(s) 4",
-                "Seller / Broker"
+                "Seller / Broker",
+                "Manufacturers S/N",
+                "Total Time"
             ],
             'Aircraft Lease': [
                 "Seller's Price \n(USD)", 
@@ -877,8 +931,18 @@
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
                 "Buyer(s)",
-                "Seller / Broker"
+                "Seller / Broker",
+                "Manufacturers S/N",
+                "Total Time"
             ]
+        };
+
+        // Columns to show filter boxes for (non-admin). null = show all.
+        const FILTER_COLUMNS = {
+            'Engines': ['Deal #', 'Engine', 'ESN', 'Location', 'Status', 'Date Received'],
+            'Aircraft Sale': null,
+            'Aircraft Lease': null,
+            'Parts': null
         };
 
         // Status color mapping
@@ -886,21 +950,44 @@
             if (!statusValue) return '';
             const status = statusValue.toString().toLowerCase();
             if (status.includes('sold to another buyer')) return 'status-sold';
-            if (status.includes('buyer: looking for a seller')) return 'status-buyer-looking';
+            if (status.includes('buyer request')) return 'status-buyer-looking';
             if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
-            if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
-            if (status.includes('lessor: looking for lessee')) return 'status-lessor-looking';
-            if (status.includes('lessee: looking for lessor')) return 'status-lessee-looking';
+            if (status.includes('seller request')) return 'status-seller-looking';
+            if (status.includes('lessor request')) return 'status-lessor-looking';
+            if (status.includes('lessee request')) return 'status-lessee-looking';
             if (status.includes('buyer: reviewing data')) return 'status-buyer-reviewing';
             if (status.includes('buyer: finalizing loi and apa')) return 'status-buyer-finalizing';
             return '';
+        }
+
+        // Cutoff date: hide entries before 1 Nov 2025 for non-admin
+        const CUTOFF_DATE = new Date('2025-11-01');
+
+        // Parse a date string in various formats to a Date object
+        function parseDateReceived(dateStr) {
+            if (!dateStr) return null;
+            const s = dateStr.toString().trim();
+            // DD/Mon/YYYY e.g. 15/Jan/2026
+            const m1 = s.match(/^(\d{1,2})\/([A-Za-z]{3})\/(\d{4})$/);
+            if (m1) {
+                const monthMap = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+                const mo = monthMap[m1[2]];
+                if (mo !== undefined) return new Date(parseInt(m1[3]), mo, parseInt(m1[1]));
+            }
+            // Try native parse
+            const d = new Date(s);
+            return isNaN(d) ? null : d;
         }
 
         // Check if row should be hidden (for non-admin)
         function shouldHideRow(row) {
             if (isAdmin) return false;
             const status = row['Status'] || '';
-            return status.toString().toLowerCase().includes('sold to another buyer');
+            if (status.toString().toLowerCase().includes('sold to another buyer')) return true;
+            // Hide entries dated before 1 Nov 2025
+            const dateReceived = parseDateReceived(row['Date Received']);
+            if (dateReceived && dateReceived < CUTOFF_DATE) return true;
+            return false;
         }
 
         // Convert columns/data format to array of objects
@@ -965,7 +1052,11 @@
 
             const allColumns = Object.keys(sheetData[0]);
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+            let visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+            // In non-admin mode, restrict filter boxes to FILTER_COLUMNS list if defined
+            if (!isAdmin && FILTER_COLUMNS[sheetName]) {
+                visibleColumns = visibleColumns.filter(col => FILTER_COLUMNS[sheetName].includes(col));
+            }
 
             const filterRow = document.getElementById('filterRow');
             let html = '';
@@ -1079,22 +1170,29 @@
                                 const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
                                 return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
                             }).join('');
+                            // Grey paperclip icon when no files, coloured when files exist
+                            const uploadIconStyle = fileEntries.length === 0 ? 'filter: grayscale(100%) opacity(0.4);' : '';
                             html += `<td class="file-upload-cell">
-                                <span class="file-icon" onclick="uploadFile(${index})" title="Upload file">📎</span>
+                                <span class="file-icon" onclick="uploadFile(${index})" title="Upload file" style="${uploadIconStyle}">📎</span>
                                 <input type="file" id="file-${index}" class="file-upload-input" onchange="handleFileUpload(${index}, this)" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.csv">
                                 ${fileLinksHtml}
                             </td>`;
                         } else {
                             const fileEntries = parseFileEntries(value);
                             const sheetLabel = getSheetName(currentTab);
-                            const fileLinksHtml = fileEntries.map((entry, fi) => {
-                                const ext = entry.originalName.split('.').pop() || 'file';
-                                const rowData = filteredData[index];
-                                const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
-                                const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
-                            }).join('');
-                            html += `<td>${fileLinksHtml}</td>`;
+                            if (fileEntries.length === 0) {
+                                // Show grey file icon when no file present
+                                html += `<td><span style="font-size:16px;filter:grayscale(100%) opacity(0.35);" title="No file uploaded">📄</span></td>`;
+                            } else {
+                                const fileLinksHtml = fileEntries.map((entry, fi) => {
+                                    const ext = entry.originalName.split('.').pop() || 'file';
+                                    const rowData = filteredData[index];
+                                    const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
+                                    const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
+                                    return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
+                                }).join('');
+                                html += `<td>${fileLinksHtml}</td>`;
+                            }
                         }
                         return;
                     }
@@ -1255,7 +1353,7 @@
                 { key: 'Buyer(s) 4',     label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 5',     label: 'Buyer(s) 5',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller: Looking for Buyer', 'Buyer: Looking for a Seller', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor: Looking for Lessee', 'Lessee: Looking for Lessor', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
             'Aircraft Sale': [
@@ -1280,7 +1378,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller: Looking for Buyer', 'Buyer: Looking for a Seller', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor: Looking for Lessee', 'Lessee: Looking for Lessor', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
             'Aircraft Lease': [
@@ -1305,7 +1403,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Lessor: Looking for Lessee', 'Lessee: Looking for Lessor', 'Seller: Looking for Buyer', 'Buyer: Looking for a Seller', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Lessor Request', 'Lessee Request', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
             'Parts': [
@@ -1322,7 +1420,7 @@
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
                 { key: 'Buyer(s)',         label: 'Buyer(s)',           type: 'text',   required: false, placeholder: 'Primary buyer' },
                 { section: '📋 Status & Date' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller: Looking for Buyer', 'Buyer: Looking for a Seller', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ]
         };
@@ -1579,6 +1677,15 @@
             URL.revokeObjectURL(url);
         }
 
+        // Save function (Admin only)
+        function saveChanges() {
+            if (!isAdmin) return;
+            // Show toast confirmation
+            const toast = document.getElementById('saveToast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
         // Login functions
         function showLoginModal() {
             document.getElementById('loginModal').classList.add('show');
@@ -1596,9 +1703,11 @@
                 isAdmin = true;
                 document.getElementById('roleBadge').textContent = 'Admin';
                 document.getElementById('roleBadge').classList.add('admin');
+                document.getElementById('roleBadge').style.display = '';
                 document.getElementById('loginBtn').style.display = 'none';
                 document.getElementById('logoutBtn').style.display = 'inline-block';
                 document.getElementById('addBtn').classList.add('admin-only');
+                document.getElementById('saveBtn').classList.add('admin-only');
                 hideLoginModal();
                 renderTable();
                 renderFilters();
@@ -1612,9 +1721,11 @@
             isAdmin = false;
             document.getElementById('roleBadge').textContent = 'External Viewer';
             document.getElementById('roleBadge').classList.remove('admin');
+            document.getElementById('roleBadge').style.display = 'none';
             document.getElementById('loginBtn').style.display = 'inline-block';
             document.getElementById('logoutBtn').style.display = 'none';
             document.getElementById('addBtn').classList.remove('admin-only');
+            document.getElementById('saveBtn').classList.remove('admin-only');
             renderTable();
             renderFilters();
             updateStats();
@@ -1649,5 +1760,7 @@
             });
         });
     </script>
+
+    <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
 </body>
 </html>
