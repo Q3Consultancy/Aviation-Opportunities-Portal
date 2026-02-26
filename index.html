@@ -230,17 +230,20 @@
 
         .filter-row {
             display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
+            gap: 5px;
+            margin-bottom: 8px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .filter-input {
-            padding: 6px 10px;
-            border: 2px solid #e2e8f0;
+            padding: 4px 7px;
+            border: 1.5px solid #e2e8f0;
             border-radius: 4px;
-            font-size: 11px;
-            min-width: 100px;
+            font-size: 10.5px;
+            min-width: 90px;
+            height: 28px;
+            box-sizing: border-box;
         }
 
         .filter-input:focus {
@@ -251,11 +254,13 @@
         .btn-clear-filters {
             background: #64748b;
             color: white;
-            padding: 6px 12px;
+            padding: 4px 10px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 10.5px;
+            height: 28px;
+            box-sizing: border-box;
         }
 
         .btn-export {
@@ -696,22 +701,47 @@
                 flex-direction: column;
                 text-align: center;
             }
-
             .role-toggle {
                 position: static;
-                margin-top: 15px;
+                margin-top: 10px;
             }
-
             .tabs {
                 flex-direction: column;
             }
-
             .controls {
                 flex-direction: column;
+                gap: 6px;
             }
-
             .search-box {
                 width: 100%;
+                font-size: 12px;
+            }
+            /* Compact filter row on mobile */
+            .filter-row {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 4px;
+            }
+            .filter-input {
+                min-width: unset;
+                width: 100%;
+                font-size: 10px;
+                padding: 3px 6px;
+                height: 26px;
+            }
+            .btn-clear-filters,
+            .btn-interest,
+            .btn-mail-send {
+                font-size: 10px;
+                padding: 3px 8px;
+                height: 26px;
+            }
+            /* Mail icon and interest button full-width on very small screens */
+            @media (max-width: 480px) {
+                .filter-row {
+                    grid-template-columns: 1fr;
+                }
+                .btn-interest { width: 100%; }
             }
         }
     
@@ -727,57 +757,54 @@
             background: linear-gradient(135deg, #f97316, #ef4444);
             color: #fff;
             border: none;
-            padding: 7px 14px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 4px 11px;
+            border-radius: 5px;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             position: relative;
             transition: opacity .2s;
             vertical-align: middle;
+            height: 28px;
+            box-sizing: border-box;
         }
         .btn-interest:hover { opacity: .88; }
         .btn-interest .interest-tooltip {
             display: none;
-            position: absolute;
-            top: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
+            position: fixed;
+            background: rgba(30,41,59,0.96);
             color: #fff;
             font-size: 12px;
             font-weight: 400;
-            border-radius: 6px;
+            border-radius: 8px;
             padding: 10px 14px;
-            width: 280px;
-            line-height: 1.5;
+            width: 260px;
+            line-height: 1.55;
             white-space: normal;
-            z-index: 9999;
-            box-shadow: 0 4px 12px rgba(0,0,0,.25);
+            z-index: 99999;
+            box-shadow: 0 6px 24px rgba(0,0,0,.35);
             pointer-events: none;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
         }
         .btn-interest .interest-tooltip::before {
-            content: '';
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-bottom-color: #1e293b;
+            content: none;
         }
-        .btn-interest:hover .interest-tooltip { display: block; }
+        /* tooltip shown via JS */
 
         /* ── Mail icon button ── */
         .btn-mail-send {
             background: none;
-            border: 2px solid #94a3b8;
-            border-radius: 6px;
-            padding: 5px 10px;
-            font-size: 18px;
+            border: 1.5px solid #94a3b8;
+            border-radius: 5px;
+            padding: 2px 8px;
+            font-size: 16px;
             cursor: not-allowed;
             color: #94a3b8;
             transition: all .2s;
             opacity: .45;
+            height: 28px;
+            box-sizing: border-box;
             vertical-align: middle;
         }
         .btn-mail-send.active {
@@ -1319,14 +1346,11 @@
             });
 
             html += '<button class="btn-clear-filters" onclick="clearAllFilters()">Clear Filters</button>';
-            html += `<button class="btn-interest" onclick="openInterestModal()">
-                        \u{1F3F7}\uFE0F Place my Interest
-                        <div class="interest-tooltip">
-                            Please select the entries that you are interested in.<br><br>
-                            Click any row to highlight it. Multiple rows can be selected at once.
-                            Click a highlighted row again to deselect it.
-                        </div>
-                    </button>`;
+            html += `<button class="btn-interest" onclick="openInterestModal()"
+                        onmouseenter="(function(e){var t=document.getElementById('interestTip');if(t){t.style.display='block';positionTooltip(e,t);}})(event)"
+                        onmousemove="(function(e){var t=document.getElementById('interestTip');if(t)positionTooltip(e,t);})(event)"
+                        onmouseleave="(function(){var t=document.getElementById('interestTip');if(t)t.style.display='none';})()"
+                    >🏷️ Place my Interest</button>`;
             const _mailActive = selectedRows.size > 0 ? 'active' : '';
             const _mailTitle  = selectedRows.size > 0
                 ? 'Send interest for ' + selectedRows.size + ' selected row(s)'
@@ -2132,7 +2156,25 @@
             });
         });
             // ── Row selection helpers ───────────────────────────────────
-        function toggleRowSelection(rowIndex, trEl) {
+                function positionTooltip(e, tip) {
+            const GAP = 14;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const tw = tip.offsetWidth  || 260;
+            const th = tip.offsetHeight || 60;
+            let x = e.clientX + GAP;
+            let y = e.clientY - th - GAP;
+            // keep inside viewport horizontally
+            if (x + tw > vw - 8) x = e.clientX - tw - GAP;
+            if (x < 8) x = 8;
+            // keep inside viewport vertically – show below if no room above
+            if (y < 8) y = e.clientY + GAP;
+            if (y + th > vh - 8) y = vh - th - 8;
+            tip.style.left = x + 'px';
+            tip.style.top  = y + 'px';
+        }
+
+function toggleRowSelection(rowIndex, trEl) {
             if (selectedRows.has(rowIndex)) {
                 selectedRows.delete(rowIndex);
                 trEl.classList.remove('row-selected');
@@ -2267,7 +2309,7 @@
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e2818d8c96838196a293cfd181cc818d8f">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="f5969a9b81949681b584d8c696db969a98">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
@@ -2291,5 +2333,12 @@
       </div>
     </div>
 
+
+    <!-- Global floating tooltip for Place my Interest button -->
+    <div id="interestTip" style="display:none;position:fixed;background:rgba(30,41,59,0.96);color:#fff;font-size:12px;font-weight:400;border-radius:8px;padding:10px 14px;width:260px;line-height:1.55;white-space:normal;z-index:99999;box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+        Please select the entries that you are interested in.<br><br>
+        Click any row to highlight it. Multiple rows can be selected at once.
+        Click a highlighted row again to deselect it.
+    </div>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
 </html>
