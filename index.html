@@ -878,7 +878,8 @@
 
         // Display name overrides for column headers
         const COL_DISPLAY_NAMES = {
-            'Deal #': 'Deal Ref #'
+            'Deal #': 'Deal Ref #',
+            'Date-Of-Manufacture': 'Date of Manufacture'
         };
         function getColDisplayName(col) {
             return COL_DISPLAY_NAMES[col] || col;
@@ -952,24 +953,34 @@
 
         // Columns to show filter boxes for (non-admin). null = show all.
         const FILTER_COLUMNS = {
-            'Engines': ['Deal #', 'Engine', 'ESN', 'Location', 'Status', 'Date Received'],
-            'Aircraft Sale': null,
-            'Aircraft Lease': null,
+            'Engines':       ['No', 'Engine', 'ESN', 'Location', 'Status', 'Date Received'],
+            'Aircraft Sale': ['No', 'Aircraft', 'Date-Of-Manufacture', 'Total Cycles', 'Price \n(USD)', 'Location', 'Status'],
+            'Aircraft Lease':['No', 'Aircraft', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Price \n(USD)', 'Location', 'Status'],
             'Parts': null
         };
+        // Columns that use a dropdown filter (populated from unique data values)
+        const DROPDOWN_FILTER_COLS = ['Location', 'Status'];
 
         // Status color mapping
         function getStatusClass(statusValue) {
             if (!statusValue) return '';
-            const status = statusValue.toString().toLowerCase();
+            const status = statusValue.toString().toLowerCase().trim();
             if (status.includes('sold to another buyer')) return 'status-sold';
+            // Buyer patterns (green)
             if (status.includes('buyer request')) return 'status-buyer-looking';
+            if (status.includes('buyer: looking for a seller')) return 'status-buyer-looking';
             if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
-            if (status.includes('seller request')) return 'status-seller-looking';
-            if (status.includes('lessor request')) return 'status-lessor-looking';
-            if (status.includes('lessee request')) return 'status-lessee-looking';
+            if (status.includes('buyer: submitted loi')) return 'status-buyer-submitted';
             if (status.includes('buyer: reviewing data')) return 'status-buyer-reviewing';
             if (status.includes('buyer: finalizing loi and apa')) return 'status-buyer-finalizing';
+            // Seller patterns (blue)
+            if (status.includes('seller request')) return 'status-seller-looking';
+            if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
+            // Lessor/Lessee
+            if (status.includes('lessor request')) return 'status-lessor-looking';
+            if (status.includes('lessor: looking for lessee')) return 'status-lessor-looking';
+            if (status.includes('lessee request')) return 'status-lessee-looking';
+            if (status.includes('lessee: looking for lessor')) return 'status-lessee-looking';
             return '';
         }
 
@@ -995,8 +1006,8 @@
         // Check if row should be hidden (for non-admin)
         function shouldHideRow(row) {
             if (isAdmin) return false;
-            const status = row['Status'] || '';
-            if (status.toString().toLowerCase().includes('sold to another buyer')) return true;
+            const status = (row['Status'] || '').toString().toLowerCase().trim();
+            if (status.includes('sold to another buyer')) return true;
             // Hide entries dated before 1 Nov 2025
             const dateReceived = parseDateReceived(row['Date Received']);
             if (dateReceived && dateReceived < CUTOFF_DATE) return true;
@@ -1084,34 +1095,62 @@
             renderTable();
         }
 
-        // Render column filters
+        // Render column filters (with dropdown support for Location and Status)
         function renderFilters() {
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             if (sheetData.length === 0) return;
 
             const allColumns = getOrderedColumns(sheetData);
-            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            let visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
-            // In non-admin mode, restrict filter boxes to FILTER_COLUMNS list if defined
-            if (!isAdmin && FILTER_COLUMNS[sheetName]) {
-                visibleColumns = visibleColumns.filter(col => FILTER_COLUMNS[sheetName].includes(col));
-            }
+
+            // Determine which filter columns to show
+            const filterCols = FILTER_COLUMNS[sheetName];
+            let filterColList = filterCols
+                ? filterCols.filter(col => allColumns.includes(col))
+                : allColumns.filter(col => {
+                    const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
+                    return !hiddenCols.includes(col);
+                  });
 
             const filterRow = document.getElementById('filterRow');
             let html = '';
-            
-            visibleColumns.forEach(col => {
+
+            filterColList.forEach(col => {
                 const filterId = `filter-${col.replace(/[^a-zA-Z0-9]/g, '-')}`;
                 const filterValue = columnFilters[col] || '';
-                html += `<input type="text" 
-                    class="filter-input" 
-                    id="${filterId}" 
-                    placeholder="Filter ${getColDisplayName(col)}..." 
-                    value="${filterValue}"
-                    onkeyup="updateColumnFilter('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}', this.value)">`;
+                const displayName = getColDisplayName(col);
+                const escapedCol  = col.replace(/'/g, "\'").replace(/
+/g, "\n");
+
+                if (DROPDOWN_FILTER_COLS.includes(col)) {
+                    // Build sorted unique values from current (non-hidden) rows
+                    const uniqueVals = [...new Set(
+                        sheetData
+                            .filter(row => !shouldHideRow(row))
+                            .map(row => (row[col] || '').toString().trim())
+                            .filter(v => v && v !== 'null' && v !== 'undefined' && v !== '')
+                    )].sort();
+
+                    let opts = `<option value="">All ${displayName}s</option>`;
+                    uniqueVals.forEach(v => {
+                        const sel = filterValue === v.toLowerCase() ? 'selected' : '';
+                        opts += `<option value="${v.toLowerCase()}" ${sel}>${v}</option>`;
+                    });
+                    html += `<select class="filter-input" id="${filterId}"
+                        style="min-width:140px;cursor:pointer;padding:6px 8px;height:34px;"
+                        onchange="updateColumnFilter('${escapedCol}', this.value)">
+                        ${opts}
+                    </select>`;
+                } else {
+                    html += `<input type="text"
+                        class="filter-input"
+                        id="${filterId}"
+                        placeholder="Filter ${displayName}..."
+                        value="${filterValue}"
+                        onkeyup="updateColumnFilter('${escapedCol}', this.value)">`;
+                }
             });
-            
+
             html += '<button class="btn-clear-filters" onclick="clearAllFilters()">Clear Filters</button>';
             filterRow.innerHTML = html;
         }
@@ -1273,11 +1312,11 @@
                             html += `<td style="min-width:80px;">
                                 <input type="number" min="0" max="100" step="0.01"
                                     class="edit-input"
-                                    style="width:70px;padding:3px 5px;border:2px solid #1e5ba8;border-radius:3px;font-size:11px;"
+                                    style="width:80px;padding:3px 4px;border:2px solid #1e5ba8;border-radius:3px;font-size:11px;"
                                     value="${pctVal}"
                                     title="Enter 0–100"
                                     onchange="updateCommPct(${index}, this.value)"
-                                    oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')">
+                                    onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();let v=parseFloat(this.value)||0;let s=0.01;v=event.key==='ArrowUp'?Math.min(100,+(v+s).toFixed(4)):Math.max(0,+(v-s).toFixed(4));this.value=v;updateCommPct(${index},v);}">
                             </td>`;
                         }
                         // Non-admin: column is hidden via HIDDEN_COLUMNS so won't reach here
