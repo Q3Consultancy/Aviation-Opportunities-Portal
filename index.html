@@ -872,8 +872,17 @@
             'Price \n(USD)',
             'Total Time (Hours)',
             'Total Cycles',
-            'Lease Rate \n(USD/Month)'
+            'Lease Rate \n(USD/Month)',
+            'Team Commission\n(%)'
         ];
+
+        // Display name overrides for column headers
+        const COL_DISPLAY_NAMES = {
+            'Deal #': 'Deal Ref #'
+        };
+        function getColDisplayName(col) {
+            return COL_DISPLAY_NAMES[col] || col;
+        }
 
         // Add flag to location text
         function addFlagToLocation(location) {
@@ -894,6 +903,7 @@
             'Engines': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
+                "Team Commission\n(%)",
                 "Buyer(s)", 
                 "Buyer(s) 2",
                 "Buyer(s) 3",
@@ -910,6 +920,7 @@
             'Aircraft Sale': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
+                "Team Commission\n(%)",
                 "Buyer(s)", 
                 "Buyer(s) 2",
                 "Buyer(s) 3",
@@ -921,6 +932,7 @@
             'Aircraft Lease': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
+                "Team Commission\n(%)",
                 "Buyer(s)", 
                 "Buyer(s) 2",
                 "Buyer(s) 3",
@@ -930,6 +942,7 @@
             'Parts': [
                 "Seller's Price \n(USD)", 
                 "Team Commission\n(USD)", 
+                "Team Commission\n(%)",
                 "Buyer(s)",
                 "Seller / Broker",
                 "Manufacturers S/N",
@@ -990,7 +1003,14 @@
             return false;
         }
 
+        // Key names (with literal newlines as they appear in data.json)
+        const KEY_SELLER_PRICE   = "Seller's Price \n(USD)";
+        const KEY_COMM_USD       = "Team Commission\n(USD)";
+        const KEY_COMM_PCT       = "Team Commission\n(%)";
+        const KEY_PRICE          = "Price \n(USD)";
+
         // Convert columns/data format to array of objects
+        // Also injects Team Commission (%) column after Seller Price
         function convertData(rawData) {
             const converted = {};
             for (const [sheetName, sheetData] of Object.entries(rawData)) {
@@ -1000,11 +1020,31 @@
                         sheetData.columns.forEach((col, idx) => {
                             obj[col] = row[idx];
                         });
+                        // Inject Team Commission (%) if not present
+                        if (!(KEY_COMM_PCT in obj)) {
+                            obj[KEY_COMM_PCT] = '';
+                        }
                         return obj;
                     });
                 }
             }
             return converted;
+        }
+
+        // Recalculate Team Commission (USD) and Price (USD) for a row
+        function recalcRow(sheetName, rowIndex) {
+            const row = data[sheetName][rowIndex];
+            if (!row) return;
+            const sellerPrice = parseFloat(String(row[KEY_SELLER_PRICE] || '').replace(/,/g, '')) || 0;
+            const pct = parseFloat(String(row[KEY_COMM_PCT] || '').replace(/,/g, ''));
+            if (!isNaN(pct) && pct >= 0 && pct <= 100 && sellerPrice > 0) {
+                row[KEY_COMM_USD] = Math.round(sellerPrice * pct / 100);
+            }
+            // Auto-calc Price = Seller Price + Commission USD
+            const commUSD = parseFloat(String(row[KEY_COMM_USD] || '').replace(/,/g, '')) || 0;
+            if (sellerPrice > 0) {
+                row[KEY_PRICE] = Math.round(sellerPrice + commUSD);
+            }
         }
 
         // Sort table
@@ -1050,7 +1090,7 @@
             const sheetData = data[sheetName] || [];
             if (sheetData.length === 0) return;
 
-            const allColumns = Object.keys(sheetData[0]);
+            const allColumns = getOrderedColumns(sheetData);
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             let visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
             // In non-admin mode, restrict filter boxes to FILTER_COLUMNS list if defined
@@ -1067,7 +1107,7 @@
                 html += `<input type="text" 
                     class="filter-input" 
                     id="${filterId}" 
-                    placeholder="Filter ${col}..." 
+                    placeholder="Filter ${getColDisplayName(col)}..." 
                     value="${filterValue}"
                     onkeyup="updateColumnFilter('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}', this.value)">`;
             });
@@ -1098,6 +1138,17 @@
                 }
                 rawData = await response.json();
                 data = convertData(rawData);
+                // Auto-calc Price and Commission USD for all existing rows
+                Object.keys(data).forEach(sheet => {
+                    data[sheet].forEach((row, idx) => {
+                        // Only auto-calc Price if Seller Price exists (don't overwrite valid manual prices)
+                        const sellerPrice = parseFloat(String(row[KEY_SELLER_PRICE] || '').replace(/,/g, '')) || 0;
+                        const commUSD = parseFloat(String(row[KEY_COMM_USD] || '').replace(/,/g, '')) || 0;
+                        if (sellerPrice > 0 && (row[KEY_PRICE] === '' || row[KEY_PRICE] === null || row[KEY_PRICE] === undefined)) {
+                            row[KEY_PRICE] = Math.round(sellerPrice + commUSD);
+                        }
+                    });
+                });
                 console.log('✅ Data loaded successfully');
                 renderTable();
                 renderFilters();
@@ -1115,6 +1166,24 @@
             }
         }
 
+
+        // Get columns for a sheet in the correct display order,
+        // inserting Team Commission (%) right after Seller's Price (USD)
+        function getOrderedColumns(sheetData) {
+            if (!sheetData || sheetData.length === 0) return [];
+            const cols = Object.keys(sheetData[0]);
+            // Ensure KEY_COMM_PCT is present
+            if (!cols.includes(KEY_COMM_PCT)) {
+                const idx = cols.indexOf(KEY_SELLER_PRICE);
+                if (idx > -1) {
+                    cols.splice(idx + 1, 0, KEY_COMM_PCT);
+                } else {
+                    cols.push(KEY_COMM_PCT);
+                }
+            }
+            return cols;
+        }
+
         // Render table
         function renderTable() {
             const sheetName = getSheetName(currentTab);
@@ -1126,7 +1195,7 @@
                 return;
             }
 
-            const allColumns = Object.keys(sheetData[0]);
+            const allColumns = getOrderedColumns(sheetData);
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
@@ -1136,7 +1205,7 @@
             let html = '<thead><tr>';
             visibleColumns.forEach(col => {
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
-                html += `<th class="sortable ${sortClass}" onclick="sortTable('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">${col}</th>`;
+                html += `<th class="sortable ${sortClass}" onclick="sortTable('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">${getColDisplayName(col)}</th>`;
             });
             if (isAdmin) {
                 html += '<th>Actions</th>';
@@ -1193,6 +1262,46 @@
                                 }).join('');
                                 html += `<td>${fileLinksHtml}</td>`;
                             }
+                        }
+                        return;
+                    }
+
+                    // Team Commission (%) — special inline number input in admin
+                    if (col === KEY_COMM_PCT) {
+                        if (isAdmin) {
+                            const pctVal = row[KEY_COMM_PCT] !== null && row[KEY_COMM_PCT] !== undefined ? row[KEY_COMM_PCT] : '';
+                            html += `<td style="min-width:80px;">
+                                <input type="number" min="0" max="100" step="0.01"
+                                    class="edit-input"
+                                    style="width:70px;padding:3px 5px;border:2px solid #1e5ba8;border-radius:3px;font-size:11px;"
+                                    value="${pctVal}"
+                                    title="Enter 0–100"
+                                    onchange="updateCommPct(${index}, this.value)"
+                                    oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')">
+                            </td>`;
+                        }
+                        // Non-admin: column is hidden via HIDDEN_COLUMNS so won't reach here
+                        return;
+                    }
+
+                    // Price (USD) — auto-calculated, read-only always
+                    if (col === KEY_PRICE) {
+                        const priceDisplay = value !== '' && value !== null && value !== undefined ? formatNumber(value) : '-';
+                        html += `<td style="background:#f0fdf4;font-weight:600;color:#065f46;" title="Auto-calculated: Seller Price + Commission">${priceDisplay}</td>`;
+                        return;
+                    }
+
+                    // Team Commission USD — read-only in admin (auto from %), editable if % not set
+                    if (col === KEY_COMM_USD && isAdmin) {
+                        const pct = row[KEY_COMM_PCT];
+                        const commDisplay = value !== '' && value !== null && value !== undefined ? formatNumber(value) : '-';
+                        if (pct !== '' && pct !== null && pct !== undefined && !isNaN(parseFloat(pct))) {
+                            // Auto-calculated — show read-only with indicator
+                            html += `<td style="background:#eff6ff;font-weight:600;color:#1e40af;" title="Auto-calculated from Commission %">${commDisplay}</td>`;
+                        } else {
+                            // No % set — allow manual entry
+                            const colIdx = visibleColumns.indexOf(col);
+                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${index}" data-col-idx="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
                         }
                         return;
                     }
@@ -1306,6 +1415,10 @@
         function saveCell(rowIndex, colName, newValue) {
             const sheetName = getSheetName(currentTab);
             data[sheetName][rowIndex][colName] = newValue;
+            // If Seller Price or Commission USD changed manually, recalc
+            if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
+                recalcRow(sheetName, rowIndex);
+            }
             renderTable();
             console.log('Cell updated:', {sheet: sheetName, row: rowIndex, column: colName, value: newValue});
         }
@@ -1343,7 +1456,8 @@
                 { key: 'Location',        label: 'Location',           type: 'text',   required: false, placeholder: 'e.g. [USA]' },
                 { section: '💰 Pricing (Admin)' },
                 { key: "Seller's Price \n(USD)", label: "Seller's Price (USD)",  type: 'number', required: false, placeholder: '0' },
-                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: '0' },
+                { key: 'Team Commission\n(%)',   label: 'Team Commission (%)',   type: 'number', required: false, placeholder: 'e.g. 5.5', min: '0', max: '100', step: '0.01' },
+                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: 'Auto-calculated' },
                 { key: 'Price \n(USD)',           label: 'Price (USD)',           type: 'number', required: false, placeholder: '0' },
                 { section: '👥 Parties' },
                 { key: 'Seller / Broker', label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
@@ -1369,7 +1483,8 @@
                 { key: 'Location',         label: 'Location',           type: 'text',   required: false, placeholder: 'e.g. [UAE]' },
                 { section: '💰 Pricing (Admin)' },
                 { key: "Seller's Price \n(USD)", label: "Seller's Price (USD)",  type: 'number', required: false, placeholder: '0' },
-                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: '0' },
+                { key: 'Team Commission\n(%)',   label: 'Team Commission (%)',   type: 'number', required: false, placeholder: 'e.g. 5.5', min: '0', max: '100', step: '0.01' },
+                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: 'Auto-calculated' },
                 { key: 'Price \n(USD)',           label: 'Price (USD)',           type: 'number', required: false, placeholder: '0' },
                 { section: '👥 Parties' },
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
@@ -1394,7 +1509,8 @@
                 { key: 'Location',         label: 'Location',           type: 'text',   required: false, placeholder: 'e.g. [UAE]' },
                 { section: '💰 Pricing (Admin)' },
                 { key: "Seller's Price \n(USD)", label: "Lease Rate (USD/Month)", type: 'number', required: false, placeholder: '0' },
-                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)',  type: 'number', required: false, placeholder: '0' },
+                { key: 'Team Commission\n(%)',   label: 'Team Commission (%)',    type: 'number', required: false, placeholder: 'e.g. 5.5', min: '0', max: '100', step: '0.01' },
+                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)',  type: 'number', required: false, placeholder: 'Auto-calculated' },
                 { key: 'Price \n(USD)',           label: 'Price (USD)',            type: 'number', required: false, placeholder: '0' },
                 { section: '👥 Parties' },
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
@@ -1414,7 +1530,8 @@
                 { key: 'Location',         label: 'Location',           type: 'text',   required: false, placeholder: 'e.g. [USA]' },
                 { section: '💰 Pricing (Admin)' },
                 { key: "Seller's Price \n(USD)", label: "Seller's Price (USD)",  type: 'number', required: false, placeholder: '0' },
-                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: '0' },
+                { key: 'Team Commission\n(%)',   label: 'Team Commission (%)',   type: 'number', required: false, placeholder: 'e.g. 5.5', min: '0', max: '100', step: '0.01' },
+                { key: 'Team Commission\n(USD)', label: 'Team Commission (USD)', type: 'number', required: false, placeholder: 'Auto-calculated' },
                 { key: 'Price \n(USD)',           label: 'Price (USD)',           type: 'number', required: false, placeholder: '0' },
                 { section: '👥 Parties' },
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
@@ -1524,6 +1641,8 @@
 
             // Add to data
             data[sheetName].push(newRow);
+            // Recalc Commission USD and Price for the new row
+            recalcRow(sheetName, data[sheetName].length - 1);
 
             hideAddDealModal();
             renderTable();
@@ -1651,7 +1770,7 @@
                 return;
             }
 
-            const allColumns = Object.keys(sheetData[0]);
+            const allColumns = getOrderedColumns(sheetData);
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
@@ -1675,6 +1794,22 @@
             a.download = `Q3 Consultancy - ${sheetName} Data - ${dateStr}.csv`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+
+        // Update Team Commission % → recalc Commission USD and Price
+        function updateCommPct(rowIndex, pctValue) {
+            if (!isAdmin) return;
+            const sheetName = getSheetName(currentTab);
+            const pct = parseFloat(pctValue);
+            if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+                data[sheetName][rowIndex][KEY_COMM_PCT] = pct;
+            } else {
+                data[sheetName][rowIndex][KEY_COMM_PCT] = '';
+            }
+            recalcRow(sheetName, rowIndex);
+            renderTable();
+            renderFilters();
         }
 
         // Save function (Admin only)
