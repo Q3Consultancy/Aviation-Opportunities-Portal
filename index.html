@@ -2265,11 +2265,6 @@ function toggleRowSelection(rowIndex, trEl) {
             const showCols   = allCols.filter(function(col){
                 return !hiddenCols.includes(col) && col !== 'Files' && !col.startsWith('Buyer(s)');
             });
-            const allCols    = getOrderedColumns(sheetData);
-            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
-            const showCols   = allCols.filter(function(col){
-                return !hiddenCols.includes(col) && col !== 'Files' && !col.startsWith('Buyer(s)');
-            });
 
             const selData = Array.from(selectedRows).sort(function(a,b){return a-b;})
                                  .map(function(i){ return filteredData[i]; })
@@ -2303,7 +2298,6 @@ function toggleRowSelection(rowIndex, trEl) {
             document.getElementById('interestModalBody').style.display = '';
             document.getElementById('interestSentMsg').style.display   = 'none';
             document.getElementById('interestModal').classList.add('show');
-        }
         }
 
         function closeInterestModal() {
@@ -2383,7 +2377,7 @@ function toggleRowSelection(rowIndex, trEl) {
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="65060a0b1104061125144856064b060a08">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="02616d6c7663617642732f31612c616d6f">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
