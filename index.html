@@ -715,14 +715,14 @@
             }
         }
     
-        /* ── Row Selection Styles ── */
+        /* ── Row Selection ── */
         #dataTable tbody tr { cursor: pointer; }
         #dataTable tbody tr.row-selected {
             background-color: #fef3c7 !important;
             outline: 2px solid #f59e0b;
         }
 
-        /* ── Place my Interest + Mail button ── */
+        /* ── Place my Interest button ── */
         .btn-interest {
             background: linear-gradient(135deg, #f97316, #ef4444);
             color: #fff;
@@ -734,10 +734,9 @@
             cursor: pointer;
             position: relative;
             transition: opacity .2s;
+            vertical-align: middle;
         }
         .btn-interest:hover { opacity: .88; }
-
-        /* Tooltip */
         .btn-interest .interest-tooltip {
             display: none;
             position: absolute;
@@ -768,7 +767,7 @@
         }
         .btn-interest:hover .interest-tooltip { display: block; }
 
-        /* Mail icon button */
+        /* ── Mail icon button ── */
         .btn-mail-send {
             background: none;
             border: 2px solid #94a3b8;
@@ -787,9 +786,7 @@
             cursor: pointer;
             opacity: 1;
         }
-        .btn-mail-send.active:hover {
-            background: #eff6ff;
-        }
+        .btn-mail-send.active:hover { background: #eff6ff; }
 
         /* ── Interest Email Modal ── */
         #interestModal {
@@ -806,22 +803,14 @@
             background: #fff;
             border-radius: 12px;
             padding: 28px 32px;
-            width: min(640px, 95vw);
-            max-height: 85vh;
+            width: min(660px, 95vw);
+            max-height: 88vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,.3);
         }
-        .interest-modal-box h2 {
-            margin: 0 0 6px;
-            font-size: 18px;
-            color: #1e293b;
-        }
-        .interest-modal-box p.subtitle {
-            color: #64748b;
-            font-size: 13px;
-            margin: 0 0 18px;
-        }
-        .interest-modal-box .email-draft {
+        .interest-modal-box h2 { margin: 0 0 6px; font-size: 18px; color: #1e293b; }
+        .interest-modal-box p.subtitle { color: #64748b; font-size: 13px; margin: 0 0 18px; }
+        .email-draft-box {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
@@ -831,25 +820,23 @@
             line-height: 1.6;
             margin-bottom: 16px;
         }
-        .interest-modal-box .email-draft table {
+        .email-draft-box table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            font-size: 12px;
+            font-size: 11px;
         }
-        .interest-modal-box .email-draft table th {
+        .email-draft-box table th {
             background: #1e3a5f;
             color: #fff;
-            padding: 6px 8px;
+            padding: 5px 7px;
             text-align: left;
         }
-        .interest-modal-box .email-draft table td {
-            padding: 5px 8px;
+        .email-draft-box table td {
+            padding: 4px 7px;
             border-bottom: 1px solid #e2e8f0;
         }
-        .interest-modal-box .email-draft table tr:nth-child(even) td {
-            background: #f1f5f9;
-        }
+        .email-draft-box table tr:nth-child(even) td { background: #f1f5f9; }
         .interest-modal-box label {
             display: block;
             font-size: 13px;
@@ -866,16 +853,8 @@
             box-sizing: border-box;
             transition: border-color .2s;
         }
-        .interest-modal-box input[type=email]:focus {
-            outline: none;
-            border-color: #2563eb;
-        }
-        .interest-modal-box .email-error {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 4px;
-            display: none;
-        }
+        .interest-modal-box input[type=email]:focus { outline: none; border-color: #2563eb; }
+        .email-send-error { color: #ef4444; font-size: 12px; margin-top: 4px; display: none; }
         .interest-modal-footer {
             display: flex;
             gap: 10px;
@@ -890,15 +869,9 @@
             border: none;
             cursor: pointer;
         }
-        .btn-cancel-interest {
-            background: #f1f5f9;
-            color: #374151;
-        }
+        .btn-cancel-interest { background: #f1f5f9; color: #374151; }
         .btn-cancel-interest:hover { background: #e2e8f0; }
-        .btn-send-interest {
-            background: #2563eb;
-            color: #fff;
-        }
+        .btn-send-interest { background: #2563eb; color: #fff; }
         .btn-send-interest:hover { background: #1d4ed8; }
         .interest-sent-msg {
             text-align: center;
@@ -1011,157 +984,11 @@
     </div>
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
-        // ── Row Selection ──────────────────────────────────────────
-        let selectedRows = new Set(); // stores row indices (filteredData indices)
-
-        function toggleRowSelection(rowIndex, trElement) {
-            if (selectedRows.has(rowIndex)) {
-                selectedRows.delete(rowIndex);
-                trElement.classList.remove('row-selected');
-            } else {
-                selectedRows.add(rowIndex);
-                trElement.classList.add('row-selected');
-            }
-            updateMailButton();
-        }
-
-        function clearRowSelection() {
-            selectedRows.clear();
-            document.querySelectorAll('#dataTable tbody tr.row-selected').forEach(tr => {
-                tr.classList.remove('row-selected');
-            });
-            updateMailButton();
-        }
-
-        function updateMailButton() {
-            const btn = document.getElementById('btnMailSend');
-            if (!btn) return;
-            if (selectedRows.size > 0) {
-                btn.classList.add('active');
-                btn.title = `Send interest for ${selectedRows.size} selected row(s)`;
-            } else {
-                btn.classList.remove('active');
-                btn.title = 'Select rows first to enable';
-            }
-        }
-
-        // ── Interest Email Modal ────────────────────────────────────
-        function openInterestModal() {
-            if (selectedRows.size === 0) return;
-
-            const sheetName = getSheetName(currentTab);
-            const sheetData = data[sheetName] || [];
-            const filteredData = sheetData.filter(row => !shouldHideRow(row));
-
-            // Determine columns to show in the summary (visible, non-hidden, non-admin)
-            const allCols = getOrderedColumns(sheetData);
-            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
-            const summaryCols = allCols.filter(col =>
-                !hiddenCols.includes(col) &&
-                col !== 'Files' &&
-                !col.startsWith('Buyer(s)')
-            );
-
-            // Build selected rows data
-            const selectedData = [...selectedRows].sort((a,b)=>a-b).map(i => filteredData[i]).filter(Boolean);
-
-            // Build HTML table
-            let tableHtml = '<table><thead><tr>';
-            summaryCols.forEach(col => {
-                tableHtml += `<th>${getColDisplayName(col)}</th>`;
-            });
-            tableHtml += '</tr></thead><tbody>';
-            selectedData.forEach(row => {
-                tableHtml += '<tr>';
-                summaryCols.forEach(col => {
-                    let val = row[col] !== null && row[col] !== undefined ? row[col] : '';
-                    tableHtml += `<td>${val}</td>`;
-                });
-                tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-
-            const draftHtml = `
-                <p><strong>To:</strong> contact@q-3c.com</p>
-                <p><strong>Subject:</strong> Interest in Aviation Opportunities – ${sheetName}</p>
-                <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0">
-                <p>Hello,</p>
-                <p>I am interested in the following:</p>
-                ${tableHtml}
-                <p style="margin-top:10px">Please contact me with further details.</p>
-            `;
-
-            document.getElementById('interestEmailDraft').innerHTML = draftHtml;
-            document.getElementById('senderEmail').value = '';
-            document.getElementById('emailError').style.display = 'none';
-            document.getElementById('interestModalContent').style.display = '';
-            document.getElementById('interestSentMsg').style.display = 'none';
-            document.getElementById('interestModal').classList.add('show');
-        }
-
-        function closeInterestModal() {
-            document.getElementById('interestModal').classList.remove('show');
-        }
-
-        function sendInterestEmail() {
-            const emailInput = document.getElementById('senderEmail');
-            const email = emailInput.value.trim();
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!email || !emailRegex.test(email)) {
-                document.getElementById('emailError').style.display = 'block';
-                emailInput.focus();
-                return;
-            }
-
-            // Build mailto: link
-            const sheetName = getSheetName(currentTab);
-            const sheetData = data[sheetName] || [];
-            const filteredData = sheetData.filter(row => !shouldHideRow(row));
-            const allCols = getOrderedColumns(sheetData);
-            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
-            const summaryCols = allCols.filter(col =>
-                !hiddenCols.includes(col) && col !== 'Files' && !col.startsWith('Buyer(s)')
-            );
-            const selectedData = [...selectedRows].sort((a,b)=>a-b).map(i => filteredData[i]).filter(Boolean);
-
-            let body = `Hello,\n\nI am interested in the following ${sheetName} opportunities:\n\n`;
-            body += summaryCols.map(c => getColDisplayName(c)).join(' | ') + '\n';
-            body += summaryCols.map(() => '---').join(' | ') + '\n';
-            selectedData.forEach(row => {
-                body += summaryCols.map(c => {
-                    let v = row[c] !== null && row[c] !== undefined ? String(row[c]) : '';
-                    return v.replace(/\n/g, ' ');
-                }).join(' | ') + '\n';
-            });
-            body += `\nPlease contact me at: ${email}\n\nKind regards`;
-
-            const subject = encodeURIComponent(`Interest in Aviation Opportunities – ${sheetName}`);
-            const bodyEncoded = encodeURIComponent(body);
-            const mailtoLink = `mailto:contact@q-3c.com?cc=${encodeURIComponent(email)}&subject=${subject}&body=${bodyEncoded}`;
-
-            // Open mailto
-            window.location.href = mailtoLink;
-
-            // Show success message
-            document.getElementById('interestModalContent').style.display = 'none';
-            document.getElementById('interestSentMsg').style.display = 'block';
-
-            // Clear selection after sending
-            setTimeout(() => {
-                clearRowSelection();
-            }, 500);
-        }
-
-        // Close modal on backdrop click
-        document.addEventListener('click', function(e) {
-            const modal = document.getElementById('interestModal');
-            if (e.target === modal) closeInterestModal();
-        });
-
-        </script><script>
+</script><script>
         // Configuration
         const ADMIN_PASSWORD = 'admin123';
         let isAdmin = false;
+        let selectedRows = new Set(); // tracks row indices for "Place my Interest"
         let currentTab = 'engines';
         let rawData = {};
         let data = {};
@@ -1493,20 +1320,20 @@
 
             html += '<button class="btn-clear-filters" onclick="clearAllFilters()">Clear Filters</button>';
             html += `<button class="btn-interest" onclick="openInterestModal()">
-                        🏷️ Place my Interest
+                        \u{1F3F7}\uFE0F Place my Interest
                         <div class="interest-tooltip">
                             Please select the entries that you are interested in.<br><br>
                             Click any row to highlight it. Multiple rows can be selected at once.
                             Click a highlighted row again to deselect it.
                         </div>
                     </button>`;
-            const mailActive = selectedRows && selectedRows.size > 0 ? 'active' : '';
-            const mailTitle = selectedRows && selectedRows.size > 0
-                ? 'Send interest for ' + selectedRows.size + ' row(s)'
-                : 'Select rows first to enable';
-            html += `<button id="btnMailSend" class="btn-mail-send ${mailActive}"
-                        title="${mailTitle}"
-                        onclick="if(selectedRows.size>0) openInterestModal()">✉️</button>`;
+            const _mailActive = selectedRows.size > 0 ? 'active' : '';
+            const _mailTitle  = selectedRows.size > 0
+                ? 'Send interest for ' + selectedRows.size + ' selected row(s)'
+                : 'Select one or more rows first';
+            html += `<button id="btnMailSend" class="btn-mail-send ${_mailActive}"
+                        title="${_mailTitle}"
+                        onclick="if(selectedRows.size>0){ openInterestModal(); }">&#x2709;&#xFE0F;</button>`;
             filterRow.innerHTML = html;
         }
 
@@ -1613,8 +1440,8 @@
             // Build table rows
             filteredData.forEach((row, index) => {
                 const isSelected = selectedRows.has(index);
-                const selectedClass = isSelected ? ' row-selected' : '';
-                html += `<tr class="${selectedClass}" onclick="toggleRowSelection(${index}, this)">`;
+                const selClass = isSelected ? ' row-selected' : '';
+                html += `<tr class="${selClass}" onclick="toggleRowSelection(${index}, this)">`;
                 visibleColumns.forEach(col => {
                     let value = row[col] !== null && row[col] !== undefined ? row[col] : '';
                     
@@ -2077,7 +1904,12 @@
 
         // Switch tabs
         function switchTab(tab) {
-            clearRowSelection();
+            // Clear row selection when changing tabs
+            selectedRows.clear();
+            document.querySelectorAll('#dataTable tbody tr.row-selected')
+                     .forEach(tr => tr.classList.remove('row-selected'));
+            const mb = document.getElementById('btnMailSend');
+            if (mb) { mb.classList.remove('active'); mb.title = 'Select one or more rows first'; }
             currentTab = tab;
             sortColumn = null;
             sortDirection = 'asc';
@@ -2299,36 +2131,164 @@
                 }
             });
         });
-    </script>
+            // ── Row selection helpers ───────────────────────────────────
+        function toggleRowSelection(rowIndex, trEl) {
+            if (selectedRows.has(rowIndex)) {
+                selectedRows.delete(rowIndex);
+                trEl.classList.remove('row-selected');
+            } else {
+                selectedRows.add(rowIndex);
+                trEl.classList.add('row-selected');
+            }
+            // Update mail button state
+            const mb = document.getElementById('btnMailSend');
+            if (mb) {
+                if (selectedRows.size > 0) {
+                    mb.classList.add('active');
+                    mb.title = 'Send interest for ' + selectedRows.size + ' row(s)';
+                } else {
+                    mb.classList.remove('active');
+                    mb.title = 'Select one or more rows first';
+                }
+            }
+        }
+
+        // ── Interest email modal ────────────────────────────────────
+        function openInterestModal() {
+            if (selectedRows.size === 0) return;
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            const filteredData = sheetData.filter(function(row){ return !shouldHideRow(row); });
+            const allCols    = getOrderedColumns(sheetData);
+            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
+            const showCols   = allCols.filter(function(col){
+                return !hiddenCols.includes(col) && col !== 'Files' && !col.startsWith('Buyer(s)');
+            });
+
+            const selData = Array.from(selectedRows).sort(function(a,b){return a-b;})
+                                 .map(function(i){ return filteredData[i]; })
+                                 .filter(Boolean);
+
+            // Build summary table HTML
+            var tbl = '<table><thead><tr>';
+            showCols.forEach(function(c){ tbl += '<th>' + getColDisplayName(c) + '</th>'; });
+            tbl += '</tr></thead><tbody>';
+            selData.forEach(function(row){
+                tbl += '<tr>';
+                showCols.forEach(function(c){
+                    var v = row[c] !== null && row[c] !== undefined ? String(row[c]) : '';
+                    tbl += '<td>' + v.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td>';
+                });
+                tbl += '</tr>';
+            });
+            tbl += '</tbody></table>';
+
+            var draft = document.getElementById('interestEmailDraft');
+            draft.innerHTML =
+                '<p><strong>To:</strong> contact@q-3c.com</p>' +
+                '<p><strong>Subject:</strong> Interest in Aviation Opportunities – ' + sheetName + '</p>' +
+                '<hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0">' +
+                '<p>Hello,</p><p>I am interested in the following:</p>' +
+                tbl +
+                '<p style="margin-top:10px">Please contact me with further details.</p>';
+
+            document.getElementById('senderEmailInput').value = '';
+            document.getElementById('emailSendError').style.display = 'none';
+            document.getElementById('interestModalBody').style.display = '';
+            document.getElementById('interestSentMsg').style.display   = 'none';
+            document.getElementById('interestModal').classList.add('show');
+        }
+
+        function closeInterestModal() {
+            document.getElementById('interestModal').classList.remove('show');
+        }
+
+        function sendInterestEmail() {
+            var emailEl = document.getElementById('senderEmailInput');
+            var email   = emailEl.value.trim();
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                document.getElementById('emailSendError').style.display = 'block';
+                emailEl.focus();
+                return;
+            }
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            const filteredData = sheetData.filter(function(r){ return !shouldHideRow(r); });
+            const allCols    = getOrderedColumns(sheetData);
+            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
+            const showCols   = allCols.filter(function(c){
+                return !hiddenCols.includes(c) && c !== 'Files' && !c.startsWith('Buyer(s)');
+            });
+            const selData = Array.from(selectedRows).sort(function(a,b){return a-b;})
+                                 .map(function(i){ return filteredData[i]; }).filter(Boolean);
+
+            var body = 'Hello,\n\nI am interested in the following ' + sheetName + ' opportunities:\n\n';
+            body += showCols.map(function(c){ return getColDisplayName(c); }).join(' | ') + '\n';
+            body += showCols.map(function(){ return '---'; }).join(' | ') + '\n';
+            selData.forEach(function(row){
+                body += showCols.map(function(c){
+                    var v = row[c] !== null && row[c] !== undefined ? String(row[c]) : '';
+                    return v.replace(/\n/g,' ');
+                }).join(' | ') + '\n';
+            });
+            body += '\nMy contact email: ' + email + '\n\nKind regards';
+
+            var subject = encodeURIComponent('Interest in Aviation Opportunities – ' + sheetName);
+            var href    = 'mailto:contact@q-3c.com?cc=' + encodeURIComponent(email) +
+                          '&subject=' + subject +
+                          '&body='    + encodeURIComponent(body);
+            window.location.href = href;
+
+            document.getElementById('interestModalBody').style.display = 'none';
+            document.getElementById('interestSentMsg').style.display   = '';
+            setTimeout(function(){
+                selectedRows.clear();
+                document.querySelectorAll('#dataTable tbody tr.row-selected')
+                         .forEach(function(tr){ tr.classList.remove('row-selected'); });
+                var mb = document.getElementById('btnMailSend');
+                if (mb){ mb.classList.remove('active'); mb.title='Select one or more rows first'; }
+            }, 600);
+        }
+
+        // Close interest modal on backdrop click or Escape
+        document.addEventListener('click', function(e){
+            var m = document.getElementById('interestModal');
+            if (e.target === m) closeInterestModal();
+        });
+
+        
+        </script>
 
     <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
 
-    <!-- Place My Interest Email Modal -->
+    <!-- ── Place My Interest – Email Modal ──────────────────── -->
     <div id="interestModal">
-        <div class="interest-modal-box">
-            <div id="interestModalContent">
-                <h2>📧 Place My Interest</h2>
-                <p class="subtitle">A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="0b6864657f6a687f4b7a26386825686466">[email&#160;protected]</a></strong> on your behalf.</p>
-
-                <div class="email-draft" id="interestEmailDraft">
-                    <!-- populated by JS -->
-                </div>
-
-                <label for="senderEmail">Your contact email address <span style="color:#ef4444">*</span></label>
-                <input type="email" id="senderEmail" placeholder="you@example.com" oninput="document.getElementById('emailError').style.display='none'">
-                <div class="email-error" id="emailError">Please enter a valid email address.</div>
-
-                <div class="interest-modal-footer">
-                    <button class="btn-cancel-interest" onclick="closeInterestModal()">Cancel</button>
-                    <button class="btn-send-interest" onclick="sendInterestEmail()">✉️ Send Email</button>
-                </div>
-            </div>
-            <div id="interestSentMsg" class="interest-sent-msg" style="display:none">
-                ✅ Your interest has been registered!<br>
-                <span style="font-size:13px;color:#64748b;margin-top:6px;display:block">A copy of this enquiry has been noted. The Q3 Consultancy team will be in touch.</span>
-                <button class="btn-cancel-interest" style="margin-top:16px;" onclick="closeInterestModal()">Close</button>
-            </div>
+      <div class="interest-modal-box">
+        <div id="interestModalBody">
+          <h2>&#x1F4E7; Place My Interest</h2>
+          <p class="subtitle">
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e2818d8c96838196a293cfd181cc818d8f">[email&#160;protected]</a></strong> on your behalf.
+          </p>
+          <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
+          <label for="senderEmailInput">
+            Your contact email address <span style="color:#ef4444">*</span>
+          </label>
+          <input type="email" id="senderEmailInput" placeholder="you@example.com"
+                 oninput="document.getElementById('emailSendError').style.display='none'">
+          <div class="email-send-error" id="emailSendError">Please enter a valid email address.</div>
+          <div class="interest-modal-footer">
+            <button class="btn-cancel-interest" onclick="closeInterestModal()">Cancel</button>
+            <button class="btn-send-interest"   onclick="sendInterestEmail()">&#x2709;&#xFE0F; Send Email</button>
+          </div>
         </div>
+        <div id="interestSentMsg" class="interest-sent-msg" style="display:none">
+          &#x2705; Your interest has been registered!<br>
+          <span style="font-size:13px;color:#64748b;margin-top:6px;display:block">
+            The Q3 Consultancy team will be in touch shortly.
+          </span>
+          <button class="btn-cancel-interest" style="margin-top:16px" onclick="closeInterestModal()">Close</button>
+        </div>
+      </div>
     </div>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
