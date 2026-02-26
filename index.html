@@ -1008,9 +1008,9 @@
             if (isAdmin) return false;
             const status = (row['Status'] || '').toString().toLowerCase().trim();
             if (status.includes('sold to another buyer')) return true;
-            // Hide entries dated before 1 Nov 2025
+            // Hide entries dated before 1 Nov 2025 (only if date is present and parseable)
             const dateReceived = parseDateReceived(row['Date Received']);
-            if (dateReceived && dateReceived < CUTOFF_DATE) return true;
+            if (dateReceived !== null && !isNaN(dateReceived.getTime()) && dateReceived < CUTOFF_DATE) return true;
             return false;
         }
 
@@ -1119,8 +1119,7 @@
                 const filterId = `filter-${col.replace(/[^a-zA-Z0-9]/g, '-')}`;
                 const filterValue = columnFilters[col] || '';
                 const displayName = getColDisplayName(col);
-                const escapedCol  = col.replace(/'/g, "\'").replace(/
-/g, "\n");
+                const escapedCol  = col.replace(/'/g, "\'").replace(/\n/g, "\n");
 
                 if (DROPDOWN_FILTER_COLS.includes(col)) {
                     // Build sorted unique values from current (non-hidden) rows
@@ -1157,7 +1156,9 @@
 
         // Update column filter
         function updateColumnFilter(column, value) {
-            columnFilters[column] = value.toLowerCase();
+            // Normalize \n escape sequences back to real newlines (from HTML attribute escaping)
+            const normalizedCol = column.replace(/\\n/g, '\n');
+            columnFilters[normalizedCol] = value.toLowerCase();
             filterTable();
         }
 
@@ -1239,6 +1240,8 @@
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
+            // Store visible columns globally for filterTable
+            window._visibleCols = visibleColumns;
 
             // Build table header with sort functionality
             let html = '<thead><tr>';
@@ -1340,7 +1343,7 @@
                         } else {
                             // No % set — allow manual entry
                             const colIdx = visibleColumns.indexOf(col);
-                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${index}" data-col-idx="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
+                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
                         }
                         return;
                     }
@@ -1355,7 +1358,7 @@
                         statusClass = getStatusClass(value);
                     }
                     
-                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}">${value}</td>`;
+                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}">${value}</td>`;
                 });
                 if (isAdmin) {
                     html += `<td><button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button></td>`;
@@ -1782,10 +1785,13 @@
                     }
                 }
 
-                // Column filters
-                if (showRow) {
+                // Column filters - use data-col-idx to look up column name
+                if (showRow && window._visibleCols) {
                     cells.forEach(cell => {
-                        const col = cell.getAttribute('data-col');
+                        const colIdxStr = cell.getAttribute('data-col-idx');
+                        if (colIdxStr === null) return;
+                        const colIdx = parseInt(colIdxStr);
+                        const col = window._visibleCols[colIdx];
                         if (col && columnFilters[col]) {
                             const cellText = cell.textContent.toLowerCase();
                             if (!cellText.includes(columnFilters[col])) {
