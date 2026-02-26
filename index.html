@@ -907,6 +907,14 @@
             color: #16a34a;
         }
 
+        
+        @keyframes shake {
+            0%,100%{ transform:translateX(0); }
+            20%    { transform:translateX(-5px); }
+            40%    { transform:translateX(5px); }
+            60%    { transform:translateX(-4px); }
+            80%    { transform:translateX(4px); }
+        }
         </style>
 </head>
 <body>
@@ -1015,7 +1023,8 @@
         // Configuration
         const ADMIN_PASSWORD = 'admin123';
         let isAdmin = false;
-        let selectedRows = new Set(); // tracks row indices for "Place my Interest"
+        let selectedRows = new Set();
+        let selectionMode = false;  // rows only clickable after 'Place my Interest' // tracks row indices for "Place my Interest"
         let currentTab = 'engines';
         let rawData = {};
         let data = {};
@@ -1346,7 +1355,7 @@
             });
 
             html += '<button class="btn-clear-filters" onclick="clearAllFilters()">Clear Filters</button>';
-            html += `<button class="btn-interest" onclick="openInterestModal()"
+            html += `<button id="btnInterest" class="btn-interest" onclick="openInterestModal()"
                         onmouseenter="(function(e){var t=document.getElementById('interestTip');if(t){t.style.display='block';positionTooltip(e,t);}})(event)"
                         onmousemove="(function(e){var t=document.getElementById('interestTip');if(t)positionTooltip(e,t);})(event)"
                         onmouseleave="(function(){var t=document.getElementById('interestTip');if(t)t.style.display='none';})()"
@@ -1928,12 +1937,14 @@
 
         // Switch tabs
         function switchTab(tab) {
-            // Clear row selection when changing tabs
+            // Exit selection mode and clear row selection when changing tabs
+            selectionMode = false;
             selectedRows.clear();
             document.querySelectorAll('#dataTable tbody tr.row-selected')
                      .forEach(tr => tr.classList.remove('row-selected'));
             const mb = document.getElementById('btnMailSend');
             if (mb) { mb.classList.remove('active'); mb.title = 'Select one or more rows first'; }
+            updateInterestButton();
             currentTab = tab;
             sortColumn = null;
             sortDirection = 'asc';
@@ -2156,7 +2167,29 @@
             });
         });
             // ── Row selection helpers ───────────────────────────────────
-                function positionTooltip(e, tip) {
+                
+        function updateInterestButton() {
+            var btn = document.getElementById('btnInterest');
+            if (!btn) return;
+            if (!selectionMode) {
+                btn.innerHTML = '\u{1F3F7}\uFE0F Place my Interest';
+                btn.style.background = 'linear-gradient(135deg, #f97316, #ef4444)';
+                btn.title = '';
+            } else {
+                var n = selectedRows.size;
+                btn.innerHTML = n === 0
+                    ? '\u270D\uFE0F Select rows below…'
+                    : '\u2709\uFE0F Send (' + n + ' selected)';
+                btn.style.background = n === 0
+                    ? 'linear-gradient(135deg, #3b82f6, #6366f1)'
+                    : 'linear-gradient(135deg, #10b981, #059669)';
+                btn.title = n === 0
+                    ? 'Click the rows you are interested in, then click here to send'
+                    : 'Click to open the email draft for ' + n + ' selected row(s)';
+            }
+        }
+
+function positionTooltip(e, tip) {
             const GAP = 14;
             const vw = window.innerWidth;
             const vh = window.innerHeight;
@@ -2175,6 +2208,7 @@
         }
 
 function toggleRowSelection(rowIndex, trEl) {
+            if (!selectionMode) return;   // selection only active after clicking "Place my Interest"
             if (selectedRows.has(rowIndex)) {
                 selectedRows.delete(rowIndex);
                 trEl.classList.remove('row-selected');
@@ -2193,14 +2227,44 @@ function toggleRowSelection(rowIndex, trEl) {
                     mb.title = 'Select one or more rows first';
                 }
             }
+            updateInterestButton();
         }
 
         // ── Interest email modal ────────────────────────────────────
         function openInterestModal() {
-            if (selectedRows.size === 0) return;
+            if (!selectionMode) {
+                // Phase 1: Enter selection mode
+                selectionMode = true;
+                selectedRows.clear();
+                // Update all selected-row highlights (clear any stale ones)
+                document.querySelectorAll('#dataTable tbody tr.row-selected')
+                         .forEach(tr => tr.classList.remove('row-selected'));
+                updateMailButton();
+                updateInterestButton();
+                // Give rows a pointer cursor to signal they are now clickable
+                document.querySelectorAll('#dataTable tbody tr')
+                         .forEach(tr => tr.style.cursor = 'pointer');
+                return;
+            }
+            // Phase 2: Already in selection mode — open the email modal
+            if (selectedRows.size === 0) {
+                // No rows selected yet — shake the button as a hint
+                var btn = document.getElementById('btnInterest');
+                if (btn) {
+                    btn.style.animation = 'none';
+                    btn.offsetHeight; // reflow
+                    btn.style.animation = 'shake 0.4s ease';
+                }
+                return;
+            }
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             const filteredData = sheetData.filter(function(row){ return !shouldHideRow(row); });
+            const allCols    = getOrderedColumns(sheetData);
+            const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
+            const showCols   = allCols.filter(function(col){
+                return !hiddenCols.includes(col) && col !== 'Files' && !col.startsWith('Buyer(s)');
+            });
             const allCols    = getOrderedColumns(sheetData);
             const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
             const showCols   = allCols.filter(function(col){
@@ -2240,9 +2304,19 @@ function toggleRowSelection(rowIndex, trEl) {
             document.getElementById('interestSentMsg').style.display   = 'none';
             document.getElementById('interestModal').classList.add('show');
         }
+        }
 
         function closeInterestModal() {
             document.getElementById('interestModal').classList.remove('show');
+            // Exit selection mode and clear all highlights
+            selectionMode = false;
+            selectedRows.clear();
+            document.querySelectorAll('#dataTable tbody tr.row-selected')
+                     .forEach(tr => tr.classList.remove('row-selected'));
+            document.querySelectorAll('#dataTable tbody tr')
+                     .forEach(tr => tr.style.cursor = '');
+            updateMailButton();
+            updateInterestButton();
         }
 
         function sendInterestEmail() {
@@ -2309,7 +2383,7 @@ function toggleRowSelection(rowIndex, trEl) {
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="f5969a9b81949681b584d8c696db969a98">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="65060a0b1104061125144856064b060a08">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
