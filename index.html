@@ -1004,47 +1004,130 @@
         .interest-modal-overlay.show {
             display: flex;
         }
+    
+        /* ── Google Drive Link UI ─────────────────────────────────────── */
+        .file-upload-cell {
+            min-width: 160px;
+            vertical-align: top;
+            padding: 4px 6px !important;
+        }
+        .file-links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-bottom: 4px;
+        }
+        .file-links-list a.file-link {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 11px;
+            color: #1e5ba8;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .file-links-list a.file-link:hover { text-decoration: underline; }
+        .file-remove {
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 10px;
+            margin-left: 2px;
+            opacity: 0.6;
+        }
+        .file-remove:hover { opacity: 1; }
+        .btn-add-link {
+            background: none;
+            border: 1px dashed #94a3b8;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: #64748b;
+            cursor: pointer;
+            margin-top: 2px;
+        }
+        .btn-add-link:hover { background: #f1f5f9; border-color: #1e5ba8; color: #1e5ba8; }
+        .add-link-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 4px;
+            padding: 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+        }
+        .add-link-input, .add-link-label {
+            width: 100%;
+            padding: 4px 6px;
+            font-size: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .add-link-input:focus, .add-link-label:focus {
+            outline: none;
+            border-color: #1e5ba8;
+        }
+        .btn-link-save {
+            background: #1e5ba8;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-link-save:hover { background: #1a4f96; }
+        .btn-link-cancel {
+            background: none;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 3px 10px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .btn-link-cancel:hover { background: #f1f5f9; }
+        /* ── End Google Drive Link UI ─────────────────────────────────── */
+
     </style>
 
     <!-- ═══════════════════════════════════════════════════
-         FIREBASE CONFIGURATION
-         Replace the values below with YOUR Firebase project
-         settings from: Firebase Console → Project Settings
+         SUPABASE CONFIGURATION
+         Replace the values below with YOUR Supabase project
+         settings from: Supabase Dashboard → Project Settings → API
          ═══════════════════════════════════════════════════ -->
-    <script type="module">
-      import { initializeApp }        from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-      import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot }
-                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-      import { getStorage, ref, uploadBytes, getDownloadURL }
-                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ── YOUR SUPABASE CONFIG ────────────────────────────────────────
+    // Paste these two values from Supabase → Project Settings → API
+    const SUPABASE_URL     = 'https://msijsssnhtbobjvevpoq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zaWpzc3NuaHRib2JqdmV2cG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDY2OTcsImV4cCI6MjA4Nzc4MjY5N30.4GdqjfhYM-fRNqHJKmtNadYJrD1Nc5dRkKXWaMZlAk0';
+    // ────────────────────────────────────────────────────────────────
 
-      // ── YOUR FIREBASE CONFIG (paste from Firebase Console) ──
-      const firebaseConfig = {
-        apiKey:            "PASTE_YOUR_API_KEY_HERE",
-        authDomain:        "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
-        projectId:         "PASTE_YOUR_PROJECT_ID",
-        storageBucket:     "PASTE_YOUR_PROJECT_ID.appspot.com",
-        messagingSenderId: "PASTE_YOUR_SENDER_ID",
-        appId:             "PASTE_YOUR_APP_ID"
-      };
+    (function initSupabase() {
+      const stillPlaceholder =
+        SUPABASE_URL.includes('PASTE_YOUR') ||
+        SUPABASE_ANON_KEY.includes('PASTE_YOUR');
 
-      // Initialise Firebase
-      const _app     = initializeApp(firebaseConfig);
-      const _db      = getFirestore(_app);
-      const _storage = getStorage(_app);
+      if (stillPlaceholder) {
+        // Will fall back to data.json in loadData()
+        window._sbReady = false;
+        return;
+      }
 
-      // ── Expose to the main (non-module) script via window ──
-      window._fbApp     = _app;
-      window._fbDb      = _db;
-      window._fbStorage = _storage;
-      window._fbSDK = {
-        collection, doc, getDocs, setDoc, deleteDoc, onSnapshot,
-        ref, uploadBytes, getDownloadURL
-      };
-      // Signal that Firebase is ready
-      window._fbReady = true;
-      document.dispatchEvent(new Event('firebaseReady'));
-    </script>
+      try {
+        window._sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window._sbReady = true;
+        document.dispatchEvent(new Event('supabaseReady'));
+        console.log('✅ Supabase initialised');
+      } catch(e) {
+        console.error('Supabase init error:', e);
+        window._sbReady = false;
+      }
+    })();
+  </script>
 </head>
 <body>
     <div class="container">
@@ -1564,52 +1647,39 @@
         // Load data
         async function loadData() {
             try {
-                // ── Detect whether Firebase has been configured ──
-                const firebaseConfigured = (
-                    typeof window._fbReady !== 'undefined' &&
-                    !document.querySelector('script[type="module"]')
-                        ?.textContent?.includes('PASTE_YOUR_API_KEY_HERE')
-                );
-
-                // Check placeholder inline (works before module executes too)
-                const moduleScript = document.querySelector('script[type="module"]');
-                const stillPlaceholder = moduleScript &&
-                    moduleScript.textContent.includes('PASTE_YOUR_API_KEY_HERE');
+                // ── Detect whether Supabase has been configured ──
+                const stillPlaceholder = !window._sbReady;
 
                 if (stillPlaceholder) {
-                    // ── FALLBACK: load from data.json until Firebase is set up ──
-                    console.info('ℹ️ Firebase config not set — loading from data.json');
+                    // ── FALLBACK: load from data.json until Supabase is set up ──
+                    console.info('ℹ️ Supabase config not set — loading from data.json');
                     const response = await fetch('data.json');
                     if (!response.ok) throw new Error('data.json not found (status ' + response.status + ')');
                     const rawData = await response.json();
                     data = convertData(rawData);
                 } else {
-                    // ── FIREBASE PATH: wait for SDK then load Firestore ──
-                    await new Promise((resolve) => {
-                        if (window._fbReady) return resolve();
-                        document.addEventListener('firebaseReady', resolve, { once: true });
-                        setTimeout(resolve, 6000);
-                    });
-
-                    if (!window._fbDb) {
-                        throw new Error('Firebase not initialised — check your config values in the HTML file.');
-                    }
-
-                    const { collection, getDocs } = window._fbSDK;
-                    const db = window._fbDb;
-
-                    const SHEETS = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
+                    // ── SUPABASE PATH: SELECT all rows from each table ──
+                    const sb = window._sb;
+                    const TABLE_MAP = {
+                        'Engines':        'engines',
+                        'Aircraft Sale':  'aircraft_sale',
+                        'Aircraft Lease': 'aircraft_lease',
+                        'Parts':          'parts'
+                    };
                     data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
 
-                    for (const sheetName of SHEETS) {
-                        const colRef   = collection(db, sheetName.replace(/ /g, '_'));
-                        const snapshot = await getDocs(colRef);
-                        const rows     = [];
-                        snapshot.forEach(docSnap => {
-                            rows.push({ _docId: docSnap.id, ...docSnap.data() });
+                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
+                        const { data: rows, error } = await sb
+                            .from(tableName)
+                            .select('*')
+                            .order('no', { ascending: true });
+                        if (error) throw new Error(`Supabase SELECT ${tableName}: ${error.message}`);
+                        // Map snake_case columns back and tag _docId for upserts
+                        data[sheetName] = (rows || []).map(r => {
+                            const mapped = mapFromSupabase(r, sheetName);
+                            mapped._docId = String(r.id || r.no || '');
+                            return mapped;
                         });
-                        rows.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
-                        data[sheetName] = rows;
                     }
                 }
 
@@ -1638,21 +1708,21 @@
                         }
                     });
                 });
-                console.log('✅ Data loaded from Firebase Firestore');
+                console.log('✅ Data loaded from Supabase');
                 renderTable();
                 renderFilters();
                 updateStats();
 
             } catch (err) {
-                console.error('Firebase load error:', err);
+                console.error('Supabase load error:', err);
                 const main = document.querySelector('main') || document.body;
                 const errDiv = document.createElement('div');
                 errDiv.style.cssText = 'background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:24px;margin:20px;color:#dc2626;font-family:sans-serif;';
-                errDiv.innerHTML = `<strong>⚠️ Firebase Connection Error</strong><br><br>${err.message}<br><br>
+                errDiv.innerHTML = `<strong>⚠️ Supabase Connection Error</strong><br><br>${err.message}<br><br>
                     <small>Check that:<br>
-                    1. Your Firebase config values are filled in (apiKey, projectId, etc.)<br>
-                    2. Firestore Database is enabled in Firebase Console<br>
-                    3. Firestore rules allow read access<br>
+                    1. Your Supabase URL and Anon Key are filled in.)<br>
+                    2. Supabase project is active at supabase.com<br>
+                    3. Supabase RLS policies allow read access<br>
                     4. Your collections are named: Engines, Aircraft_Sale, Aircraft_Lease, Parts</small>`;
                 main.prepend(errDiv);
             }
@@ -1728,18 +1798,22 @@
                             const fileEntries = parseFileEntries(value);
                             const sheetLabel = getSheetName(currentTab);
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
-                                const ext = entry.originalName.split('.').pop() || 'file';
-                                const rowData = filteredData[index];
-                                const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
-                                const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
+                                const label = entry.originalName || 'File ' + (fi+1);
+                                return `<a href="${entry.url}" class="file-link" target="_blank" title="Open: ${label}">📄 <span style="font-size:10px;">${label}</span></a>
+                                        <span class="file-remove" onclick="removeFileLink(${index},${fi})" title="Remove this link">✕</span>`;
                             }).join('');
-                            // Grey paperclip icon when no files, coloured when files exist
-                            const uploadIconStyle = fileEntries.length === 0 ? 'filter: grayscale(100%) opacity(0.4);' : '';
-                            html += `<td class="file-upload-cell">
-                                <span class="file-icon" onclick="uploadFile(${index})" title="Upload file" style="${uploadIconStyle}">📎</span>
-                                <input type="file" id="file-${index}" class="file-upload-input" onchange="handleFileUpload(${index}, this)" accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.csv">
-                                ${fileLinksHtml}
+                            html += `<td class="file-upload-cell" id="fcell-${index}">
+                                <div class="file-links-list">${fileLinksHtml}</div>
+                                <button class="btn-add-link" onclick="showAddLinkInput(${index})" title="Add Google Drive or any file link">＋ Add Link</button>
+                                <div class="add-link-row" id="addlink-${index}" style="display:none;">
+                                    <input type="text" class="add-link-input" id="linkinput-${index}"
+                                           placeholder="Paste Google Drive / Dropbox / any URL here"
+                                           onkeydown="if(event.key==='Enter')saveFileLink(${index})"/>
+                                    <input type="text" class="add-link-label" id="linklabel-${index}"
+                                           placeholder="File name (e.g. Engine Records.pdf)"/>
+                                    <button class="btn-link-save" onclick="saveFileLink(${index})">Save</button>
+                                    <button class="btn-link-cancel" onclick="hideAddLinkInput(${index})">Cancel</button>
+                                </div>
                             </td>`;
                         } else {
                             const fileEntries = parseFileEntries(value);
@@ -1849,49 +1923,13 @@
 
         // File upload functions
         function uploadFile(rowIndex) {
-            document.getElementById(`file-${rowIndex}`).click();
+            // Legacy — now uses showAddLinkInput
+            showAddLinkInput(rowIndex);
         }
 
         async function handleFileUpload(rowIndex, input) {
-            if (!isAdmin) return;
-            const file = input.files[0];
-            if (!file) return;
-
-            const sheetName = getSheetName(currentTab);
-            const rowData   = data[sheetName][rowIndex];
-            const dealNum   = rowData['Deal #'] || rowData['No'] || rowIndex + 1;
-
-            // Show uploading state
-            const uploadBtn = input.closest('td') ? input.closest('td').querySelector('.btn-upload') : null;
-            if (uploadBtn) { uploadBtn.textContent = '⏳ Uploading…'; uploadBtn.disabled = true; }
-
-            try {
-                const { ref, uploadBytes, getDownloadURL } = window._fbSDK;
-                const storage = window._fbStorage;
-
-                // Upload to Firebase Storage: files/{sheet}/{dealNum}/{filename}
-                const storagePath = `files/${sheetName.replace(/ /g,'_')}/${dealNum}/${file.name}`;
-                const storageRef  = ref(storage, storagePath);
-                const snapshot    = await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(snapshot.ref);
-
-                // Store as: downloadURL|originalName|dealNum
-                const fileEntry = `${downloadURL}|${file.name}|${dealNum}`;
-                const currentFiles = data[sheetName][rowIndex]['Files'] || '';
-                const fileList = currentFiles ? currentFiles.split(';;').map(f => f.trim()).filter(f => f) : [];
-                fileList.push(fileEntry);
-                data[sheetName][rowIndex]['Files'] = fileList.join(';;');
-
-                // Auto-save the row
-                await saveCell(rowIndex, 'Files', data[sheetName][rowIndex]['Files']);
-                renderTable();
-                console.log('✅ File uploaded to Firebase Storage:', downloadURL);
-            } catch (err) {
-                console.error('File upload error:', err);
-                alert('❌ Upload failed: ' + err.message + '\n\nCheck Firebase Storage rules allow write access.');
-            } finally {
-                if (uploadBtn) { uploadBtn.textContent = '📎 Upload File'; uploadBtn.disabled = false; }
-            }
+            // Legacy — replaced by Google Drive link system
+            console.warn('handleFileUpload called — use saveFileLink instead');
         }
         
         // Parse file entries (stored as url|name|dealNum separated by ;;)
@@ -1957,22 +1995,21 @@
             }
             renderTable();
 
-            // Persist to Firestore
-            try {
-                const { collection, doc, setDoc } = window._fbSDK;
-                const db = window._fbDb;
-                const SHEET_MAP = {
-                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
-                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
-                };
-                const colName_fb = SHEET_MAP[sheetName] || sheetName;
-                const row    = { ...data[sheetName][rowIndex] };
-                const docId  = row._docId || String(row['No'] || rowIndex + 1);
-                delete row._docId;
-                await setDoc(doc(collection(db, colName_fb), docId), row, { merge: true });
-                console.log('✅ Cell saved to Firebase:', colName, '=', newValue);
-            } catch (err) {
-                console.warn('Firebase save error (cell):', err.message);
+            // Persist to Supabase
+            if (window._sbReady) {
+                try {
+                    const TABLE_MAP = {
+                        'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
+                        'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
+                    };
+                    const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
+                    const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
+                    const { error } = await window._sb.from(tableName).upsert(row);
+                    if (error) throw error;
+                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
+                } catch (err) {
+                    console.warn('Supabase save error (cell):', err.message);
+                }
             }
         }
 
@@ -1990,19 +2027,20 @@
             renderTable();
             updateStats();
 
-            // Delete from Firestore
-            try {
-                const { collection, doc, deleteDoc } = window._fbSDK;
-                const db = window._fbDb;
-                const SHEET_MAP = {
-                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
-                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
-                };
-                const colName = SHEET_MAP[sheetName] || sheetName;
-                await deleteDoc(doc(collection(db, colName), docId));
-                console.log('✅ Deal deleted from Firebase:', docId);
-            } catch (err) {
-                console.warn('Firebase delete error:', err.message);
+            // Delete from Supabase
+            if (window._sbReady) {
+                try {
+                    const TABLE_MAP = {
+                        'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
+                        'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
+                    };
+                    const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
+                    const { error } = await window._sb.from(tableName).delete().eq('id', docId);
+                    if (error) throw error;
+                    console.log('✅ Deal deleted from Supabase:', docId);
+                } catch (err) {
+                    console.warn('Supabase delete error:', err.message);
+                }
             }
         }
 
@@ -2216,24 +2254,25 @@
             const newIdx = data[sheetName].length - 1;
             recalcRow(sheetName, newIdx);
 
-            // Save to Firestore
-            try {
-                const { collection, doc, setDoc } = window._fbSDK;
-                const db = window._fbDb;
-                const SHEET_MAP = {
-                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
-                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
-                };
-                const colName_fb = SHEET_MAP[sheetName] || sheetName;
-                const rowToSave  = { ...data[sheetName][newIdx] };
-                const docId      = String(rowToSave['No'] || (newIdx + 1));
-                rowToSave._docId = docId;
-                delete rowToSave._docId;
-                await setDoc(doc(collection(db, colName_fb), docId), rowToSave, { merge: true });
-                data[sheetName][newIdx]._docId = docId;
-                console.log('✅ New deal saved to Firebase:', docId);
-            } catch (err) {
-                console.warn('Firebase add error:', err.message);
+            // Save to Supabase
+            if (window._sbReady) {
+                try {
+                    const TABLE_MAP = {
+                        'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
+                        'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
+                    };
+                    const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
+                    const rowToSave = mapToSupabase({ ...data[sheetName][newIdx] }, sheetName);
+                    const { data: inserted, error } = await window._sb
+                        .from(tableName).insert(rowToSave).select();
+                    if (error) throw error;
+                    if (inserted && inserted[0]) {
+                        data[sheetName][newIdx]._docId = String(inserted[0].id || inserted[0].no || newIdx+1);
+                    }
+                    console.log('✅ New deal saved to Supabase');
+                } catch (err) {
+                    console.warn('Supabase add error:', err.message);
+                }
             }
 
             hideAddDealModal();
@@ -2421,29 +2460,25 @@
             const toast = document.getElementById('saveToast');
 
             try {
-                const { collection, doc, setDoc } = window._fbSDK;
-                const db = window._fbDb;
-                const SHEET_MAP = {
-                    'Engines': 'Engines',
-                    'Aircraft Sale': 'Aircraft_Sale',
-                    'Aircraft Lease': 'Aircraft_Lease',
-                    'Parts': 'Parts'
+                const TABLE_MAP = {
+                    'Engines': 'engines',
+                    'Aircraft Sale': 'aircraft_sale',
+                    'Aircraft Lease': 'aircraft_lease',
+                    'Parts': 'parts'
                 };
 
                 let savedCount = 0;
-                for (const [sheetName, colName] of Object.entries(SHEET_MAP)) {
-                    const rows = data[sheetName] || [];
-                    for (let i = 0; i < rows.length; i++) {
-                        const row    = { ...rows[i] };
-                        const docId  = row._docId || String(row['No'] || i + 1);
-                        delete row._docId;
-                        const docRef = doc(collection(db, colName), docId);
-                        await setDoc(docRef, row, { merge: true });
-                        savedCount++;
+                if (window._sbReady) {
+                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
+                        const rows = data[sheetName] || [];
+                        const mapped = rows.map(r => mapToSupabase({...r}, sheetName));
+                        const { error } = await window._sb.from(tableName).upsert(mapped);
+                        if (error) throw error;
+                        savedCount += rows.length;
                     }
                 }
 
-                console.log(`✅ Saved ${savedCount} records to Firebase`);
+                console.log(`✅ Saved ${savedCount} records to Supabase`);
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
             } catch (err) {
@@ -2760,7 +2795,122 @@ function toggleRowSelection(rowIndex, trEl) {
         });
 
         
-        </script>
+        
+        // ── Google Drive / URL Link Management ─────────────────────────────
+        function showAddLinkInput(rowIndex) {
+            const row = document.getElementById('addlink-' + rowIndex);
+            if (row) {
+                row.style.display = 'flex';
+                const inp = document.getElementById('linkinput-' + rowIndex);
+                if (inp) inp.focus();
+            }
+        }
+
+        function hideAddLinkInput(rowIndex) {
+            const row = document.getElementById('addlink-' + rowIndex);
+            if (row) row.style.display = 'none';
+            const inp = document.getElementById('linkinput-' + rowIndex);
+            if (inp) inp.value = '';
+            const lbl = document.getElementById('linklabel-' + rowIndex);
+            if (lbl) lbl.value = '';
+        }
+
+        function saveFileLink(rowIndex) {
+            if (!isAdmin) return;
+            const urlInput   = document.getElementById('linkinput-' + rowIndex);
+            const nameInput  = document.getElementById('linklabel-' + rowIndex);
+            const rawUrl     = (urlInput  ? urlInput.value.trim()  : '');
+            const rawName    = (nameInput ? nameInput.value.trim() : '');
+
+            if (!rawUrl) {
+                alert('Please paste a URL first.');
+                return;
+            }
+
+            // Convert Google Drive share URL to direct preview URL
+            let finalUrl = rawUrl;
+            const gdMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (gdMatch) {
+                finalUrl = 'https://drive.google.com/file/d/' + gdMatch[1] + '/view';
+            }
+
+            const fileName = rawName || guessFileName(rawUrl);
+            const entry    = finalUrl + '|' + fileName;
+
+            const sheetName = getSheetName(currentTab);
+            const existing  = data[sheetName][rowIndex]['Files'] || '';
+            const newVal    = existing ? existing + ';;' + entry : entry;
+
+            saveCell(rowIndex, 'Files', newVal);
+            hideAddLinkInput(rowIndex);
+        }
+
+        function removeFileLink(rowIndex, fileIdx) {
+            if (!isAdmin) return;
+            if (!confirm('Remove this file link?')) return;
+            const sheetName = getSheetName(currentTab);
+            const existing  = data[sheetName][rowIndex]['Files'] || '';
+            const entries   = existing.split(';;').map(e => e.trim()).filter(e => e);
+            entries.splice(fileIdx, 1);
+            saveCell(rowIndex, 'Files', entries.join(';;'));
+        }
+
+        function guessFileName(url) {
+            try {
+                const u    = new URL(url);
+                const segs = u.pathname.split('/').filter(s => s);
+                const last = segs[segs.length - 1];
+                if (last && last.includes('.')) return decodeURIComponent(last);
+                if (u.hostname.includes('drive.google')) return 'Google Drive File';
+                if (u.hostname.includes('dropbox'))     return 'Dropbox File';
+                if (u.hostname.includes('sharepoint'))  return 'SharePoint File';
+                if (u.hostname.includes('onedrive'))    return 'OneDrive File';
+                return 'Linked File';
+            } catch(e) {
+                return 'Linked File';
+            }
+        }
+        // ── End Google Drive Link Management ───────────────────────────────
+
+        
+        // ── Supabase column mapping helpers ─────────────────────────────────
+        // Supabase table columns use lowercase + underscores.
+        // Portal uses the original column names (Title Case with spaces/symbols).
+        // We store all portal fields in a single JSONB column called `deal_data`
+        // plus an auto-increment `id` primary key.  This avoids per-sheet
+        // column mapping and works for any schema.
+
+        function mapToSupabase(row, sheetName) {
+            const out = { deal_data: {} };
+            for (const [k, v] of Object.entries(row)) {
+                if (k === '_docId') continue;
+                out.deal_data[k] = v;
+            }
+            // Keep 'no' as a top-level sortable column
+            const noVal = row['No'] || row['no'];
+            if (noVal !== undefined) out.no = parseInt(noVal) || 0;
+            // Keep id if already assigned
+            if (row._docId && !isNaN(row._docId)) out.id = parseInt(row._docId);
+            return out;
+        }
+
+        function mapFromSupabase(row, sheetName) {
+            // row = { id, no, deal_data: { ... } }
+            const dealData = row.deal_data || {};
+            const result   = { ...dealData };
+            // Ensure No is set
+            if (!result['No'] && row.no) result['No'] = String(row.no);
+            return result;
+        }
+
+        // File upload via Google Drive links (no storage backend needed)
+        async function handleFileUpload(rowIndex, input) {
+            // Legacy stub - replaced by Google Drive link system
+            console.warn('handleFileUpload: use saveFileLink instead');
+        }
+        // ── End Supabase helpers ─────────────────────────────────────────────
+
+    </script>
 
     <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
 
@@ -2770,7 +2920,7 @@ function toggleRowSelection(rowIndex, trEl) {
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="395a56574d585a4d7948140a5a175a5654">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="97f4f8f9e3f6f4e3d7e6baa4f4b9f4f8fa">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
