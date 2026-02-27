@@ -1087,17 +1087,16 @@
 
         <footer>
             <div class="footer-content">
-                <div class="footer-company">Q3 Consultancy
-                    <span style="margin: 0 8px; opacity:.4;">|</span>
-                    <a href="#" onclick="document.getElementById('disclaimerModal').classList.add('show');return false;"
-                       style="color:rgba(255,255,255,0.75);font-size:11px;text-decoration:underline;cursor:pointer;">
-                       Disclaimer
-                    </a>
-                </div>
+                <div class="footer-company">Q3 Consultancy</div>
                 <div class="footer-contact">
                     <span>📱 <a href="https://wa.me/971589362400" target="_blank" title="WhatsApp" style="text-decoration:none;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" style="width:15px;height:15px;vertical-align:middle;margin-right:3px;">
                     </a>+971 (0) 589 362 400 🇦🇪</span>
+                    <br>
+                    <a href="#" onclick="document.getElementById('disclaimerModal').classList.add('show');return false;"
+                       style="color:rgba(255,255,255,0.65);font-size:10.5px;text-decoration:underline;cursor:pointer;margin-top:3px;display:inline-block;">
+                       ⚖️ Disclaimer
+                    </a>
                 </div>
             </div>
         </footer>
@@ -1532,35 +1531,53 @@
         // Load data
         async function loadData() {
             try {
-                // ── Wait for Firebase SDK to be ready ──
-                await new Promise((resolve) => {
-                    if (window._fbReady) return resolve();
-                    document.addEventListener('firebaseReady', resolve, { once: true });
-                    // Fallback: resolve after 5s even if event missed
-                    setTimeout(resolve, 5000);
-                });
+                // ── Detect whether Firebase has been configured ──
+                const firebaseConfigured = (
+                    typeof window._fbReady !== 'undefined' &&
+                    !document.querySelector('script[type="module"]')
+                        ?.textContent?.includes('PASTE_YOUR_API_KEY_HERE')
+                );
 
-                if (!window._fbDb) {
-                    throw new Error('Firebase not initialised. Check your Firebase config in the HTML file.');
-                }
+                // Check placeholder inline (works before module executes too)
+                const moduleScript = document.querySelector('script[type="module"]');
+                const stillPlaceholder = moduleScript &&
+                    moduleScript.textContent.includes('PASTE_YOUR_API_KEY_HERE');
 
-                const { collection, getDocs } = window._fbSDK;
-                const db = window._fbDb;
-
-                // ── Load all four sheets from Firestore ──
-                const SHEETS = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
-                data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-
-                for (const sheetName of SHEETS) {
-                    const colRef   = collection(db, sheetName.replace(/ /g, '_'));
-                    const snapshot = await getDocs(colRef);
-                    const rows     = [];
-                    snapshot.forEach(docSnap => {
-                        rows.push({ _docId: docSnap.id, ...docSnap.data() });
+                if (stillPlaceholder) {
+                    // ── FALLBACK: load from data.json until Firebase is set up ──
+                    console.info('ℹ️ Firebase config not set — loading from data.json');
+                    const response = await fetch('data.json');
+                    if (!response.ok) throw new Error('data.json not found (status ' + response.status + ')');
+                    const rawData = await response.json();
+                    data = convertData(rawData);
+                } else {
+                    // ── FIREBASE PATH: wait for SDK then load Firestore ──
+                    await new Promise((resolve) => {
+                        if (window._fbReady) return resolve();
+                        document.addEventListener('firebaseReady', resolve, { once: true });
+                        setTimeout(resolve, 6000);
                     });
-                    // Sort by No field numerically
-                    rows.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
-                    data[sheetName] = rows;
+
+                    if (!window._fbDb) {
+                        throw new Error('Firebase not initialised — check your config values in the HTML file.');
+                    }
+
+                    const { collection, getDocs } = window._fbSDK;
+                    const db = window._fbDb;
+
+                    const SHEETS = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
+                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+
+                    for (const sheetName of SHEETS) {
+                        const colRef   = collection(db, sheetName.replace(/ /g, '_'));
+                        const snapshot = await getDocs(colRef);
+                        const rows     = [];
+                        snapshot.forEach(docSnap => {
+                            rows.push({ _docId: docSnap.id, ...docSnap.data() });
+                        });
+                        rows.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                        data[sheetName] = rows;
+                    }
                 }
 
                 // Auto-calc Price and Commission USD for all existing rows
@@ -2711,7 +2728,7 @@ function toggleRowSelection(rowIndex, trEl) {
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7d1e1213091c1e093d0c504e1e531e1210">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d6b5b9b8a2b7b5a296a7fbe5b5f8b5b9bb">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
