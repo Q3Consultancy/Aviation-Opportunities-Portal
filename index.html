@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Q3 Consultancy - Aviation Trading Portal</title>
+    <title>Q3 Consultancy - Aviation Opportunities Portal</title>
     <style>
         * {
             margin: 0;
@@ -399,6 +399,10 @@
         }
 
         /* Status color coding */
+        
+        .status-negotiation td, .status-negotiation { background-color: #fef3c7 !important; color: #92400e !important; }
+        .status-financial   td, .status-financial   { background-color: #ede9fe !important; color: #5b21b6 !important; }
+
         .status-sold {
             background-color: #fee2e2 !important;
             color: #991b1b;
@@ -915,7 +919,116 @@
             60%    { transform:translateX(-4px); }
             80%    { transform:translateX(4px); }
         }
+        
+        /* ── Seamless iFrame / Wix embed ── */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            overflow-x: hidden;
+        }
+        /* Remove any box shadow that would show iframe border */
+        .portal-wrapper, #app, main {
+            box-shadow: none !important;
+        }
+        
+        /* ── Seamless iFrame / Wix embed ── */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            overflow-x: hidden;
+        }
+        /* Remove any box shadow that would show iframe border */
+        .portal-wrapper, #app, main {
+            box-shadow: none !important;
+        }
+        
+        .status-select {
+            border: none;
+            background: transparent;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            padding: 2px 0;
+            color: inherit;
+        }
+        .status-select:disabled { cursor: default; appearance: none; -webkit-appearance: none; }
+        .status-select:focus { outline: 1px solid #1e5ba8; border-radius: 3px; }
+        
+        /* ── Comments column ── */
+        .comments-cell { min-width: 140px; max-width: 200px; padding: 4px !important; vertical-align: top; }
+        .comments-textarea {
+            width: 100%; min-height: 38px; max-height: 80px;
+            resize: vertical; border: 1px solid #e2e8f0; border-radius: 4px;
+            font-size: 11px; font-family: inherit; padding: 4px 6px;
+            background: #fffbf0; line-height: 1.4;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .comments-textarea:focus {
+            outline: none; border-color: #1e5ba8;
+            box-shadow: 0 0 0 2px rgba(30,91,168,.15);
+        }
+        .comments-readonly { cursor: default; }
+        .comments-preview {
+            display: block; font-size: 11px; color: #475569;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 180px; cursor: help;
+        }
+        /* Full comments tooltip on hover */
+        .comments-cell:hover .comments-preview::after {
+            content: attr(data-full);
+            position: fixed;
+            background: rgba(30,41,59,0.96);
+            color: #fff; font-size: 12px; line-height: 1.5;
+            padding: 8px 12px; border-radius: 7px;
+            max-width: 300px; white-space: pre-wrap;
+            z-index: 99999; pointer-events: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,.3);
+            left: var(--tip-x, 50px); top: var(--tip-y, 50px);
+        }
         </style>
+
+    <!-- ═══════════════════════════════════════════════════
+         FIREBASE CONFIGURATION
+         Replace the values below with YOUR Firebase project
+         settings from: Firebase Console → Project Settings
+         ═══════════════════════════════════════════════════ -->
+    <script type="module">
+      import { initializeApp }        from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+      import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot }
+                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+      import { getStorage, ref, uploadBytes, getDownloadURL }
+                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+
+      // ── YOUR FIREBASE CONFIG (paste from Firebase Console) ──
+      const firebaseConfig = {
+        apiKey:            "PASTE_YOUR_API_KEY_HERE",
+        authDomain:        "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
+        projectId:         "PASTE_YOUR_PROJECT_ID",
+        storageBucket:     "PASTE_YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "PASTE_YOUR_SENDER_ID",
+        appId:             "PASTE_YOUR_APP_ID"
+      };
+
+      // Initialise Firebase
+      const _app     = initializeApp(firebaseConfig);
+      const _db      = getFirestore(_app);
+      const _storage = getStorage(_app);
+
+      // ── Expose to the main (non-module) script via window ──
+      window._fbApp     = _app;
+      window._fbDb      = _db;
+      window._fbStorage = _storage;
+      window._fbSDK = {
+        collection, doc, getDocs, setDoc, deleteDoc, onSnapshot,
+        ref, uploadBytes, getDownloadURL
+      };
+      // Signal that Firebase is ready
+      window._fbReady = true;
+      document.dispatchEvent(new Event('firebaseReady'));
+    </script>
 </head>
 <body>
     <div class="container">
@@ -924,12 +1037,12 @@
                 <img src="Q3 Consultancy Logo Sized.png" alt="Q3 Consultancy" onerror="this.parentElement.innerHTML='<div style=\'color:white;font-size:32px;font-weight:bold;text-shadow:0 2px 4px rgba(0,0,0,0.2);\'>Q3</div>'">
             </div>
             <div class="header-text">
-                <h1>Aviation Trading Portal</h1>
-                <p class="subtitle">Aircraft, Engine and Parts Opportunities - Powered by Q3 Consultancy</p>
+                <h1>Aviation Opportunities Portal</h1>
+                <p class="subtitle">Aircraft, Engine & Parts Opportunities — Powered by Q3 Consultancy</p>
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
-                <button class="btn btn-primary" id="loginBtn" onclick="showLoginModal()">Admin Login</button>
+                <button class="btn btn-primary" id="loginBtn" onclick="showLoginModal()" style="display:none;">Admin Login</button>
                 <button class="btn btn-success" id="logoutBtn" onclick="logout()" style="display: none;">Logout</button>
             </div>
         </header>
@@ -974,10 +1087,17 @@
 
         <footer>
             <div class="footer-content">
-                <div class="footer-company">Q3 Consultancy</div>
+                <div class="footer-company">Q3 Consultancy
+                    <span style="margin: 0 8px; opacity:.4;">|</span>
+                    <a href="#" onclick="document.getElementById('disclaimerModal').classList.add('show');return false;"
+                       style="color:rgba(255,255,255,0.75);font-size:11px;text-decoration:underline;cursor:pointer;">
+                       Disclaimer
+                    </a>
+                </div>
                 <div class="footer-contact">
-                    <a href="/cdn-cgi/l/email-protection#abdadec2c5c8d2ebda8698c885c8c4c6">📧 Email</a>
-                    <span>📱 +971 (0) 589 362 400 🇦🇪</span>
+                    <span>📱 <a href="https://wa.me/971589362400" target="_blank" title="WhatsApp" style="text-decoration:none;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" style="width:15px;height:15px;vertical-align:middle;margin-right:3px;">
+                    </a>+971 (0) 589 362 400 🇦🇪</span>
                 </div>
             </div>
         </footer>
@@ -1165,26 +1285,49 @@
         // Columns that use a dropdown filter (populated from unique data values)
         const DROPDOWN_FILTER_COLS = ['Location', 'Status'];
 
+        // ── Status dropdown options ──────────────────────────────────────────
+        const STATUS_OPTIONS = [
+            'Buyer Request',
+            'Seller Request',
+            'Buyer Evaluation',
+            'Negotiation',
+            'Closed'
+        ];
+        const ADMIN_STATUS_OPTIONS = [
+            'Buyer Request',
+            'Seller Request',
+            'Buyer Evaluation',
+            'Negotiation',
+            'Financial Closing',
+            'Closed'
+        ];
+
+
         // Status color mapping
         function getStatusClass(statusValue) {
             if (!statusValue) return '';
             const status = statusValue.toString().toLowerCase().trim();
-            if (status.includes('sold to another buyer')) return 'status-sold';
-            // Buyer patterns (green)
-            if (status.includes('buyer request')) return 'status-buyer-looking';
-            if (status.includes('buyer: looking for a seller')) return 'status-buyer-looking';
+            // Closed variations → grey
+            if (status === 'closed' || status.includes('sold to another buyer') || status.includes('closed')) return 'status-sold';
+            // Buyer patterns → green shades
+            if (status === 'buyer request' || status.includes('buyer request')) return 'status-buyer-looking';
+            if (status === 'buyer evaluation' || status.includes('buyer evaluation')) return 'status-buyer-reviewing';
+            if (status.includes('buyer: looking')) return 'status-buyer-looking';
             if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
-            if (status.includes('buyer: submitted loi')) return 'status-buyer-submitted';
-            if (status.includes('buyer: reviewing data')) return 'status-buyer-reviewing';
-            if (status.includes('buyer: finalizing loi and apa')) return 'status-buyer-finalizing';
-            // Seller patterns (blue)
-            if (status.includes('seller request')) return 'status-seller-looking';
-            if (status.includes('seller: looking for buyer')) return 'status-seller-looking';
+            if (status.includes('buyer: reviewing')) return 'status-buyer-reviewing';
+            if (status.includes('buyer: finalizing')) return 'status-buyer-finalizing';
+            // Negotiation → amber
+            if (status === 'negotiation' || status.includes('negotiation')) return 'status-negotiation';
+            // Financial Closing → purple
+            if (status === 'financial closing' || status.includes('financial closing')) return 'status-financial';
+            // Seller patterns → blue
+            if (status === 'seller request' || status.includes('seller request')) return 'status-seller-looking';
+            if (status.includes('seller: looking')) return 'status-seller-looking';
             // Lessor/Lessee
             if (status.includes('lessor request')) return 'status-lessor-looking';
-            if (status.includes('lessor: looking for lessee')) return 'status-lessor-looking';
+            if (status.includes('lessor: looking')) return 'status-lessor-looking';
             if (status.includes('lessee request')) return 'status-lessee-looking';
-            if (status.includes('lessee: looking for lessor')) return 'status-lessee-looking';
+            if (status.includes('lessee: looking')) return 'status-lessee-looking';
             return '';
         }
 
@@ -1223,6 +1366,7 @@
         const KEY_COMM_USD       = "Team Commission\n(USD)";
         const KEY_COMM_PCT       = "Team Commission\n(%)";
         const KEY_PRICE          = "Price \n(USD)";
+        const KEY_COMMENTS       = 'Comments';
 
         // Convert columns/data format to array of objects
         // Also injects Team Commission (%) column after Seller Price
@@ -1388,37 +1532,79 @@
         // Load data
         async function loadData() {
             try {
-                const response = await fetch('data.json');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // ── Wait for Firebase SDK to be ready ──
+                await new Promise((resolve) => {
+                    if (window._fbReady) return resolve();
+                    document.addEventListener('firebaseReady', resolve, { once: true });
+                    // Fallback: resolve after 5s even if event missed
+                    setTimeout(resolve, 5000);
+                });
+
+                if (!window._fbDb) {
+                    throw new Error('Firebase not initialised. Check your Firebase config in the HTML file.');
                 }
-                rawData = await response.json();
-                data = convertData(rawData);
+
+                const { collection, getDocs } = window._fbSDK;
+                const db = window._fbDb;
+
+                // ── Load all four sheets from Firestore ──
+                const SHEETS = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
+                data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+
+                for (const sheetName of SHEETS) {
+                    const colRef   = collection(db, sheetName.replace(/ /g, '_'));
+                    const snapshot = await getDocs(colRef);
+                    const rows     = [];
+                    snapshot.forEach(docSnap => {
+                        rows.push({ _docId: docSnap.id, ...docSnap.data() });
+                    });
+                    // Sort by No field numerically
+                    rows.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                    data[sheetName] = rows;
+                }
+
                 // Auto-calc Price and Commission USD for all existing rows
                 Object.keys(data).forEach(sheet => {
                     data[sheet].forEach((row, idx) => {
-                        // Only auto-calc Price if Seller Price exists (don't overwrite valid manual prices)
                         const sellerPrice = parseFloat(String(row[KEY_SELLER_PRICE] || '').replace(/,/g, '')) || 0;
-                        const commUSD = parseFloat(String(row[KEY_COMM_USD] || '').replace(/,/g, '')) || 0;
-                        if (sellerPrice > 0 && (row[KEY_PRICE] === '' || row[KEY_PRICE] === null || row[KEY_PRICE] === undefined)) {
-                            row[KEY_PRICE] = Math.round(sellerPrice + commUSD);
+                        const commPct     = parseFloat(String(row[KEY_COMM_PCT]    || '').replace(/,/g, '')) || 0;
+                        const commUSD     = parseFloat(String(row[KEY_COMM_USD]    || '').replace(/,/g, '')) || 0;
+                        const priceField  = row[KEY_PRICE];
+                        const hasManualPrice = priceField !== null && priceField !== undefined && priceField !== '';
+
+                        if (sellerPrice > 0 && !hasManualPrice) {
+                            const calcCommUSD = commUSD || (sellerPrice * commPct / 100);
+                            data[sheet][idx][KEY_COMM_USD] = calcCommUSD || '';
+                            data[sheet][idx][KEY_PRICE]    = sellerPrice + (calcCommUSD || 0);
                         }
                     });
                 });
-                console.log('✅ Data loaded successfully');
+
+                // Strip [] brackets from all Location values
+                Object.keys(data).forEach(sheet => {
+                    data[sheet].forEach(row => {
+                        if (row['Location']) {
+                            row['Location'] = row['Location'].toString().replace(/^\[|\]$/g, '').trim();
+                        }
+                    });
+                });
+                console.log('✅ Data loaded from Firebase Firestore');
                 renderTable();
                 renderFilters();
                 updateStats();
-            } catch (error) {
-                console.error('Error loading data:', error);
-                const container = document.querySelector('.content');
-                container.innerHTML = `
-                    <div style="padding: 40px; text-align: center; color: #ef4444;">
-                        <h2>❌ Error Loading Data</h2>
-                        <p style="margin-top: 10px;">Failed to load data.json</p>
-                        <p style="margin-top: 10px; font-size: 12px; color: #64748b;">Error: ${error.message}</p>
-                    </div>
-                `;
+
+            } catch (err) {
+                console.error('Firebase load error:', err);
+                const main = document.querySelector('main') || document.body;
+                const errDiv = document.createElement('div');
+                errDiv.style.cssText = 'background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:24px;margin:20px;color:#dc2626;font-family:sans-serif;';
+                errDiv.innerHTML = `<strong>⚠️ Firebase Connection Error</strong><br><br>${err.message}<br><br>
+                    <small>Check that:<br>
+                    1. Your Firebase config values are filled in (apiKey, projectId, etc.)<br>
+                    2. Firestore Database is enabled in Firebase Console<br>
+                    3. Firestore rules allow read access<br>
+                    4. Your collections are named: Engines, Aircraft_Sale, Aircraft_Lease, Parts</small>`;
+                main.prepend(errDiv);
             }
         }
 
@@ -1427,16 +1613,15 @@
         // inserting Team Commission (%) right after Seller's Price (USD)
         function getOrderedColumns(sheetData) {
             if (!sheetData || sheetData.length === 0) return [];
-            const cols = Object.keys(sheetData[0]);
-            // Ensure KEY_COMM_PCT is present
+            const cols = Object.keys(sheetData[0]).filter(c => c !== '_docId');
+            // Ensure KEY_COMM_PCT is present after Seller Price
             if (!cols.includes(KEY_COMM_PCT)) {
                 const idx = cols.indexOf(KEY_SELLER_PRICE);
-                if (idx > -1) {
-                    cols.splice(idx + 1, 0, KEY_COMM_PCT);
-                } else {
-                    cols.push(KEY_COMM_PCT);
-                }
+                if (idx > -1) cols.splice(idx + 1, 0, KEY_COMM_PCT);
+                else cols.push(KEY_COMM_PCT);
             }
+            // Ensure Comments column is always last (before nothing)
+            if (!cols.includes(KEY_COMMENTS)) cols.push(KEY_COMMENTS);
             return cols;
         }
 
@@ -1576,7 +1761,30 @@
                         statusClass = getStatusClass(value);
                     }
                     
-                    html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}">${value}</td>`;
+                    if (col === 'Status' && isAdmin) {
+                            const opts = ADMIN_STATUS_OPTIONS;
+                            let selOpts = opts.map(o => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`).join('');
+                            html += `<td class="${editableClass} ${statusClass}" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                                    `<select class="status-select" onchange="saveCell(${index},'Status',this.value);renderTable();" ${isAdmin ? '' : 'disabled'}>` +
+                                    `<option value="">— Select —</option>${selOpts}</select></td>`;
+                        } else if (col === KEY_COMMENTS) {
+                            // Comments: visible to all, editable only by admin, with tooltip preview
+                            const commVal = (value || '').replace(/"/g, '&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                            const shortVal = commVal.length > 30 ? commVal.substring(0,30)+'…' : commVal;
+                            if (isAdmin) {
+                                html += `<td class="comments-cell" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                                        `<textarea class="comments-textarea" spellcheck="true" ` +
+                                        `onblur="saveCell(${index},KEY_COMMENTS,this.value)" ` +
+                                        `title="${commVal}">${commVal}</textarea>` +
+                                        `</td>`;
+                            } else {
+                                html += `<td class="comments-cell comments-readonly" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                                        `<span class="comments-preview" data-full="${commVal}">${shortVal}</span>` +
+                                        `</td>`;
+                            }
+                        } else {
+                            html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}">${value}</td>`;
+                        }
                 });
                 if (isAdmin) {
                     html += `<td><button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button></td>`;
@@ -1592,30 +1800,46 @@
             document.getElementById(`file-${rowIndex}`).click();
         }
 
-        function handleFileUpload(rowIndex, input) {
+        async function handleFileUpload(rowIndex, input) {
             if (!isAdmin) return;
-            
             const file = input.files[0];
             if (!file) return;
 
-            const fileURL = URL.createObjectURL(file);
             const sheetName = getSheetName(currentTab);
-            
-            // Get deal number for naming
-            const rowData = data[sheetName][rowIndex];
-            const dealNum = rowData['Deal #'] || rowData['No'] || rowIndex + 1;
-            
-            // Store as JSON entry: url|originalName
-            const fileEntry = `${fileURL}|${file.name}|${dealNum}`;
-            
-            const currentFiles = data[sheetName][rowIndex]['Files'] || '';
-            const fileList = currentFiles ? currentFiles.split(';;').map(f => f.trim()).filter(f => f) : [];
-            fileList.push(fileEntry);
-            
-            data[sheetName][rowIndex]['Files'] = fileList.join(';;');
-            renderTable();
-            
-            alert(`File "${file.name}" uploaded successfully!\nNote: In production, this would be stored on a server.`);
+            const rowData   = data[sheetName][rowIndex];
+            const dealNum   = rowData['Deal #'] || rowData['No'] || rowIndex + 1;
+
+            // Show uploading state
+            const uploadBtn = input.closest('td') ? input.closest('td').querySelector('.btn-upload') : null;
+            if (uploadBtn) { uploadBtn.textContent = '⏳ Uploading…'; uploadBtn.disabled = true; }
+
+            try {
+                const { ref, uploadBytes, getDownloadURL } = window._fbSDK;
+                const storage = window._fbStorage;
+
+                // Upload to Firebase Storage: files/{sheet}/{dealNum}/{filename}
+                const storagePath = `files/${sheetName.replace(/ /g,'_')}/${dealNum}/${file.name}`;
+                const storageRef  = ref(storage, storagePath);
+                const snapshot    = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+
+                // Store as: downloadURL|originalName|dealNum
+                const fileEntry = `${downloadURL}|${file.name}|${dealNum}`;
+                const currentFiles = data[sheetName][rowIndex]['Files'] || '';
+                const fileList = currentFiles ? currentFiles.split(';;').map(f => f.trim()).filter(f => f) : [];
+                fileList.push(fileEntry);
+                data[sheetName][rowIndex]['Files'] = fileList.join(';;');
+
+                // Auto-save the row
+                await saveCell(rowIndex, 'Files', data[sheetName][rowIndex]['Files']);
+                renderTable();
+                console.log('✅ File uploaded to Firebase Storage:', downloadURL);
+            } catch (err) {
+                console.error('File upload error:', err);
+                alert('❌ Upload failed: ' + err.message + '\n\nCheck Firebase Storage rules allow write access.');
+            } finally {
+                if (uploadBtn) { uploadBtn.textContent = '📎 Upload File'; uploadBtn.disabled = false; }
+            }
         }
         
         // Parse file entries (stored as url|name|dealNum separated by ;;)
@@ -1672,7 +1896,7 @@
         }
 
         // Save cell value
-        function saveCell(rowIndex, colName, newValue) {
+        async function saveCell(rowIndex, colName, newValue) {
             const sheetName = getSheetName(currentTab);
             data[sheetName][rowIndex][colName] = newValue;
             // If Seller Price or Commission USD changed manually, recalc
@@ -1680,19 +1904,54 @@
                 recalcRow(sheetName, rowIndex);
             }
             renderTable();
-            console.log('Cell updated:', {sheet: sheetName, row: rowIndex, column: colName, value: newValue});
+
+            // Persist to Firestore
+            try {
+                const { collection, doc, setDoc } = window._fbSDK;
+                const db = window._fbDb;
+                const SHEET_MAP = {
+                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
+                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
+                };
+                const colName_fb = SHEET_MAP[sheetName] || sheetName;
+                const row    = { ...data[sheetName][rowIndex] };
+                const docId  = row._docId || String(row['No'] || rowIndex + 1);
+                delete row._docId;
+                await setDoc(doc(collection(db, colName_fb), docId), row, { merge: true });
+                console.log('✅ Cell saved to Firebase:', colName, '=', newValue);
+            } catch (err) {
+                console.warn('Firebase save error (cell):', err.message);
+            }
         }
 
         // Delete deal (admin only)
-        function deleteDeal(rowIndex) {
+        async function deleteDeal(rowIndex) {
             if (!isAdmin) return;
             if (!confirm('Are you sure you want to delete this deal?')) return;
 
             const sheetName = getSheetName(currentTab);
+            const row    = data[sheetName][rowIndex];
+            const docId  = (row && (row._docId || String(row['No'] || rowIndex + 1)));
+
+            // Remove from local data first (instant UI)
             data[sheetName].splice(rowIndex, 1);
             renderTable();
             updateStats();
-            console.log('Deal deleted:', {sheet: sheetName, row: rowIndex});
+
+            // Delete from Firestore
+            try {
+                const { collection, doc, deleteDoc } = window._fbSDK;
+                const db = window._fbDb;
+                const SHEET_MAP = {
+                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
+                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
+                };
+                const colName = SHEET_MAP[sheetName] || sheetName;
+                await deleteDoc(doc(collection(db, colName), docId));
+                console.log('✅ Deal deleted from Firebase:', docId);
+            } catch (err) {
+                console.warn('Firebase delete error:', err.message);
+            }
         }
 
         // ================================================
@@ -1866,7 +2125,7 @@
             document.getElementById('addDealForm').reset();
         }
 
-        function submitAddDeal(event) {
+        async function submitAddDeal(event) {
             event.preventDefault();
             if (!isAdmin) return;
 
@@ -1902,7 +2161,28 @@
             // Add to data
             data[sheetName].push(newRow);
             // Recalc Commission USD and Price for the new row
-            recalcRow(sheetName, data[sheetName].length - 1);
+            const newIdx = data[sheetName].length - 1;
+            recalcRow(sheetName, newIdx);
+
+            // Save to Firestore
+            try {
+                const { collection, doc, setDoc } = window._fbSDK;
+                const db = window._fbDb;
+                const SHEET_MAP = {
+                    'Engines': 'Engines', 'Aircraft Sale': 'Aircraft_Sale',
+                    'Aircraft Lease': 'Aircraft_Lease', 'Parts': 'Parts'
+                };
+                const colName_fb = SHEET_MAP[sheetName] || sheetName;
+                const rowToSave  = { ...data[sheetName][newIdx] };
+                const docId      = String(rowToSave['No'] || (newIdx + 1));
+                rowToSave._docId = docId;
+                delete rowToSave._docId;
+                await setDoc(doc(collection(db, colName_fb), docId), rowToSave, { merge: true });
+                data[sheetName][newIdx]._docId = docId;
+                console.log('✅ New deal saved to Firebase:', docId);
+            } catch (err) {
+                console.warn('Firebase add error:', err.message);
+            }
 
             hideAddDealModal();
             renderTable();
@@ -2084,12 +2364,40 @@
         }
 
         // Save function (Admin only)
-        function saveChanges() {
+        async function saveChanges() {
             if (!isAdmin) return;
-            // Show toast confirmation
             const toast = document.getElementById('saveToast');
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
+
+            try {
+                const { collection, doc, setDoc } = window._fbSDK;
+                const db = window._fbDb;
+                const SHEET_MAP = {
+                    'Engines': 'Engines',
+                    'Aircraft Sale': 'Aircraft_Sale',
+                    'Aircraft Lease': 'Aircraft_Lease',
+                    'Parts': 'Parts'
+                };
+
+                let savedCount = 0;
+                for (const [sheetName, colName] of Object.entries(SHEET_MAP)) {
+                    const rows = data[sheetName] || [];
+                    for (let i = 0; i < rows.length; i++) {
+                        const row    = { ...rows[i] };
+                        const docId  = row._docId || String(row['No'] || i + 1);
+                        delete row._docId;
+                        const docRef = doc(collection(db, colName), docId);
+                        await setDoc(docRef, row, { merge: true });
+                        savedCount++;
+                    }
+                }
+
+                console.log(`✅ Saved ${savedCount} records to Firebase`);
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            } catch (err) {
+                console.error('Save error:', err);
+                alert('❌ Save failed: ' + err.message);
+            }
         }
 
         // Login functions
@@ -2106,6 +2414,9 @@
         function login() {
             const password = document.getElementById('passwordInput').value;
             if (password === ADMIN_PASSWORD) {
+                // Reveal login/logout buttons for admin session
+                const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = '';
                 isAdmin = true;
                 document.getElementById('roleBadge').textContent = 'Admin';
                 document.getElementById('roleBadge').classList.add('admin');
@@ -2125,6 +2436,13 @@
 
         function logout() {
             isAdmin = false;
+            // Re-hide login button unless on /admin route
+            const path = window.location.pathname;
+            const hash = window.location.hash;
+            if (!path.endsWith('/admin') && hash !== '#admin') {
+                const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = 'none';
+            }
             document.getElementById('roleBadge').textContent = 'External Viewer';
             document.getElementById('roleBadge').classList.remove('admin');
             document.getElementById('roleBadge').style.display = 'none';
@@ -2138,12 +2456,28 @@
         }
 
         // Initialize
+        
+        // Track mouse for comments tooltip positioning
+        document.addEventListener('mousemove', function(e) {
+            document.documentElement.style.setProperty('--tip-x', (e.clientX + 14) + 'px');
+            document.documentElement.style.setProperty('--tip-y', (e.clientY - 10) + 'px');
+        });
+
         window.onload = function() {
             loadData();
         };
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
+            // ── /admin route: show login button if URL ends with /admin ──
+            const path = window.location.pathname;
+            const hash = window.location.hash;
+            if (path.endsWith('/admin') || hash === '#admin') {
+                const btn = document.getElementById('loginBtn');
+                if (btn) btn.style.display = '';
+                showLoginModal();
+            }
+
             const passwordInput = document.getElementById('passwordInput');
             if (passwordInput) {
                 passwordInput.addEventListener('keypress', function(e) {
@@ -2377,7 +2711,7 @@ function toggleRowSelection(rowIndex, trEl) {
         <div id="interestModalBody">
           <h2>&#x1F4E7; Place My Interest</h2>
           <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="02616d6c7663617642732f31612c616d6f">[email&#160;protected]</a></strong> on your behalf.
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7d1e1213091c1e093d0c504e1e531e1210">[email&#160;protected]</a></strong> on your behalf.
           </p>
           <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
           <label for="senderEmailInput">
@@ -2407,6 +2741,58 @@ function toggleRowSelection(rowIndex, trEl) {
         Please select the entries that you are interested in.<br><br>
         Click any row to highlight it. Multiple rows can be selected at once.
         Click a highlighted row again to deselect it.
+    </div>
+
+    <!-- ── Disclaimer Modal ─────────────────────────────────── -->
+    <div id="disclaimerModal" class="interest-modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+      <div class="interest-modal-box" style="max-width:760px;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="font-size:16px;color:#1e3a5f;">✈️ Aviation Opportunities Portal – Disclaimer</h2>
+            <button onclick="document.getElementById('disclaimerModal').classList.remove('show')"
+                    style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">&times;</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.7;color:#334155;">
+
+          <p><strong>1. Introduction – Platform Only</strong><br>
+          The Aviation Opportunities Portal is operated by Q3 Consultancy LLC as a consultancy and advisory platform to connect potential buyers and sellers of aviation assets, parts and services. Q3 Consultancy provides introductions and opportunity visibility only.</p>
+
+          <p><strong>2. No Trading of Aircraft or Parts</strong><br>
+          Q3 Consultancy does not buy, sell, own, broker, import, export or otherwise trade aircraft, engines, APUs, components, tools or any related aviation parts or consumables. All commercial and contractual arrangements are strictly and exclusively between the buyer and the seller.</p>
+
+          <p><strong>3. Buyer–Seller KYC and Compliance</strong><br>
+          Any initial screening by Q3 Consultancy is limited and does not replace full know your customer (KYC), sanctions, export control or compliance checks. Each buyer and seller is independently responsible for performing its own KYC, sanctions and export control checks, technical and quality due diligence, and ensuring compliance with all applicable aviation, safety, customs and trade regulations.</p>
+
+          <p><strong>4. Technical and Airworthiness Responsibility</strong><br>
+          All information about aircraft, engines, parts and documentation (including status, hours/cycles, back to birth trace, certifications such as EASA Form 1, FAA 8130-3 or equivalent, and service history) is provided by the seller. It is the buyer's sole responsibility to verify airworthiness, traceability, configuration, SB/AD status, and regulatory conformity before use or installation, including compliance with the relevant aviation authority requirements (e.g. GCAA, EASA, FAA).</p>
+
+          <p><strong>5. No Verification, Warranty or Endorsement</strong><br>
+          Q3 Consultancy does not inspect, audit or certify any aircraft, engine, part, record or document and gives no guarantee or warranty (express or implied) as to accuracy, condition, airworthiness, suitability for a particular aircraft type, maintenance program compatibility or future supportability. Inclusion of a listing does not constitute an endorsement or recommendation.</p>
+
+          <p><strong>6. No Legal, Regulatory or Engineering Advice</strong><br>
+          Information on the portal is for general information only and does not constitute legal, regulatory, tax, financial or engineering advice. Users must seek independent professional advice (including from aviation lawyers, CAMO/Part M/Part CAMO, Part 145/MRO or DOA/POA organisations as appropriate) before entering into any engagement or installing any part.</p>
+
+          <p><strong>7. Limitation of Liability</strong><br>
+          Q3 Consultancy will not be liable for any loss, damage, cost or claim of any kind arising out of or in connection with:
+          <ul style="margin:6px 0 6px 20px;">
+            <li>any negotiation, agreement or dispute between buyers and sellers;</li>
+            <li>the condition, airworthiness, documentation, traceability or legality of any aircraft, engine, part or service; or</li>
+            <li>any reliance on information displayed or communicated via the portal.</li>
+          </ul></p>
+
+          <p><strong>8. Business Licence Scope</strong><br>
+          Q3 Consultancy operates strictly within the scope of its consultancy and advisory business activities as licensed in the UAE and does not engage in trading of goods. Nothing on this portal shall be interpreted as Q3 Consultancy acting as a seller, buyer or broker of aviation parts or assets.</p>
+
+          <p><strong>9. User Acknowledgement</strong><br>
+          By using this portal, you confirm that you understand and accept that Q3 Consultancy's role is limited to consultancy and introductions, and that all KYC, due diligence, contractual and operational responsibilities rest solely with the counterparties to each engagement.</p>
+
+        </div>
+        <div style="text-align:right;margin-top:16px;">
+            <button class="btn-cancel-interest"
+                    onclick="document.getElementById('disclaimerModal').classList.remove('show')">
+                Close
+            </button>
+        </div>
+      </div>
     </div>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
 </html>
