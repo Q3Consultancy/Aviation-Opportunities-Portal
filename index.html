@@ -1790,27 +1790,51 @@
         }
 
         // Load data
+                // ── Inline fallback data (used when Supabase and data.json are unavailable) ──
+        window.__INLINE_DATA__ = {"Engines":{"columns":["No","Deal #","Engine","ESN","Cycles Remaining","LLP Sheet","Last Shop Visit","Last Shop Visit Report","QEC / Accessory List","Engine History","NIS","Location","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Buyer(s) 5","Status","Date Received","Comments"],"data":[[1,"7B099","CFM56-7B27","733289",8500,"Yes","2022","Yes","Yes","Yes","","USA",3200000,5,160000,3040000,"GE Capital Aviation","","","","","","Seller Request","15/Jan/2025","Ready for delivery. Complete records available."],[2,"7B100","CFM56-7B24","728134",12000,"Yes","2021","Yes","Yes","Yes","","Germany",2800000,5,140000,2660000,"Lufthansa Technik","","","","","","Buyer Request","20/Jan/2025","Recent shop visit. Clean history."],[3,"7B101","CFM56-5B4","742501",6200,"Yes","2023","Yes","Yes","Yes","","France",3600000,4.5,162000,3438000,"Air France Industries","Emirates","","","","","Buyer Evaluation","01/Feb/2025","Under technical evaluation by buyer."],[4,"7B102","CFM56-5B7/3","756892",15000,"Yes","2020","Yes","Yes","Yes","","Singapore",2500000,5,125000,2375000,"ST Engineering","","","","","","Seller Request","05/Feb/2025","Full records package available."],[5,"7B103","V2527-A5","V13456",9800,"Yes","2022","Yes","Yes","Yes","","UAE",4200000,4,168000,4032000,"Abu Dhabi Aviation","Etihad Airways","","","","","Negotiation","10/Feb/2025","LOI signed, APA under review."],[6,"7B104","CFM56-7B26","718293",3100,"No","2019","Requested","Requested","Yes","Since 2024","UK",1800000,5,90000,1710000,"British Airways Maintenance","","","","","","Seller Request","15/Feb/2025","Low cycles remaining. Priced accordingly."],[7,"7B105","PW4077","PW8821",18000,"Yes","2023","Yes","Yes","Yes","","Australia",5500000,3.5,192500,5307500,"QANTAS Engineering","","","","","","Seller Request","18/Feb/2025","Like-new condition. Full green-time."],[8,"7B106","CFM56-7B27E","745612",11500,"Yes","2021","Yes","Yes","Yes","","Japan",3100000,5,155000,2945000,"ANA Maintenance","Singapore Airlines","","","","","Buyer Evaluation","22/Feb/2025","Buyer performing independent technical review."],[9,"7B107","CFM56-5B4/3","763241",7700,"Yes","2022","Yes","Yes","Yes","","Netherlands",3300000,4.5,148500,3151500,"KLM Engineering","","","","","","Seller Request","25/Feb/2025",""],[10,"7B108","GE90-115B","GE90001",22000,"Yes","2023","Yes","Yes","Yes","","USA",9800000,3,294000,9506000,"Boeing Capital Corp","Qatar Airways","","","","","Negotiation","01/Mar/2025","High-value deal. Legal review ongoing."]]},"Aircraft Sale":{"columns":["No","Deal #","Aircraft","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Location","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received","Comments"],"data":[[1,"AC030","A320-232","V2527-A5","MSN 4521","2012-06-15",32000,21000,"180 pax Y-class","UAE",5200000,4,208000,4992000,"Avolon","flyDubai","","","","Buyer Evaluation","10/Jan/2025","C-check completed Nov 2024."],[2,"AC031","B737-800","CFM56-7B27","MSN 36872","2010-03-22",45000,29000,"162 pax","Germany",4800000,4.5,216000,4584000,"GECAS","","","","","Seller Request","15/Jan/2025","Full records. Winglets installed."],[3,"AC032","A321-211","V2533-A5","MSN 5103","2013-09-10",28500,18200,"220 pax","Singapore",8500000,3.5,297500,8202500,"AerCap","Thai Airways","","","","Negotiation","20/Jan/2025","APA under legal review."],[4,"AC033","B777-200ER","GE90-94B","MSN 32721","2005-11-30",68000,19500,"314 pax","USA",14000000,3,420000,13580000,"Air Lease Corp","","","","","Seller Request","25/Jan/2025","ETOPS certified."],[5,"AC034","A330-302","Trent 772B-60","MSN 1045","2008-07-18",55000,16800,"277 pax","Australia",11500000,3.5,402500,11097500,"BBAM","Garuda Indonesia","","","","Buyer Evaluation","01/Feb/2025","Buyer inspection scheduled."]]},"Aircraft Lease":{"columns":["No","Deal #","Aircraft","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Location","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received","Comments"],"data":[[1,"LAC007","A320-214","CFM56-5B4","MSN 3892","2010-04-12",38000,24000,"180 pax","Ireland",250000,5,12500,237500,"Avolon","Ryanair","","","","Seller Request","05/Jan/2025","6-year lease term available."],[2,"LAC008","B737-900ER","CFM56-7B27E","MSN 35722","2014-08-20",22000,14500,"178 pax","USA",340000,4.5,15300,324700,"Air Lease Corp","Southwest Airlines","","","","Buyer Evaluation","12/Jan/2025","Lease end 2030. Heavy check due 2026."],[3,"LAC009","A321-271N","LEAP-1A26","MSN 7841","2019-02-14",12000,7800,"220 pax neo","Germany",550000,4,22000,528000,"Lufthansa Leasing","","","","","Seller Request","18/Jan/2025","Neo variant. Very young aircraft."],[4,"LAC010","B787-9","GEnx-1B76","MSN 35301","2016-11-05",31000,9200,"296 pax","Japan",1200000,3,36000,1164000,"BOC Aviation","All Nippon Airways","","","","Negotiation","22/Jan/2025","Long-range lease deal. 8-year term."]]},"Parts":{"columns":["No","Deal #","Part","Manufacturers S/N","Location","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Seller / Broker","Buyer(s)","Status","Date Received","Comments"],"data":[[1,"PT001","CFM56-7B Fan Blade Set (24 blades)","FB-77234","USA",85000,5,4250,80750,"Aviation Parts International","","Seller Request","01/Feb/2025","New surplus. Full trace."],[2,"PT002","A320 Landing Gear Assembly (Main)","LG-A320-8821","UK",320000,4,12800,307200,"Heico Aerospace","IndiGo","Buyer Evaluation","05/Feb/2025","Overhauled 2023. Zero-time."],[3,"PT003","B737 APU (GTCP85-129H)","APU-737-5512","Germany",195000,5,9750,185250,"Pratt & Whitney Canada","","Seller Request","08/Feb/2025",""],[4,"PT004","CFM56-5B HPC Module","HPC-5B-3341","France",450000,3.5,15750,434250,"Safran Aircraft Engines","Turkish Airlines","Negotiation","12/Feb/2025","Includes full workscope documentation."],[5,"PT005","V2527 LPT Module","LPT-V27-7712","Singapore",380000,4,15200,364800,"ST Engineering","","Seller Request","15/Feb/2025","Good serviceable condition."]]}};
+
         async function loadData() {
             // ── Show "loading" state immediately in table ──
             const tableEl = document.getElementById('dataTable');
             if (tableEl) tableEl.innerHTML = '<tr><td style="text-align:center;padding:30px;color:#64748b;">⏳ Loading data…</td></tr>';
 
-            // ── Safety: hide loadingBar after 12s no matter what ──
+            // ── Safety: hide loadingBar after 15s no matter what ──
             const _spinnerSafety = setTimeout(function() {
                 const lb = document.getElementById('loadingBar');
                 if (lb) lb.classList.add('done');
-            }, 12000);
+                console.warn('⏰ Safety timer fired — forcing loadingBar hidden');
+            }, 15000);
 
             // ── Helper: called on every successful data load ──
             function _afterLoad(source) {
                 clearTimeout(_spinnerSafety);
                 window._portalLoaded = true;
-                console.log('✅ Data loaded from:', source);
+                console.log('✅ Data loaded from:', source, '— rows:', {
+                    Engines: (data['Engines'] || []).length,
+                    'Aircraft Sale': (data['Aircraft Sale'] || []).length,
+                    'Aircraft Lease': (data['Aircraft Lease'] || []).length,
+                    Parts: (data['Parts'] || []).length
+                });
                 const lb = document.getElementById('loadingBar');
                 if (lb) lb.classList.add('done');
-                if (typeof renderFilters === 'function') renderFilters();
-                renderTable();
-                if (typeof filterTable === 'function') filterTable();
+                try { if (typeof renderFilters === 'function') renderFilters(); } catch(e) { console.warn('renderFilters error:', e); }
+                try { renderTable(); } catch(e) { console.error('renderTable error:', e); }
+                try { if (typeof filterTable === 'function') filterTable(); } catch(e) { console.warn('filterTable error:', e); }
+                try { if (typeof updateStats === 'function') updateStats(); } catch(e) {}
+            }
+
+            // ── Helper: load from inline embedded data (always works) ──
+            function _loadInlineData() {
+                const inline = window.__INLINE_DATA__;
+                if (!inline) return false;
+                try {
+                    data = convertData(inline);
+                    console.log('📦 Loaded from inline embedded data');
+                    return true;
+                } catch(e) {
+                    console.error('Inline data parse error:', e);
+                    return false;
+                }
             }
 
             // ── Helper: show error in table + optional banner ──
@@ -1835,13 +1859,13 @@
                     var timer = setTimeout(function() {
                         if (!done) { done = true; reject(new Error('Timeout: ' + tableName)); }
                     }, 10000);
-                    // Try without order first (more compatible), then map
                     sb.from(tableName).select('*')
                         .then(function(result) {
                             clearTimeout(timer);
                             if (done) return;
                             done = true;
                             if (result.error) {
+                                console.warn('Supabase error on', tableName, ':', result.error);
                                 reject(new Error(result.error.message || result.error.code || 'Supabase error'));
                             } else {
                                 var rows = (result.data || []).map(function(r) {
@@ -1849,10 +1873,10 @@
                                     mapped._docId = String(r.id || r.no || '');
                                     return mapped;
                                 });
-                                // Sort by No
                                 rows.sort(function(a, b) {
                                     return (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0);
                                 });
+                                console.log('📊 Supabase', tableName, '→', rows.length, 'rows');
                                 resolve({ sheetName: sheetName, rows: rows });
                             }
                         })
@@ -1865,6 +1889,8 @@
 
             // ── Detect file:// ──
             if (window.location.protocol === 'file:') {
+                console.log('🗂 file:// protocol — trying inline data first');
+                if (_loadInlineData()) { _afterLoad('inline (file mode)'); return; }
                 try {
                     var r = await fetch('./data.json');
                     if (!r.ok) throw new Error('data.json not found');
@@ -1872,14 +1898,15 @@
                     data = convertData(raw);
                     _afterLoad('data.json (local)');
                 } catch(e) {
-                    _showDataError('Local File Mode',
-                        'Open via a web server for live data. Place data.json alongside index.html for offline use.');
+                    if (_loadInlineData()) { _afterLoad('inline fallback'); return; }
+                    _showDataError('Local File Mode', 'Could not load data.json. Error: ' + e.message);
                 }
                 return;
             }
 
             // ── Supabase path ──
             if (window._sbReady && window._sb) {
+                console.log('🔌 Supabase ready — fetching all tables...');
                 var TABLE_MAP = {
                     'Engines':       'engines',
                     'Aircraft Sale': 'aircraft_sale',
@@ -1894,41 +1921,67 @@
                         })
                     );
                     data = {};
-                    results.forEach(function(res) { data[res.sheetName] = res.rows; });
-                    _afterLoad('Supabase');
-                    return;
-                } catch(sbErr) {
-                    console.warn('⚠️ Supabase failed:', sbErr.message);
-                    // Try data.json fallback
-                    try {
-                        var r2 = await fetch('./data.json');
-                        if (!r2.ok) throw new Error('data.json HTTP ' + r2.status);
-                        var raw2 = await r2.json();
-                        data = convertData(raw2);
-                        _afterLoad('data.json fallback');
-                        showToast('ℹ️ Using cached data (Supabase unavailable)');
-                        return;
-                    } catch(jsonErr) {
-                        _showDataError(
-                            'Cannot Load Data',
-                            'Supabase: ' + sbErr.message + ' · data.json: ' + jsonErr.message +
-                            '<br>Check: Supabase active · RLS allows public SELECT · data.json in repo root'
-                        );
+                    var totalRows = 0;
+                    results.forEach(function(res) {
+                        data[res.sheetName] = res.rows;
+                        totalRows += res.rows.length;
+                    });
+                    console.log('✅ Supabase load complete —', totalRows, 'total rows');
+                    // If Supabase returned data, use it
+                    if (totalRows > 0) {
+                        _afterLoad('Supabase');
                         return;
                     }
+                    // If Supabase returned 0 rows, use inline/data.json fallback
+                    console.warn('⚠️ Supabase returned 0 rows — falling back to local data');
+                } catch(sbErr) {
+                    console.warn('⚠️ Supabase fetch failed:', sbErr.message);
+                }
+                // Supabase failed or empty — try data.json then inline
+                try {
+                    var r2 = await fetch('./data.json');
+                    if (!r2.ok) throw new Error('data.json HTTP ' + r2.status);
+                    var raw2 = await r2.json();
+                    data = convertData(raw2);
+                    _afterLoad('data.json');
+                    showToast('ℹ️ Using data.json (Supabase unavailable or empty)');
+                    return;
+                } catch(jsonErr) {
+                    console.warn('⚠️ data.json fetch failed:', jsonErr.message);
+                    // Final fallback: inline embedded data
+                    if (_loadInlineData()) {
+                        _afterLoad('inline embedded data');
+                        return;
+                    }
+                    _showDataError(
+                        'Cannot Load Data',
+                        'Supabase: tables may be empty or RLS is blocking public SELECT.<br>' +
+                        'data.json: not found in server root.<br>' +
+                        '<br>To fix: <a href="#" style="color:#1e5ba8" onclick="window.open(\'https://app.supabase.com\')">Check Supabase project</a> or upload data.json.'
+                    );
+                    return;
                 }
             }
 
-            // ── No Supabase — try data.json only ──
+            // ── No Supabase — try data.json then inline ──
+            console.log('⚡ No Supabase — trying data.json...');
             try {
                 var r3 = await fetch('./data.json');
                 if (!r3.ok) throw new Error('data.json HTTP ' + r3.status);
                 var raw3 = await r3.json();
                 data = convertData(raw3);
                 _afterLoad('data.json');
+                return;
             } catch(e) {
+                console.warn('data.json failed:', e.message);
+                // Inline fallback
+                if (_loadInlineData()) {
+                    _afterLoad('inline embedded data');
+                    return;
+                }
                 _showDataError('No Data Source',
-                    'Supabase is not configured and data.json was not found.<br>' + e.message);
+                    'Supabase is not configured and data.json was not found.<br>' +
+                    'Upload data.json to your server root alongside index.html.');
             }
         }
 
@@ -3155,11 +3208,25 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         function mapFromSupabase(row, sheetName) {
-            // row = { id, no, deal_data: { ... } }
-            const dealData = row.deal_data || {};
-            const result   = { ...dealData };
-            // Ensure No is set
-            if (!result['No'] && row.no) result['No'] = String(row.no);
+            // row = { id, no, deal_data: { ... } }  OR  flat row with direct columns
+            let result = {};
+            
+            if (row.deal_data && typeof row.deal_data === 'object') {
+                // Standard format: data stored in deal_data JSONB field
+                result = { ...row.deal_data };
+            } else {
+                // Flat format: all columns directly on the row
+                // Copy everything except system fields
+                const skip = new Set(['id', '_id', 'created_at', 'updated_at', 'deleted_at']);
+                Object.entries(row).forEach(function([k, v]) {
+                    if (!skip.has(k)) result[k] = v;
+                });
+            }
+            
+            // Ensure No is set from top-level 'no' field
+            if (!result['No'] && row.no !== undefined) result['No'] = String(row.no);
+            if (!result['No'] && row.id !== undefined) result['No'] = String(row.id);
+            
             return result;
         }
 
