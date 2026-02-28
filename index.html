@@ -1219,6 +1219,21 @@
             .logo-container { width: 80px; height: 65px; }
         }
 
+    
+        /* ── Subtitle band powered text ── */
+        .subtitle-powered {
+            font-size: 9px;
+            font-weight: 400;
+            opacity: 0.75;
+            letter-spacing: 0.3px;
+        }
+
+    
+        /* ── TH drag-and-drop ── */
+        th.th-dragging { opacity: 0.5; background: #dbeafe !important; }
+        th.th-drag-over { border-left: 3px solid #1e5ba8 !important; background: #eff6ff !important; }
+        thead th[draggable="true"] { user-select: none; }
+
     </style>
 
     <!-- ═══════════════════════════════════════════════════
@@ -1268,7 +1283,7 @@
                      onerror="this.style.display='none';">
             </div>
             <div class="header-text">
-                <h1>Q3 Consultancy</h1>
+                <h1>Aviation Opportunities Portal</h1>
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
@@ -1277,7 +1292,7 @@
         </header>
         <!-- Page subtitle band — not in header -->
         <div class="page-subtitle-band">
-            Aircraft, Engine &amp; Parts Opportunities &nbsp;—&nbsp; <strong>Powered by Q3 Consultancy</strong>
+            Aircraft, Engine &amp; Parts Opportunities &nbsp;<span class="subtitle-powered">— Powered by Q3 Consultancy</span>
         </div>
 
         <div class="tabs">
@@ -1706,7 +1721,12 @@
             const sheetData = data[sheetName] || [];
             if (sheetData.length === 0) return;
 
-            const allColumns = getOrderedColumns(sheetData);
+            const _rawColumns = getOrderedColumns(sheetData);
+            // Apply saved admin column order if available
+            const _savedOrder = (typeof getAdminColumnOrder === 'function') ? getAdminColumnOrder(sheetName) : null;
+            const allColumns = _savedOrder
+                ? _savedOrder.filter(c => _rawColumns.includes(c)).concat(_rawColumns.filter(c => !_savedOrder.includes(c)))
+                : _rawColumns;
 
             // Determine which filter columns to show
             const filterCols = FILTER_COLUMNS[sheetName];
@@ -1896,7 +1916,14 @@
         // inserting Team Commission (%) right after Seller's Price (USD)
         function getOrderedColumns(sheetData) {
             if (!sheetData || sheetData.length === 0) return [];
-            const cols = Object.keys(sheetData[0]).filter(c => c !== '_docId');
+            let cols = Object.keys(sheetData[0]).filter(c => c !== '_docId' && c !== '_rowIndex');
+            // Default order: ensure 'Deal #' comes right after 'No'
+            const noIdx = cols.indexOf('No');
+            const dealIdx = cols.indexOf('Deal #');
+            if (noIdx !== -1 && dealIdx !== -1 && dealIdx !== noIdx + 1) {
+                cols.splice(dealIdx, 1);
+                cols.splice(noIdx + 1, 0, 'Deal #');
+            }
             // Ensure KEY_COMM_PCT is present after Seller Price
             if (!cols.includes(KEY_COMM_PCT)) {
                 const idx = cols.indexOf(KEY_SELLER_PRICE);
@@ -1919,7 +1946,12 @@
                 return;
             }
 
-            const allColumns = getOrderedColumns(sheetData);
+            const _rawColumns = getOrderedColumns(sheetData);
+            // Apply saved admin column order if available
+            const _savedOrder = (typeof getAdminColumnOrder === 'function') ? getAdminColumnOrder(sheetName) : null;
+            const allColumns = _savedOrder
+                ? _savedOrder.filter(c => _rawColumns.includes(c)).concat(_rawColumns.filter(c => !_savedOrder.includes(c)))
+                : _rawColumns;
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
@@ -1929,9 +1961,13 @@
 
             // Build table header with sort functionality
             let html = '<thead><tr>';
-            visibleColumns.forEach(col => {
+            visibleColumns.forEach((col, thIdx) => {
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
-                html += `<th class="sortable ${sortClass}" onclick="sortTable('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">${getColDisplayName(col)}</th>`;
+                const safeCol = col.replace(/'/g, "\\'").replace(/\n/g,"\\n");
+                const dragAttrs = isAdmin
+                    ? ` draggable="true" ondragstart="thDragStart(event,'${safeCol}','${sheetName}')" ondragover="thDragOver(event)" ondrop="thDrop(event,'${safeCol}','${sheetName}')" ondragend="thDragEnd(event)" style="cursor:grab;" title="Drag to reorder"`
+                    : '';
+                html += `<th class="sortable ${sortClass}"${dragAttrs} onclick="sortTable('${safeCol}')"><span style="opacity:0.35;margin-right:3px;font-size:9px;">${isAdmin?'⠿':''}</span>${getColDisplayName(col)}</th>`;
             });
             if (isAdmin) {
                 html += '<th>Actions</th>';
@@ -2575,7 +2611,12 @@
                 return;
             }
 
-            const allColumns = getOrderedColumns(sheetData);
+            const _rawColumns = getOrderedColumns(sheetData);
+            // Apply saved admin column order if available
+            const _savedOrder = (typeof getAdminColumnOrder === 'function') ? getAdminColumnOrder(sheetName) : null;
+            const allColumns = _savedOrder
+                ? _savedOrder.filter(c => _rawColumns.includes(c)).concat(_rawColumns.filter(c => !_savedOrder.includes(c)))
+                : _rawColumns;
             const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
             const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
 
@@ -3380,5 +3421,49 @@ function resetColumnOrder() {
             document.body.appendChild(div);
         }
 
-    </script></body>
+    
+// ── Direct <th> column drag-and-drop reordering ───────────────────────
+let _thDragCol = null;
+function thDragStart(e, col, sheetName) {
+    _thDragCol = { col: col, sheet: sheetName };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', col);
+    e.target.style.opacity = '0.5';
+}
+function thDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('th-drag-over');
+}
+function thDragEnd(e) {
+    e.target.style.opacity = '';
+    document.querySelectorAll('th.th-drag-over').forEach(t => t.classList.remove('th-drag-over'));
+}
+function thDrop(e, targetCol, sheetName) {
+    e.preventDefault();
+    thDragEnd(e);
+    if (!_thDragCol) return;
+    const fromCol = _thDragCol.col;
+    _thDragCol = null;
+    if (fromCol === targetCol) return;
+    // Get current ordered columns from the live table
+    const currentCols = window._visibleCols ? [...window._visibleCols] : [];
+    if (!currentCols.length) return;
+    const fromIdx = currentCols.indexOf(fromCol);
+    const toIdx   = currentCols.indexOf(targetCol);
+    if (fromIdx === -1 || toIdx === -1) return;
+    // Reorder
+    currentCols.splice(fromIdx, 1);
+    currentCols.splice(toIdx, 0, fromCol);
+    // Persist
+    if (typeof saveAdminColumnOrder === 'function') {
+        saveAdminColumnOrder(sheetName, currentCols);
+    } else {
+        try { localStorage.setItem('colOrder_' + sheetName, JSON.stringify(currentCols)); } catch(ex) {}
+    }
+    // Re-render table
+    if (typeof renderTable === 'function') renderTable();
+}
+
+</script></body>
 </html>
