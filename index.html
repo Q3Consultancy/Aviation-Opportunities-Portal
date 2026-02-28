@@ -1222,12 +1222,13 @@
         #engineSpinner.hidden {
             opacity: 0;
             pointer-events: none;
+            display: none !important;
         }
         .engine-fan {
-            width: 90px;
-            height: 90px;
-            animation: spinFan 1.2s linear infinite;
-            filter: drop-shadow(0 0 12px rgba(30, 91, 168, 0.8));
+            width: 130px;
+            height: 130px;
+            animation: spinFan 1.4s linear infinite;
+            filter: drop-shadow(0 0 18px rgba(74, 158, 255, 0.9));
         }
         @keyframes spinFan {
             0%   { transform: rotate(0deg); }
@@ -1289,58 +1290,77 @@
 <body>
     <!-- Jet Engine Fan Blade Loading Spinner -->
     <div id="engineSpinner">
-        <svg class="engine-fan" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <svg class="engine-fan" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <defs>
                 <radialGradient id="hubGrad" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stop-color="#4a9eed"/>
-                    <stop offset="100%" stop-color="#0d3a75"/>
+                    <stop offset="0%" stop-color="#4a9eff"/>
+                    <stop offset="60%" stop-color="#1e5ba8"/>
+                    <stop offset="100%" stop-color="#0a1a3c"/>
                 </radialGradient>
-                <linearGradient id="bladeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#4a9eed" stop-opacity="0.95"/>
-                    <stop offset="100%" stop-color="#0d3a75" stop-opacity="0.85"/>
+                <radialGradient id="ringGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="80%" stop-color="transparent"/>
+                    <stop offset="90%" stop-color="#1e5ba8" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#4a9eff" stop-opacity="0.8"/>
+                </radialGradient>
+                <linearGradient id="blade0" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#6ab4ff"/>
+                    <stop offset="100%" stop-color="#1e5ba8"/>
                 </linearGradient>
-                <!-- Outer casing ring gradient -->
-                <linearGradient id="caseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="#2a6abf"/>
-                    <stop offset="100%" stop-color="#0d3a75"/>
+                <linearGradient id="blade1" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#6ab4ff"/>
+                    <stop offset="100%" stop-color="#1e5ba8"/>
                 </linearGradient>
+                <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
             </defs>
 
-            <!-- Outer engine casing -->
-            <circle cx="60" cy="60" r="56" fill="none" stroke="url(#caseGrad)" stroke-width="4" opacity="0.6"/>
-            <circle cx="60" cy="60" r="51" fill="none" stroke="#1e5ba8" stroke-width="1" opacity="0.3"/>
+            <!-- Outer nacelle ring -->
+            <circle cx="100" cy="100" r="96" fill="none" stroke="#1e5ba8" stroke-width="3" opacity="0.5"/>
+            <circle cx="100" cy="100" r="90" fill="#0a1230" opacity="0.6"/>
 
-            <!-- 6 Fan blades - each is a proper swept-back aerofoil shape -->
-            <!-- Using transform rotate to position all 6 blades evenly at 60° increments -->
-
-            <!-- Blade template: swept back aerofoil starting from hub at r=12, to tip at r=48 -->
-            <!-- Leading edge sweeps, trailing edge curves back -->
-            <g>
-                <!-- Blade 1 at 0° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92"/>
-                <!-- Blade 2 at 60° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92" transform="rotate(60 60 60)"/>
-                <!-- Blade 3 at 120° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92" transform="rotate(120 60 60)"/>
-                <!-- Blade 4 at 180° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92" transform="rotate(180 60 60)"/>
-                <!-- Blade 5 at 240° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92" transform="rotate(240 60 60)"/>
-                <!-- Blade 6 at 300° -->
-                <path d="M60,60 C63,48 67,36 60,14 C56,14 53,18 54,26 C55,36 57,46 58,52 Z"
-                      fill="url(#bladeGrad)" opacity="0.92" transform="rotate(300 60 60)"/>
+            <!-- 8 swept fan blades using proper aerofoil paths -->
+            <!-- Each blade is a swept, tapered shape rotated around centre -->
+            <g transform="rotate(0, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(45, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(90, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(135, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(180, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(225, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(270, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
+            </g>
+            <g transform="rotate(315, 100, 100)">
+                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
             </g>
 
-            <!-- Inner spinner cone / nose -->
-            <circle cx="60" cy="60" r="13" fill="url(#hubGrad)" stroke="#2d74c4" stroke-width="1.5"/>
-            <!-- Spinner highlight -->
-            <circle cx="60" cy="60" r="6" fill="#4a9eed" opacity="0.5"/>
-            <circle cx="57" cy="57" r="2.5" fill="white" opacity="0.4"/>
+            <!-- Spinner cone (centre hub) -->
+            <circle cx="100" cy="100" r="22" fill="url(#hubGrad)" filter="url(#glow)"/>
+            <circle cx="100" cy="100" r="16" fill="#0d2a6b"/>
+            <circle cx="100" cy="100" r="8" fill="#4a9eff" opacity="0.8"/>
+            <!-- Hub bolt holes -->
+            <circle cx="100" cy="84" r="2.5" fill="#0a1a3c"/>
+            <circle cx="114" cy="108" r="2.5" fill="#0a1a3c"/>
+            <circle cx="86" cy="108" r="2.5" fill="#0a1a3c"/>
+
+            <!-- Outer glow ring -->
+            <circle cx="100" cy="100" r="93" fill="none" stroke="#4a9eff" stroke-width="1.5" opacity="0.3"/>
         </svg>
         <div class="spinner-text">Loading Aviation Data...</div>
         <div class="spinner-sub">Aviation Opportunities Platform</div>
@@ -1463,9 +1483,7 @@
             </div>
         </div>
     </div>
-
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
-</script><script>
+<script>
         // Configuration
         const ADMIN_PASSWORD = 'admin123';
         let isAdmin = false;
@@ -1879,16 +1897,17 @@
             const _spinnerSafety = setTimeout(function() {
                 const sp = document.getElementById('engineSpinner');
                 if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
-            }, 15000);
+            }, 10000);
 
             // ── Helper: runs after every successful load ──
             function _afterLoad(source) {
                 clearTimeout(_spinnerSafety);
+                window._portalLoaded = true;  // Signal to outer kill timer
                 console.log('✅ Data loaded from:', source);
                 const spinner = document.getElementById('engineSpinner');
                 if (spinner) {
-                    spinner.classList.add('hidden');
-                    setTimeout(function() { spinner.style.display = 'none'; }, 400);
+                    spinner.style.opacity = '0';
+                    spinner.style.display = 'none';
                 }
                 if (typeof renderFilters === 'function') renderFilters();
                 renderTable();
@@ -2828,7 +2847,7 @@
                 // Reveal login/logout buttons for admin session
                 const lb = document.getElementById('loginBtn');
                 if (lb) lb.style.display = '';
-                isAdmin = true; if(typeof updateAdminUI==='function') updateAdminUI(true);
+                isAdmin = true; updateAdminUI(true);
                 document.getElementById('roleBadge').textContent = 'Admin';
                 document.getElementById('roleBadge').classList.add('admin');
                 document.getElementById('roleBadge').style.display = '';
@@ -2846,6 +2865,7 @@
 
         function logout() {
             isAdmin = false;
+            updateAdminUI(false);
             // Re-hide login button unless on /admin route
             const path = window.location.pathname;
             const hash = window.location.hash;
@@ -2858,8 +2878,8 @@
             document.getElementById('roleBadge').style.display = 'none';
             document.getElementById('loginBtn').style.display = 'inline-block';
             document.getElementById('logoutBtn').style.display = 'none';
-            document.getElementById('addBtn').classList.remove('admin-only');
-            document.getElementById('saveBtn').classList.remove('admin-only');
+            // document.getElementById('addBtn').classList.remove('admin-only'); // handled by updateAdminUI
+            // document.getElementById('saveBtn').classList.remove('admin-only'); // handled by updateAdminUI
             renderTable();
             renderFilters();
             updateStats();
@@ -2873,34 +2893,28 @@
             document.documentElement.style.setProperty('--tip-y', (e.clientY - 10) + 'px');
         });
 
-        window.onload = async function() {
-            // Global safety: force-hide spinner after 20s no matter what
-            const _globalSafety = setTimeout(function() {
-                const sp = document.getElementById('engineSpinner');
-                if (sp && sp.style.display !== 'none') {
-                    sp.classList.add('hidden');
-                    setTimeout(function() { sp.style.display = 'none'; }, 400);
-                    console.warn('⚠️ Global safety timeout fired — spinner force-hidden');
+        // ── Start immediately — DOM is ready (script is at bottom of body) ──
+        (async function startPortal() {
+            // Hard 5-second spinner safety — fires regardless of anything else
+            const _killSpinner = setTimeout(function() {
+                if (!window._portalLoaded) {
+                    const sp = document.getElementById('engineSpinner');
+                    if (sp) sp.style.display = 'none';
                 }
-            }, 20000);
+            }, 12000);
             try {
                 await loadData();
             } catch(fatalErr) {
-                console.error('Fatal loadData error:', fatalErr);
+                console.error('Fatal error:', fatalErr);
                 const sp = document.getElementById('engineSpinner');
-                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                if (sp) sp.style.display = 'none';
                 if (typeof showError === 'function') showError('Startup Error', fatalErr.message);
             } finally {
-                clearTimeout(_globalSafety);
+                clearTimeout(_killSpinner);
             }
-            // Admin access: show login if URL contains #admin or path ends /admin
-            const _p = window.location.pathname;
-            const _h = window.location.hash;
-            if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
-                const lb = document.getElementById('loginBtn');
-                if (lb) lb.style.display = 'inline-block';
-            }
-        };
+        })();
+
+
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -3283,13 +3297,20 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
+    // Show/hide admin-only buttons with explicit inline-block
     ['btnColOrder','saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
+        if (!el) return;
+        el.style.display = isAdminMode ? 'inline-block' : 'none';
+        el.style.visibility = isAdminMode ? 'visible' : 'hidden';
+    });
+    // Also handle by class for any other admin-only elements
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
     const rb = document.getElementById('roleBadge');
     if (rb) {
-        rb.style.display = isAdminMode ? '' : 'none';
+        rb.style.display = isAdminMode ? 'inline-block' : 'none';
         rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
         rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
     }
@@ -3622,5 +3643,5 @@ function resetColumnOrder() {
         </div>
       </div>
     </div>
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+</body>
 </html>
