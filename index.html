@@ -1118,6 +1118,7 @@
 
         /* ── Excel Import/Export Buttons ── */
         .btn-excel-export {
+            display: none;
             background: #217346;
             color: white;
             padding: 8px 16px;
@@ -1131,6 +1132,7 @@
         .btn-excel-export:hover { background: #155724; }
 
         .btn-excel-import {
+            display: none;
             background: #1e5ba8;
             color: white;
             padding: 8px 16px;
@@ -1145,6 +1147,7 @@
 
         /* ── Column Order Button ── */
         .btn-col-order {
+            display: none;
             background: #f59e0b;
             color: white;
             padding: 8px 16px;
@@ -1222,17 +1225,119 @@
     
         /* ── Subtitle band powered text ── */
         .subtitle-powered {
+            display: block;
             font-size: 9px;
             font-weight: 400;
             opacity: 0.75;
             letter-spacing: 0.3px;
+            margin-top: 2px;
         }
 
     
         /* ── TH drag-and-drop ── */
-        th.th-dragging { opacity: 0.5; background: #dbeafe !important; }
+        /* ── Column Header Drag & Drop Styles ── */
+        th[draggable="true"] {
+            cursor: grab !important;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        th[draggable="true"]:hover {
+            background: rgba(30, 91, 168, 0.1) !important;
+        }
+        th.th-dragging {
+            opacity: 0.4;
+            background: #bfdbfe !important;
+            border: 2px dashed #1e5ba8 !important;
+        }
+        th.th-drag-over {
+            background: #93c5fd !important;
+            border-left: 3px solid #1e5ba8 !important;
+            transform: scale(1.02);
+        }
+        /* ── Admin Action Bar ── */
+        #adminActionBar {
+            animation: slideDown 0.2s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
         th.th-drag-over { border-left: 3px solid #1e5ba8 !important; background: #eff6ff !important; }
         thead th[draggable="true"] { user-select: none; }
+
+    
+        /* ══════════════════════════════════════
+           JET ENGINE FAN BLADE LOADING OVERLAY
+        ══════════════════════════════════════ */
+        #jetLoader {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(13, 30, 60, 0.82);
+            backdrop-filter: blur(3px);
+            z-index: 99999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+        }
+        #jetLoader.active { display: flex; }
+
+        .jet-engine-wrap {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        /* Outer ring */
+        .jet-outer-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.12);
+            box-shadow: 0 0 24px rgba(30,91,168,0.5), inset 0 0 20px rgba(30,91,168,0.2);
+        }
+
+        /* Spinning hub */
+        .jet-fan {
+            position: absolute;
+            inset: 8px;
+            animation: jetSpin 1.1s linear infinite;
+            transform-origin: center;
+        }
+
+        /* Centre hub circle */
+        .jet-hub {
+            position: absolute;
+            width: 24px; height: 24px;
+            background: radial-gradient(circle, #5b9cef 0%, #1e5ba8 70%);
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(30,91,168,0.8);
+            z-index: 2;
+        }
+
+        @keyframes jetSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        .jet-loader-text {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-family: 'Segoe UI', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .jet-loader-sub {
+            color: rgba(255,255,255,0.45);
+            font-size: 10px;
+            font-family: 'Segoe UI', sans-serif;
+            letter-spacing: 1px;
+            margin-top: -12px;
+        }
 
     </style>
 
@@ -1292,7 +1397,7 @@
         </header>
         <!-- Page subtitle band — not in header -->
         <div class="page-subtitle-band">
-            Aircraft, Engine &amp; Parts Opportunities &nbsp;<span class="subtitle-powered">— Powered by Q3 Consultancy</span>
+            Aircraft, Engine &amp; Parts Opportunities<br><span class="subtitle-powered">Powered by Q3 Consultancy</span>
         </div>
 
         <div class="tabs">
@@ -1315,6 +1420,13 @@
                 <!-- Stats will be populated by JavaScript -->
             </div>
 
+            <!-- ═══ Admin Action Bar (visible only in Admin mode) ═══ -->
+            <div id="adminActionBar" style="display:none; background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:8px 16px; margin:6px 0; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span style="font-weight:700; font-size:12px; color:#92400e;">🔐 Admin Mode Active</span>
+                <button onclick="showAddDealModal()" style="background:#1e5ba8; color:white; border:none; border-radius:5px; padding:7px 16px; font-weight:600; cursor:pointer; font-size:13px;">➕ Add New Entry</button>
+                <span style="font-size:11px; color:#92400e; opacity:0.75;">Drag column headers in the table to reorder them</span>
+            </div>
+
             <div class="filter-toggle-bar" onclick="toggleFilters()" id="filterToggleBar">
                 <span>🔍 Search &amp; Filters</span>
                 <span class="toggle-arrow" id="filterArrow">▼</span>
@@ -1323,12 +1435,12 @@
                 <div class="controls">
                     <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search deals..." onkeyup="filterTable()">
                     <button class="btn-export" onclick="exportToCSV()">📥 CSV</button>
-                    <button class="btn-excel-export" id="btnExcelExport" onclick="handleExport()" style="display:none;">📊 Export Excel</button>
-                    <button class="btn-excel-import" id="btnExcelImport" onclick="document.getElementById('excelImportInput').click()" style="display:none;">📂 Import Excel</button>
+                    <button class="btn-excel-export" id="btnExcelExport" onclick="handleExport()" >📊 Export Excel</button>
+                    <button class="btn-excel-import" id="btnExcelImport" onclick="document.getElementById('excelImportInput').click()" >📂 Import Excel</button>
                     <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;" onchange="importFromExcel(this)">
-                    <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" style="display:none;">⚙️ Columns</button>
-                    <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
-                    <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add Deal</button>
+                    <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" >⚙️ Columns</button>
+                    <button class="btn-save" id="saveBtn" onclick="saveChanges()" >💾 Save</button>
+                    <button class="btn-add" id="addBtn" onclick="showAddDealModal()" >➕ Add Deal</button>
                 </div>
                 <div class="filter-row" id="filterRow">
                     <!-- Column filters will be populated by JavaScript -->
@@ -1680,6 +1792,10 @@
 
         // Sort table
         function sortTable(column) {
+            // Don't sort if a column drag just finished
+            if (_thDragBlocked) return;
+            // Suppress sort if a column drag just completed
+            if (typeof _thDragActive !== 'undefined' && _thDragActive) return;
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             
@@ -1808,6 +1924,7 @@
 
         // Load data
         async function loadData() {
+            showJetLoader('Loading');
             // ── Detect file:// protocol (local open) → always use data.json ──
             const isLocalFile = window.location.protocol === 'file:';
 
@@ -1818,6 +1935,7 @@
                     if (!r.ok) throw new Error('data.json not found');
                     const rawData = await r.json();
                     data = convertData(rawData);
+                    hideJetLoader();
                     renderTable();
                     showToast('Loaded from data.json (local mode)');
                 } catch(e) {
@@ -1888,6 +2006,7 @@
                     sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
                 }
 
+                hideJetLoader();
                 console.log('✅ Data loaded from Supabase');
 
             } catch(e) {
@@ -1899,6 +2018,7 @@
                     if (!r.ok) throw new Error('data.json also unavailable');
                     const rawData = await r.json();
                     data = convertData(rawData);
+                    hideJetLoader();
                     showToast('⚠️ Supabase error — showing cached data');
                 } catch(e2) {
                     showError('Connection Error',
@@ -1965,7 +2085,7 @@
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
                 const safeCol = col.replace(/'/g, "\\'").replace(/\n/g,"\\n");
                 const dragAttrs = isAdmin
-                    ? ` draggable="true" ondragstart="thDragStart(event,'${safeCol}','${sheetName}')" ondragover="thDragOver(event)" ondrop="thDrop(event,'${safeCol}','${sheetName}')" ondragend="thDragEnd(event)" style="cursor:grab;" title="Drag to reorder"`
+                    ? ` draggable="true" data-col="${safeCol}" ondragstart="thDragStart(event,'${safeCol}','${sheetName}')" ondragover="thDragOver(event)" ondragleave="thDragLeave(event)" ondrop="thDrop(event,'${safeCol}','${sheetName}')" ondragend="thDragEnd(event)" style="cursor:grab;user-select:none;" title="Drag to reorder column"`
                     : '';
                 html += `<th class="sortable ${sortClass}"${dragAttrs} onclick="sortTable('${safeCol}')"><span style="opacity:0.35;margin-right:3px;font-size:9px;">${isAdmin?'⠿':''}</span>${getColDisplayName(col)}</th>`;
             });
@@ -2392,9 +2512,21 @@
 
             container.innerHTML = html;
 
-            // Pre-fill Date Received with today
-            const dateField = container.querySelector('[data-key="Date Received"]');
-            if (dateField) dateField.value = todayFormatted;
+            // Pre-fill ALL date fields with today's date
+            // Fields containing 'Date' in their key get pre-filled with today
+            container.querySelectorAll('[data-key]').forEach(field => {
+                const key = field.getAttribute('data-key') || '';
+                if (key.toLowerCase().includes('date') && !field.value) {
+                    // Date Received gets DD/Mon/YYYY format
+                    if (key === 'Date Received') {
+                        field.value = todayFormatted;
+                    } else if (key === 'Date-Of-Manufacture') {
+                        // Leave blank – user should fill manufacture date
+                    } else {
+                        field.value = todayFormatted;
+                    }
+                }
+            });
 
             // Pre-fill No (next sequential)
             const sheetData = data[sheetName] || [];
@@ -2507,6 +2639,9 @@
 
         // Switch tabs
         function switchTab(tab) {
+            showJetLoader("Loading");
+            setTimeout(() => {
+
             // Exit selection mode and clear row selection when changing tabs
             selectionMode = false;
             selectedRows.clear();
@@ -2524,6 +2659,8 @@
             renderTable();
             renderFilters();
             updateStats();
+                        hideJetLoader();
+            }, 60);
         }
 
         // Update statistics
@@ -2708,18 +2845,13 @@
                 // Reveal login/logout buttons for admin session
                 const lb = document.getElementById('loginBtn');
                 if (lb) lb.style.display = '';
-                isAdmin = true; if(typeof updateAdminUI==='function') updateAdminUI(true);
-                document.getElementById('roleBadge').textContent = 'Admin';
-                document.getElementById('roleBadge').classList.add('admin');
-                document.getElementById('roleBadge').style.display = '';
+                isAdmin = true;
                 document.getElementById('loginBtn').style.display = 'none';
                 document.getElementById('logoutBtn').style.display = 'inline-block';
-                document.getElementById('addBtn').classList.add('admin-only');
-                document.getElementById('saveBtn').classList.add('admin-only');
                 hideLoginModal();
-                renderTable();
-                renderFilters();
-                updateStats();
+                if (typeof updateAdminUI === 'function') updateAdminUI(true);
+                if (typeof renderFilters === 'function') renderFilters();
+                if (typeof updateStats === 'function') updateStats();
             } else {
                 alert('Incorrect password');
             }
@@ -2727,6 +2859,7 @@
 
         function logout() {
             isAdmin = false;
+            if (typeof updateAdminUI === 'function') updateAdminUI(false);
             // Re-hide login button unless on /admin route
             const path = window.location.pathname;
             const hash = window.location.hash;
@@ -2739,8 +2872,8 @@
             document.getElementById('roleBadge').style.display = 'none';
             document.getElementById('loginBtn').style.display = 'inline-block';
             document.getElementById('logoutBtn').style.display = 'none';
-            document.getElementById('addBtn').classList.remove('admin-only');
-            document.getElementById('saveBtn').classList.remove('admin-only');
+            document.getElementById('addBtn').style.display = 'none';
+            document.getElementById('saveBtn').style.display = 'none';
             renderTable();
             renderFilters();
             updateStats();
@@ -3108,10 +3241,7 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         // File upload via Google Drive links (no storage backend needed)
-        async function handleFileUpload(rowIndex, input) {
-            // Legacy stub - replaced by Google Drive link system
-            console.warn('handleFileUpload: use saveFileLink instead');
-        }
+        async 
         // ── End Supabase helpers ─────────────────────────────────────────────
 
     </script>
@@ -3240,15 +3370,34 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
+    // Show/hide admin action bar
+    const adminBar = document.getElementById('adminActionBar');
+    if (adminBar) adminBar.style.display = isAdminMode ? 'flex' : 'none';
+    // Show/hide ALL admin-only control buttons
     ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = isAdminMode ? '' : 'none';
+        if (el) {
+            el.style.display = isAdminMode ? 'inline-block' : 'none';
+            if (isAdminMode) {
+                el.classList.add('admin-only');
+            } else {
+                el.classList.remove('admin-only');
+            }
+        }
+    });
+    // Also show/hide any .admin-only elements in the table
+    document.querySelectorAll('.admin-only-cell').forEach(el => {
+        el.style.display = isAdminMode ? '' : 'none';
     });
     const rb = document.getElementById('roleBadge');
     if (rb) {
-        rb.style.display = isAdminMode ? '' : 'none';
+        rb.style.display = isAdminMode ? 'inline-flex' : 'none';
         rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
-        rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
+        rb.textContent = isAdminMode ? '🔐 Admin Mode' : 'Viewer';
+    }
+    // Re-render table to show/hide admin columns and drag handles
+    if (typeof renderTable === 'function') {
+        renderTable();
     }
 }
 
@@ -3422,48 +3571,146 @@ function resetColumnOrder() {
         }
 
     
-// ── Direct <th> column drag-and-drop reordering ───────────────────────
-let _thDragCol = null;
+// ─── Column Header Drag & Drop (Admin Mode) ───────────────────────────────
+let _thDragSrc = null;      // { col, sheetName, thEl }
+let _thDragBlocked = false; // prevents click-sort after drag
+
 function thDragStart(e, col, sheetName) {
-    _thDragCol = { col: col, sheet: sheetName };
+    _thDragSrc = { col, sheetName };
+    _thDragBlocked = false;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', col);
-    e.target.style.opacity = '0.5';
+    // Style the dragged header
+    const th = e.currentTarget;
+    th.classList.add('th-dragging');
+    _thDragSrc.thEl = th;
 }
+
 function thDragOver(e) {
-    e.preventDefault();
+    e.preventDefault();                     // REQUIRED to allow drop
     e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('th-drag-over');
+    const th = e.currentTarget;
+    th.classList.add('th-drag-over');
 }
+
+function thDragLeave(e) {
+    const th = e.currentTarget;
+    th.classList.remove('th-drag-over');
+}
+
 function thDragEnd(e) {
-    e.target.style.opacity = '';
-    document.querySelectorAll('th.th-drag-over').forEach(t => t.classList.remove('th-drag-over'));
+    // Clean up all drag styles
+    document.querySelectorAll('th.th-dragging').forEach(el => el.classList.remove('th-dragging'));
+    document.querySelectorAll('th.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
+    // Block sort click for a moment after drag
+    _thDragBlocked = true;
+    setTimeout(() => { _thDragBlocked = false; }, 300);
 }
+
 function thDrop(e, targetCol, sheetName) {
     e.preventDefault();
-    thDragEnd(e);
-    if (!_thDragCol) return;
-    const fromCol = _thDragCol.col;
-    _thDragCol = null;
+    e.stopPropagation();
+    // Clean up styles
+    document.querySelectorAll('th.th-dragging').forEach(el => el.classList.remove('th-dragging'));
+    document.querySelectorAll('th.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
+    _thDragBlocked = true;
+    setTimeout(() => { _thDragBlocked = false; }, 300);
+
+    if (!_thDragSrc) return;
+    const fromCol = _thDragSrc.col;
+    _thDragSrc = null;
     if (fromCol === targetCol) return;
-    // Get current ordered columns from the live table
+
+    // Get current column order
     const currentCols = window._visibleCols ? [...window._visibleCols] : [];
     if (!currentCols.length) return;
+
     const fromIdx = currentCols.indexOf(fromCol);
     const toIdx   = currentCols.indexOf(targetCol);
     if (fromIdx === -1 || toIdx === -1) return;
+
     // Reorder
     currentCols.splice(fromIdx, 1);
     currentCols.splice(toIdx, 0, fromCol);
-    // Persist
+
+    // Save the new order
     if (typeof saveAdminColumnOrder === 'function') {
         saveAdminColumnOrder(sheetName, currentCols);
     } else {
         try { localStorage.setItem('colOrder_' + sheetName, JSON.stringify(currentCols)); } catch(ex) {}
     }
-    // Re-render table
-    if (typeof renderTable === 'function') renderTable();
+    // Re-render table with new order
+    renderTable();
+
+    // Brief visual feedback
+    setTimeout(() => {
+        const ths = document.querySelectorAll('#dataTable th');
+        ths.forEach(th => {
+            if (th.dataset && th.dataset.col === fromCol) {
+                th.style.background = '#dbeafe';
+                setTimeout(() => { th.style.background = ''; }, 600);
+            }
+        });
+    }, 50);
 }
 
-</script></body>
+
+
+
+
+
+    
+
+
+// ── Jet Engine Loader show / hide ──────────────────────────────────────
+function showJetLoader(msg) {
+    const el = document.getElementById('jetLoader');
+    if (!el) return;
+    const txt = el.querySelector('.jet-loader-text');
+    if (txt && msg) txt.textContent = msg;
+    el.classList.add('active');
+}
+function hideJetLoader() {
+    const el = document.getElementById('jetLoader');
+    if (el) el.classList.remove('active');
+}
+
+</script>
+    <!-- ✈️ Jet Engine Fan Blade Loader -->
+    <div id="jetLoader">
+        <div class="jet-engine-wrap">
+            <div class="jet-outer-ring"></div>
+            <div class="jet-fan">
+                <svg viewBox="0 0 104 104" width="104" height="104" style="overflow:visible;">
+                    <g transform="translate(52,52)">
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(0)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(51.4)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(102.8)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(154.2)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(205.7)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(257.1)"/>
+                        <path d="M0,-10 C4,-22 14,-38 8,-46 C2,-54 -8,-44 -6,-30 C-4,-18 -2,-12 0,-10 Z"
+                              fill="url(#bladeGrad)" opacity="0.95" transform="rotate(308.5)"/>
+                        <defs>
+                            <linearGradient id="bladeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%"   stop-color="#60a5fa"/>
+                                <stop offset="100%" stop-color="#1e5ba8"/>
+                            </linearGradient>
+                        </defs>
+                    </g>
+                </svg>
+            </div>
+            <div class="jet-hub"></div>
+        </div>
+        <div class="jet-loader-text">Loading</div>
+        <div class="jet-loader-sub">AVIATION OPPORTUNITIES PORTAL</div>
+    </div>
+
+</body>
 </html>
