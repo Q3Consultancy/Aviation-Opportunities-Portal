@@ -1117,10 +1117,30 @@
         #filterCollapsible.collapsed { max-height: 0 !important; }
 
         /* ── Excel Import/Export Buttons ── */
-        
+        .btn-excel-export {
+            background: #217346;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
         .btn-excel-export:hover { background: #155724; }
 
-        
+        .btn-excel-import {
+            background: #1e5ba8;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
         .btn-excel-import:hover { background: #164a8a; }
 
         /* ── Column Order Button ── */
@@ -1207,8 +1227,45 @@
         th[draggable="true"] { cursor: grab !important; }
         th[draggable="true"]:active { cursor: grabbing !important; }
 
-        /* ── Thin Loading Progress Bar (replaces full-screen spinner) ── */
-100% { background-position: -200% 0; }
+        /* ── Jet Engine Fan Blade Loading Spinner ── */
+        #engineSpinner {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 26, 60, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.4s ease;
+        }
+        #engineSpinner.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .engine-fan {
+            width: 90px;
+            height: 90px;
+            animation: spinFan 1.2s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(30, 91, 168, 0.8));
+        }
+        @keyframes spinFan {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner-text {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            margin-top: 18px;
+            font-family: inherit;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        .spinner-sub {
+            color: rgba(255,255,255,0.5);
+            font-size: 10px;
+            margin-top: 5px;
+            letter-spacing: 0.5px;
         }
     </style>
 
@@ -1247,9 +1304,48 @@
       }
     })();
   </script>
-    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+    <!-- Jet Engine Fan Blade Loading Spinner -->
+    <div id="engineSpinner">
+        <svg class="engine-fan" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <!-- Center hub -->
+            <circle cx="50" cy="50" r="8" fill="#1e5ba8"/>
+            <circle cx="50" cy="50" r="4" fill="#2d74c4"/>
+            <!-- Fan blades (6 blades) -->
+            <g fill="#1e5ba8" opacity="0.9">
+                <!-- Blade 1 (0°) -->
+                <path d="M50,50 C52,40 56,28 50,14 C44,14 46,32 46,42 Z" fill="url(#blade1)"/>
+                <!-- Blade 2 (60°) -->
+                <path d="M50,50 C40,44 28,40 17,46 C17,52 35,52 44,54 Z" fill="url(#blade2)"/>
+                <!-- Blade 3 (120°) -->
+                <path d="M50,50 C44,60 40,72 46,84 C52,84 52,66 54,56 Z" fill="url(#blade1)"/>
+                <!-- Blade 4 (180°) -->
+                <path d="M50,50 C60,56 72,60 84,54 C84,48 66,48 56,46 Z" fill="url(#blade2)"/>
+                <!-- Blade 5 (240°) -->
+                <path d="M50,50 C56,40 60,28 54,16 C48,16 48,34 46,44 Z" fill="url(#blade1)" transform="rotate(240 50 50)"/>
+                <!-- Blade 6 (300°) -->
+                <path d="M50,50 C40,44 28,40 17,46 C17,52 35,52 44,54 Z" fill="url(#blade2)" transform="rotate(60 50 50)"/>
+            </g>
+            <!-- Outer ring -->
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#1e5ba8" stroke-width="2.5" opacity="0.5"/>
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#2d74c4" stroke-width="1" opacity="0.3"/>
+            <defs>
+                <linearGradient id="blade1" x1="50%" y1="100%" x2="50%" y2="0%">
+                    <stop offset="0%" stop-color="#1e5ba8"/>
+                    <stop offset="100%" stop-color="#4a9eed"/>
+                </linearGradient>
+                <linearGradient id="blade2" x1="0%" y1="50%" x2="100%" y2="50%">
+                    <stop offset="0%" stop-color="#1e5ba8"/>
+                    <stop offset="100%" stop-color="#4a9eed"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        <div class="spinner-text">Loading Aviation Data...</div>
+        <div class="spinner-sub">Aviation Opportunities Platform</div>
+    </div>
+
     <div class="container">
         <header>
             <div class="logo-container">
@@ -1272,16 +1368,16 @@
         </div>
 
         <div class="tabs">
-            <div class="tab" data-tab="engines" onclick="switchTab('engines')">
+            <div class="tab" data-tab="engines" active" onclick="switchTab('engines')">
                 <span style="font-size: 18px;">⚙️</span> Engines
             </div>
-            <div class="tab" data-tab="aircraft-sale" onclick="switchTab('aircraft-sale')">
+            <div class="tab" data-tab="aircraft-sale"" onclick="switchTab('aircraft-sale')">
                 <span style="font-size: 18px;">✈️</span> Aircraft Sale
             </div>
-            <div class="tab" data-tab="aircraft-lease" onclick="switchTab('aircraft-lease')">
+            <div class="tab" data-tab="aircraft-lease"" onclick="switchTab('aircraft-lease')">
                 <span style="font-size: 18px;">🛩️</span> Aircraft Lease
             </div>
-            <div class="tab" data-tab="parts" onclick="switchTab('parts')">
+            <div class="tab" data-tab="parts"" onclick="switchTab('parts')">
                 <span style="font-size: 18px;">🔧</span> Parts
             </div>
         </div>
@@ -1299,7 +1395,9 @@
                 <div class="controls">
                     <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search deals..." onkeyup="filterTable()">
                     <button class="btn-export" onclick="exportToCSV()">📥 CSV</button>
-                    
+                    <button class="btn-excel-export" id="btnExcelExport" onclick="handleExport()" style="display:none;">📊 Export Excel</button>
+                    <button class="btn-excel-import" id="btnExcelImport" onclick="document.getElementById('excelImportInput').click()" style="display:none;">📂 Import Excel</button>
+                    <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;" onchange="importFromExcel(this)">
                     <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" style="display:none;">⚙️ Columns</button>
                     <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
                     <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add Deal</button>
@@ -1367,10 +1465,12 @@
             </div>
         </div>
     </div>
-<script>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
+</script><script>
         // Configuration
         const ADMIN_PASSWORD = 'admin123';
-        let isAdmin = false;
+        let isAdmin = false; if(typeof updateAdminUI==='function') updateAdminUI(false);
         let selectedRows = new Set();
         let selectionMode = false;  // rows only clickable after 'Place my Interest' // tracks row indices for "Place my Interest"
         let currentTab = 'engines';
@@ -1379,7 +1479,6 @@
         let sortColumn = null;
         let sortDirection = 'asc';
         let columnFilters = {};
-        let columnOrder = {};  // Stores custom column order per sheet: { 'Engines': ['col1','col2',...], ... }
 
         // Today's date in DD/MMM/YYYY format
         const today = new Date();
@@ -1607,6 +1706,10 @@
         }
 
         // Key names (with literal newlines as they appear in data.json)
+
+        // ── Inline fallback data (112 rows) — loads even if Supabase + data.json fail ──
+        window.__INLINE_DATA__ = {"Engines":{"columns":["No","Deal #","Engine","Files","ESN","Cycles Remaining","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","LLP Sheet","Last Shop Visit","Last Shop Visit Report","QEC / Accessory List","Engine History","NIS","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Buyer(s) 5","Status","Date Received"],"data":[["1","7B001","CFM56-7B","","802603","10,000","13,500,000",null,"400,000","14,500,000","Yes","2025\nTBC","Requested",2025,2025,2025,"[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]",""],["2","7B002","CFM56-7B","","802539","10,000","13,500,000",null,"400,000","13,900,000","Yes","2025\nTBC","Requested",2025,2025,2025,"[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]",""],["3","7B003","CFM56-7B","","Not provided","10,345","13,500,000",null,"675,000","14,200,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet",2024,"[Jordan]","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]",""],["4","7B004","CFM56-7B","","876194","3,809","7,990,000",null,"399,500","8,400,000","Yes",2022,"Yes",2025,2025,2025,"FTAI Aviation","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]","08/Aug/2025"],["5","7B005","CFM56-7B","","893225","5,000","8,960,000",null,"448,000","9,450,000","Yes",2025,"Yes",2025,2025,2025,"FTAI Aviation","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","AAR","Rustin Nahulandran","-","Closed [Sold to another Buyer]","08/Aug/2025"],["6","5A001","CFM56-5A1","","731308","2,710","3,250,000",null,"162,500","3,450,000","Yes",2024,"Yes",2025,2025,2025,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","01/Aug/2025"],["7","5A002","CFM56-5A1","","731312","1,740","2,100,000",null,"105,000","2,250,000","Yes",2023,"Yes","To be checked",2025,2025,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","01/Aug/2025"],["8",25001,"V2527-A5","","V12856","11,279","12,010,000",null,"600,500","12,650,000","Yes",2025,"Yes",2025,2025,2024,"[China]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","Rustin Nahulandran","-","Closed [Sold to another Buyer]","09/Aug/2025"],["9",25002,"V2527-A5","","V11821","8,735","7,989,000",null,"399,450","8,400,000","Yes",2025,"Yes",2024,2024,2024,"[China]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","Closed [Sold to another Buyer]","09/Aug/2025"],["10",25003,"V2533-A5","","V17032","11,651","12,275,000",null,"613,750","12,900,000","Yes",2025,"Yes",2024,2025,2025,"[Hong Kong]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","-","-","Closed [Sold to another Buyer]","09/Aug/2025"],["11","5B001","CFM56-5B8/P","","577157","6,142","6,200,000",null,"310,000","6,550,000","TBD","TBD","TBD","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","14/Aug/2025"],["12","5B002","CFM56-5B5/P","","575185","6,831","6,200,000",null,"310,000","6,550,000","TBD","TBD","TBD","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","14/Aug/2025"],["13","5B003","CFM56-5B4/P","","575117","10,017","8,000,000",null,"400,000","8,400,000","TBD","TBD","TBD","TBD","TBD","TBD","[USA]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","14/Aug/2025"],["14","7B006","CFM56-7B","","Not provided","14,933","TBC",null,"TBD","TBD","Yes",2025,"To be checked","To be checked","To be checked",2025,"TBC","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","21/Aug/2025"],["15","7B007","CFM56-7B","","Not provided","15,729","TBC",null,"TBD","TBD","Yes",2025,"To be checked","To be checked","To be checked",2024,"TBC","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","21/Aug/2025"],["16","5A003","CFM56-5A1/F","","731333","5,406","4,300,000",null,"215,000","4,550,000","Yes",2025,"Yes",2025,2025,2024,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","23/Aug/2025"],["17","5A004","CFM56-5A1/F","","731663","TBC","4,420,000",null,"221,000","4,650,000","Yes",2024,"Yes",2025,2025,2024,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","23/Aug/2025"],["18","7B008","CFM56-7B","","Not provided","10,345","8,600,000",null,"430,000","9,050,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet",2024,"TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","02/Sep/2025"],["19","94XXX","GE90-94B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","04/Jun/2025"],["20","T8XXX","Trent 892-17","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","22/Aug/2025"],["21","5BXXX","CFM56-5B","","TBC","500-800","TBC",null,"TBD","200,000-400.000","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Surewings Experts","-","-","-","-","Buyer Request","30/Aug/2025"],["22","7BXXX","CFM56-7B","","TBC","500-800","TBC",null,"TBC","200,000-400,000","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Surewings Experts","-","-","-","-","Buyer Request","30/Aug/2025"],["23","115XXX","GE90-115B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","05/Sep/2025"],["24","5B004","CFM56-5B4/P","","Not provided","5,004","TBC",null,"TBD","TBD","TBD",2025,"Not provided yet","Not provided yet","Not provided yet","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","18/Sep/2025"],["25",25004,"V2524-A5","","Not provided","5,397","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet",2025,2025,2024,"[USA]","Muhammad Al Lamadani +  Debmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","-","Seller Request","19/Sep/2025"],["26",25005,"V2524-A5","","Not provided","5,695","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet",2025,2025,2024,"[USA]","Muhammad Al Lamadani +  Debmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","-","Seller Request","19/Sep/2025"],["27","5B005","CFM56-5B6/P","","Not provided","6,491","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Muhammad Al Lamadani +  Debmalya Jojo Das","Rustin Nahulandran","-","-","-","-","Seller Request","23/Sep/2025"],["28","5B006","CFM56-5B4/3","","569141","1,984","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[UK]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["29","5B007","CFM56-5B4/3","","569142","2,038","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[UK]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["30","5B008","CFM56-5B4/P","","575341","2,306","5,000,000",null,"250,000","5,250,000","TBD",2025,"Not provided yet","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["31","5B009","CFM56-5B4/P","","575818","2,154","5,000,000",null,"250,000","5,250,000","TBD",2025,"Not provided yet","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["32","5B010","CFM56-5B5/P","","575562","2,273","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[USA]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["33","5B011 / 5B004","CFM56-5B4/P","","Not provided","5,004","7,500,000",null,"750,000","8,250,000","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","29/Sep/2025"],["34","7B009","CFM56-7B","","876120","2,642","0",null,"0","0","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["35","7B010","CFM56-7B","","888163","4,373","0",null,"0","0","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["36","7B011","CFM56-7B","","Not provided","Not provided","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["37","7B012","CFM56-7B","","Not provided","Not provided","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["38","7B013","CFM56-7B","","889751","12,001","12,700,000",null,"500,000","13,200,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","17/Oct/2025"],["39","7B014","CFM56-7B22","","889564","5,083","8,050,000",null,"250,000","8,300,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","Batik Air","-","-","-","Buyer: Submitted","17/Oct/2025"],["40","7B015","CFM56-7B22","","875169","5,369","8,300,000",null,"250,000","8,550,000","Yes",2025,"Yes",2025,2025,2025,"[Canada]","Surewings Experts","Rustin Nahulandran","Batik Air","-","-","-","Buyer: Submitted","17/Oct/2025"],["41","7B016","CFM56-7B","","876638","14,999","13,650,000",null,"300,000","13,950,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","17/Oct/2025"],["42","5B012","CFM56-5B","","Not provided","5,789","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","22/Oct/2025"],["43","7B017","CFM56-7B","","Not provided","4,888","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","22/Oct/2025"],["44","7B018","CFM56-7B","","874337","7,008","0",null,"0","0","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","29/Oct/2025"],["45","7B019","CFM56-7B","","874684","7,057","0",null,"0","0","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","29/Oct/2025"],["46",127001,"ATR72-200/500 PW127F","","TBD","TBD","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["47","2A1001","H225 (Makila lease) ","","TBD","300 (1 year)","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["48","2A1002","H225 (Makila 2A1 1 yr lease) ","","TBD","3,000","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["49",601001,"M601E (GE)","","TBD","3,000","980,000",null,"20,000","980,000","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Seller Request","06/Nov/2025"],["50",601002,"M601E (GE)","","TBD","3,300","980,000",null,"20,000","980,000","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Seller Request","06/Nov/2025"],["51","7B020","CFM56-7B26/3","","894773","3,117","8,700,000",null,"348,000","9,048,000","Yes",2023,"Yes",2023,2023,2023,"[China]","TBC","Rustin Nahulandran","Batik Air","-","-","-","Seller Request","11/Nov/2025"],["52",127002,"PW127M","","ED1314","4,000","1,900,000",null,"100,000","2,000,000","Yes",2025,"Not provided yet","TBD",2025,2025,"[USA]","MercAero","Surewings Experts","-","-","-","-","Buyer: Reviewing data","13/Nov/2025"],["53","115XXX","GE90-115B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Qatar Airways","-","-","-","-","Buyer Request","13/Nov/2025"],["54","GEnxXXX","GEnx-IB","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kenya Airways","-","-","-","-","Buyer Request","17/Nov/2025"],["55","XWBXXX","Trent XWB-84","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Asiana Airlines","-","-","-","-","Buyer Request","19/Nov/2025"],["56","PW4XXX","PW4168","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Asiana Airlines","-","-","-","-","Buyer Request","19/Nov/2025"],["57","250XXX","M250","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["58","PTAXXX","PT6A","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["59","PTTXXX","PT6T","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["60",25006,"V2527-A5","","Not provided","10,500","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["61",25007,"V2527-A5","","Not provided","12,350","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["62","5B013","CFM56-5B4/P","","697166","5,004","7,200,000",null,"300,000","7,500,000","Yes",2023,2023,2025,2024,2024,"TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","28/Nov/2025"],["63","5B014","CFM56-5B6/P","","577440","6,491","8,250,000",null,"300,000","8,550,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","28/Nov/2025"],["64","5A005","CFM56-5A5/F","","Not provided","2,700","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["65","5A006","CFM56-5A5/F","","Not provided","4,400","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["66","JT8001","JT8D-219","","Not provided","3,255","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["67","7B021","CFM56-7B26","","Not provided","10,500","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["68","3C001","CFM56-3C1","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["69","T9001","Trent 900 (QTY 8) - for teardown","","Not provided","U/S","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[Asia]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["70","T8001","Trent 892-17 (QTY 2)","","Not provided","U/S","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["71","GE90XXX","GE90-115 B777-300ER (QTY 4)","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["72","T700XX","Trent 700 (QTY 8)","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["73","7B022","CFM56-7B26","","894245","9,500","11,750,000",null,"200,000","11,950,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","03/Dec/2025"],["74","JT8002","JT8D-219","","Not provided","3,344","1,125,000",null,"60,000","1,185,000","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","TBC","-","-","-","-","-","Seller Request","10/Dec/2025"],["75",25007,"V2527-A5","","V12018","TBC","13,400,000",null,"500,000","13,900,000","Yes","TBC","Not provided yet","TBC","TBC","TBC","[Germany]","TBC","-","-","-","-","-","Seller Request","11/Dec/2025"],["76","5B015","CFM56-5B4/P","","779503","4,979","7,500,000",null,"300,000","7,800,000","Yes",2025,"Not provided yet",2025,2024,"Not provided yet","[USA]","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","27/Dec/2025"]]},"Aircraft Sale":{"columns":["No","Deal #","Aircraft","Files","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received"],"data":[["1","AC001","A320-232","","V2527-A5",8659,"2018-12-17 00:00:00",19411,"8,850",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["2","AC002","A320-251NEO","","CFM LEAP-1A26","TBA",2024,0,"0","TBC","73,000,000",null,"3,650,000","76,650,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["3","AC003","A320-232","","V2527-A5",8623,"2018-12-17 00:00:00",19334,"8,710",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["4","AC004","A321-231","","V2533-A5",7395,"2017-02-21 00:00:00",25311,"11,284","8/220","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["5","AC005","A220-300","","PW1521G-3","55xxxx",2019,14,"4",145,"TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["6","AC006","737-800","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["7","AC007","737-800","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["8","AC008","737-800 (lease)","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","","","","Buyer Request","04/Sep/2025"],["9","AC009","ATR72-600","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["10","AC010","Bombardier Dash 8 Q400","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["11","AC011","767 (Cargo)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["12","AC012","Bombardier CRJ-200LR\n(Landing Gear 3 years remaining)","","CF34-3B1\n(CR 3,000 each)","TBC","2024-04-01 00:00:00","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Surewings Experts","-","-","-","-","Closed [Sold to another Buyer]","16/Sep/2025"],["13","AC013","Gulfstream 650","","TBC","TBC",2020,"TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Seller Request","19/Sep/2025"],["14","AC014","Bombardier Challenger","","TBC","TBC",2018,"TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Seller Request","19/Sep/2025"],["15","AC015","Bombardier CR7-900\n(6,000 remaining)","","CF34-8C5","TBC",2006,"TBC","TBC","TBC","11,000,000",null,"550,000","11,550,000","TBC","Surewings Experts","Rustin Nahulandran","-","-","-","Seller Request","22/Sep/2025"],["16","AC016","Bombardier CR7-900\n(4,000 remaining)","","CF34-8C5","TBC",2006,"TBC","TBC","TBC","11,000,000",null,"550,000","11,550,000","TBC","Surewings Experts","Rustin Nahulandran","-","-","-","Seller Request","22/Sep/2025"],["17","AC017","Fokker 50","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","30/Oct/2025"],["","AC018","Cessna Caravan 208","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","1,800,000","TBC","UK Aviation Sales Ltd.","-","-","-","-","Buyer: Finalizing LOI and APA","06/Nov/2025"],["","AC019","Embraer E190","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["","AC020","K-8 (QTY 33)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC021","An-74 (QTY 3)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC022","Mi-8 (QTY 30)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC023","A380 (QTY 2) - for teardown","","Trent 900","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","-","-","-","-","Seller Request","28/Nov/2025"],["","AC024","B737-800 (QTY 3)","","TBC","TBC","2010-2012","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["","AC025","A330-300 (QTY 2)","","Trent 772B-60/16","TBC",2014,"35,833\n38,281","6,323\n6,705","12 BC / 365 EC\n12 BC / 365 EC","TBC",null,"TBD","53,500,000\n53,500,000","TBC","TBC","-","-","-","-","Seller Request","10/Dec/2025"],["","AC026","A320-232","","V2527-A5","TBC",2019,18022,"8,057","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC027","A320-232","","V2527-A5","TBC",2018,19837,"9,043","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC028","A320-232","","V2527-A5","TBC",2018,19335,"8,710","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC029","A320-232","","V2527-A5","TBC",2015,32701,"14,879","8 BC / 174 EC","",null,"","35,000,000","TBC","TBC","-","-","-","-","Seller Request",46034]]},"Aircraft Lease":{"columns":["No","Deal #","Aircraft","Files","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received"],"data":[["1","LAC001","A320-232","","V2527-A5",8659,"2018-12-17 00:00:00",19411,"8,850",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["2","LAC002","A320-232","","CFM LEAP-1A26","TBA",2024,0,"0","TBC","73,000,000",null,"3,650,000","76,650,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["3","LAC003","A320-232","","V2527-A5",8623,"2018-12-17 00:00:00",19334,"8,710",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["4","LAC004","A320-231","","V2533-A4",7394,"2017-02-20 00:00:00",25311,"11,284","8/219","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","28/Sep/2025"],["5","LAC005","A330 equivalent (QTY 3)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Global Aviation Bureau","-","-","-","Lessee Request","21/Nov/2025"],["6","LAC006","Dash 8 Q300 equivalent","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Libya","-","-","-","Lessee Request","21/Nov/2025"]]},"Parts":{"columns":["No","Deal #","Part","Files","Manufacturers S/N","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Status","Date Received"],"data":[["1","","","","","",null,"","","","","","",""]]}};
+
         const KEY_SELLER_PRICE   = "Seller's Price \n(USD)";
         const KEY_COMM_USD       = "Team Commission\n(USD)";
         const KEY_COMM_PCT       = "Team Commission\n(%)";
@@ -1775,107 +1878,122 @@
         }
 
         // Load data
-                // ── Real aviation data (inline fallback) ──
-        window.__INLINE_DATA__ = {"Engines":{"columns":["No","Deal #","Engine","Files","ESN","Cycles Remaining","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","LLP Sheet","Last Shop Visit","Last Shop Visit Report","QEC / Accessory List","Engine History","NIS","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Buyer(s) 5","Status","Date Received"],"data":[["1","7B001","CFM56-7B","","802603","10,000","13,500,000",null,"400,000","14,500,000","Yes","2025\nTBC","Requested",2025,2025,2025,"[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]",""],["2","7B002","CFM56-7B","","802539","10,000","13,500,000",null,"400,000","13,900,000","Yes","2025\nTBC","Requested",2025,2025,2025,"[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]",""],["3","7B003","CFM56-7B","","Not provided","10,345","13,500,000",null,"675,000","14,200,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet",2024,"[Jordan]","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]",""],["4","7B004","CFM56-7B","","876194","3,809","7,990,000",null,"399,500","8,400,000","Yes",2022,"Yes",2025,2025,2025,"FTAI Aviation","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","","Closed [Sold to another Buyer]","08/Aug/2025"],["5","7B005","CFM56-7B","","893225","5,000","8,960,000",null,"448,000","9,450,000","Yes",2025,"Yes",2025,2025,2025,"FTAI Aviation","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","AAR","Rustin Nahulandran","-","Closed [Sold to another Buyer]","08/Aug/2025"],["6","5A001","CFM56-5A1","","731308","2,710","3,250,000",null,"162,500","3,450,000","Yes",2024,"Yes",2025,2025,2025,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","01/Aug/2025"],["7","5A002","CFM56-5A1","","731312","1,740","2,100,000",null,"105,000","2,250,000","Yes",2023,"Yes","To be checked",2025,2025,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","01/Aug/2025"],["8",25001,"V2527-A5","","V12856","11,279","12,010,000",null,"600,500","12,650,000","Yes",2025,"Yes",2025,2025,2024,"[China]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","Rustin Nahulandran","-","Closed [Sold to another Buyer]","09/Aug/2025"],["9",25002,"V2527-A5","","V11821","8,735","7,989,000",null,"399,450","8,400,000","Yes",2025,"Yes",2024,2024,2024,"[China]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","Closed [Sold to another Buyer]","09/Aug/2025"],["10",25003,"V2533-A5","","V17032","11,651","12,275,000",null,"613,750","12,900,000","Yes",2025,"Yes",2024,2025,2025,"[Hong Kong]","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","-","-","Closed [Sold to another Buyer]","09/Aug/2025"],["11","5B001","CFM56-5B8/P","","577157","6,142","6,200,000",null,"310,000","6,550,000","TBD","TBD","TBD","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","14/Aug/2025"],["12","5B002","CFM56-5B5/P","","575185","6,831","6,200,000",null,"310,000","6,550,000","TBD","TBD","TBD","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","14/Aug/2025"],["13","5B003","CFM56-5B4/P","","575117","10,017","8,000,000",null,"400,000","8,400,000","TBD","TBD","TBD","TBD","TBD","TBD","[USA]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","-","-","","Closed [Sold to another Buyer]","14/Aug/2025"],["14","7B006","CFM56-7B","","Not provided","14,933","TBC",null,"TBD","TBD","Yes",2025,"To be checked","To be checked","To be checked",2025,"TBC","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","21/Aug/2025"],["15","7B007","CFM56-7B","","Not provided","15,729","TBC",null,"TBD","TBD","Yes",2025,"To be checked","To be checked","To be checked",2024,"TBC","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","21/Aug/2025"],["16","5A003","CFM56-5A1/F","","731333","5,406","4,300,000",null,"215,000","4,550,000","Yes",2025,"Yes",2025,2025,2024,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","23/Aug/2025"],["17","5A004","CFM56-5A1/F","","731663","TBC","4,420,000",null,"221,000","4,650,000","Yes",2024,"Yes",2025,2025,2024,"MD Turbines","Surewings Experts","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","23/Aug/2025"],["18","7B008","CFM56-7B","","Not provided","10,345","8,600,000",null,"430,000","9,050,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet",2024,"TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","Rustin Nahulandran","-","-","-","Closed [Sold to another Buyer]","02/Sep/2025"],["19","94XXX","GE90-94B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","04/Jun/2025"],["20","T8XXX","Trent 892-17","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","22/Aug/2025"],["21","5BXXX","CFM56-5B","","TBC","500-800","TBC",null,"TBD","200,000-400.000","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Surewings Experts","-","-","-","-","Buyer Request","30/Aug/2025"],["22","7BXXX","CFM56-7B","","TBC","500-800","TBC",null,"TBC","200,000-400,000","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Surewings Experts","-","-","-","-","Buyer Request","30/Aug/2025"],["23","115XXX","GE90-115B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Buyer Request","05/Sep/2025"],["24","5B004","CFM56-5B4/P","","Not provided","5,004","TBC",null,"TBD","TBD","TBD",2025,"Not provided yet","Not provided yet","Not provided yet","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","18/Sep/2025"],["25",25004,"V2524-A5","","Not provided","5,397","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet",2025,2025,2024,"[USA]","Muhammad Al Lamadani +  Debmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","-","Seller Request","19/Sep/2025"],["26",25005,"V2524-A5","","Not provided","5,695","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet",2025,2025,2024,"[USA]","Muhammad Al Lamadani +  Debmalya Jojo Das","True Aero","Sanad Capital\n[Peter Short]","AAR","Rustin Nahulandran","-","Seller Request","19/Sep/2025"],["27","5B005","CFM56-5B6/P","","Not provided","6,491","9,000,000",null,"450,000","9,450,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Muhammad Al Lamadani +  Debmalya Jojo Das","Rustin Nahulandran","-","-","-","-","Seller Request","23/Sep/2025"],["28","5B006","CFM56-5B4/3","","569141","1,984","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[UK]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["29","5B007","CFM56-5B4/3","","569142","2,038","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[UK]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["30","5B008","CFM56-5B4/P","","575341","2,306","5,000,000",null,"250,000","5,250,000","TBD",2025,"Not provided yet","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["31","5B009","CFM56-5B4/P","","575818","2,154","5,000,000",null,"250,000","5,250,000","TBD",2025,"Not provided yet","TBD","TBD","TBD","[Europe]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["32","5B010","CFM56-5B5/P","","575562","2,273","5,000,000",null,"250,000","5,250,000","Yes",2025,"Not provided yet",2025,2025,2025,"[USA]","AAR","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","Surewings Experts","-","Closed [Sold to another Buyer]","26/Sep/2025"],["33","5B011 / 5B004","CFM56-5B4/P","","Not provided","5,004","7,500,000",null,"750,000","8,250,000","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Jordanian Group","Muhammad Al Lamadani + \nDebmalya Jojo Das","True Aero","Rustin Nahulandran","-","-","Closed [Sold to another Buyer]","29/Sep/2025"],["34","7B009","CFM56-7B","","876120","2,642","0",null,"0","0","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["35","7B010","CFM56-7B","","888163","4,373","0",null,"0","0","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["36","7B011","CFM56-7B","","Not provided","Not provided","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["37","7B012","CFM56-7B","","Not provided","Not provided","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Closed [Sold to another Buyer]","16/Oct/2025"],["38","7B013","CFM56-7B","","889751","12,001","12,700,000",null,"500,000","13,200,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","17/Oct/2025"],["39","7B014","CFM56-7B22","","889564","5,083","8,050,000",null,"250,000","8,300,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","Batik Air","-","-","-","Buyer: Submitted","17/Oct/2025"],["40","7B015","CFM56-7B22","","875169","5,369","8,300,000",null,"250,000","8,550,000","Yes",2025,"Yes",2025,2025,2025,"[Canada]","Surewings Experts","Rustin Nahulandran","Batik Air","-","-","-","Buyer: Submitted","17/Oct/2025"],["41","7B016","CFM56-7B","","876638","14,999","13,650,000",null,"300,000","13,950,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","17/Oct/2025"],["42","5B012","CFM56-5B","","Not provided","5,789","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","22/Oct/2025"],["43","7B017","CFM56-7B","","Not provided","4,888","0",null,"0","0","Yes","TBC","Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","22/Oct/2025"],["44","7B018","CFM56-7B","","874337","7,008","0",null,"0","0","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","29/Oct/2025"],["45","7B019","CFM56-7B","","874684","7,057","0",null,"0","0","Yes",2024,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Closed [Sold to another Buyer]","29/Oct/2025"],["46",127001,"ATR72-200/500 PW127F","","TBD","TBD","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["47","2A1001","H225 (Makila lease) ","","TBD","300 (1 year)","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["48","2A1002","H225 (Makila 2A1 1 yr lease) ","","TBD","3,000","TBD",null,"TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["49",601001,"M601E (GE)","","TBD","3,000","980,000",null,"20,000","980,000","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Seller Request","06/Nov/2025"],["50",601002,"M601E (GE)","","TBD","3,300","980,000",null,"20,000","980,000","TBD","TBD","TBD","TBD","TBD","TBD","TBD","TBC","TBC","-","-","-","-","Seller Request","06/Nov/2025"],["51","7B020","CFM56-7B26/3","","894773","3,117","8,700,000",null,"348,000","9,048,000","Yes",2023,"Yes",2023,2023,2023,"[China]","TBC","Rustin Nahulandran","Batik Air","-","-","-","Seller Request","11/Nov/2025"],["52",127002,"PW127M","","ED1314","4,000","1,900,000",null,"100,000","2,000,000","Yes",2025,"Not provided yet","TBD",2025,2025,"[USA]","MercAero","Surewings Experts","-","-","-","-","Buyer: Reviewing data","13/Nov/2025"],["53","115XXX","GE90-115B","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Qatar Airways","-","-","-","-","Buyer Request","13/Nov/2025"],["54","GEnxXXX","GEnx-IB","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kenya Airways","-","-","-","-","Buyer Request","17/Nov/2025"],["55","XWBXXX","Trent XWB-84","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Asiana Airlines","-","-","-","-","Buyer Request","19/Nov/2025"],["56","PW4XXX","PW4168","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Asiana Airlines","-","-","-","-","Buyer Request","19/Nov/2025"],["57","250XXX","M250","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["58","PTAXXX","PT6A","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["59","PTTXXX","PT6T","","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","M International","-","-","-","-","-","Seller Request","20/Nov/2025"],["60",25006,"V2527-A5","","Not provided","10,500","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["61",25007,"V2527-A5","","Not provided","12,350","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["62","5B013","CFM56-5B4/P","","697166","5,004","7,200,000",null,"300,000","7,500,000","Yes",2023,2023,2025,2024,2024,"TBC","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","28/Nov/2025"],["63","5B014","CFM56-5B6/P","","577440","6,491","8,250,000",null,"300,000","8,550,000","Yes",2025,"Yes",2025,2025,2025,"[USA]","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","28/Nov/2025"],["64","5A005","CFM56-5A5/F","","Not provided","2,700","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["65","5A006","CFM56-5A5/F","","Not provided","4,400","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["66","JT8001","JT8D-219","","Not provided","3,255","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["67","7B021","CFM56-7B26","","Not provided","10,500","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["68","3C001","CFM56-3C1","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["69","T9001","Trent 900 (QTY 8) - for teardown","","Not provided","U/S","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","[Asia]","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["70","T8001","Trent 892-17 (QTY 2)","","Not provided","U/S","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","-","-","-","-","-","Seller Request","28/Nov/2025"],["71","GE90XXX","GE90-115 B777-300ER (QTY 4)","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["72","T700XX","Trent 700 (QTY 8)","","Not provided","3,000","TBC",null,"TBD","TBD","TBC","TBC","TBC","TBC","TBC","TBC","TBC","Kirubel Tegene / Other","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["73","7B022","CFM56-7B26","","894245","9,500","11,750,000",null,"200,000","11,950,000","Yes",2025,"Not provided yet","Not provided yet","Not provided yet","Not provided yet","[USA]","Surewings Experts","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","03/Dec/2025"],["74","JT8002","JT8D-219","","Not provided","3,344","1,125,000",null,"60,000","1,185,000","TBC","TBC","TBC","TBC","TBC","TBC","[USA]","TBC","-","-","-","-","-","Seller Request","10/Dec/2025"],["75",25007,"V2527-A5","","V12018","TBC","13,400,000",null,"500,000","13,900,000","Yes","TBC","Not provided yet","TBC","TBC","TBC","[Germany]","TBC","-","-","-","-","-","Seller Request","11/Dec/2025"],["76","5B015","CFM56-5B4/P","","779503","4,979","7,500,000",null,"300,000","7,800,000","Yes",2025,"Not provided yet",2025,2024,"Not provided yet","[USA]","Kirubel Tegene / Other","Rustin Nahulandran","-","-","-","-","Buyer: Reviewing data","27/Dec/2025"]]},"Aircraft Sale":{"columns":["No","Deal #","Aircraft","Files","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received"],"data":[["1","AC001","A320-232","","V2527-A5",8659,"2018-12-17 00:00:00",19411,"8,850",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["2","AC002","A320-251NEO","","CFM LEAP-1A26","TBA",2024,0,"0","TBC","73,000,000",null,"3,650,000","76,650,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["3","AC003","A320-232","","V2527-A5",8623,"2018-12-17 00:00:00",19334,"8,710",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["4","AC004","A321-231","","V2533-A5",7395,"2017-02-21 00:00:00",25311,"11,284","8/220","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["5","AC005","A220-300","","PW1521G-3","55xxxx",2019,14,"4",145,"TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","Closed [Sold to another Buyer]","30/Aug/2025"],["6","AC006","737-800","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["7","AC007","737-800","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["8","AC008","737-800 (lease)","","TBC","TBC","<2003","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","","","","Buyer Request","04/Sep/2025"],["9","AC009","ATR72-600","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["10","AC010","Bombardier Dash 8 Q400","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["11","AC011","767 (Cargo)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Lt. Col. Azril Datuk Hasbullah","-","-","-","Buyer Request","04/Sep/2025"],["12","AC012","Bombardier CRJ-200LR\n(Landing Gear 3 years remaining)","","CF34-3B1\n(CR 3,000 each)","TBC","2024-04-01 00:00:00","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Surewings Experts","-","-","-","-","Closed [Sold to another Buyer]","16/Sep/2025"],["13","AC013","Gulfstream 650","","TBC","TBC",2020,"TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Seller Request","19/Sep/2025"],["14","AC014","Bombardier Challenger","","TBC","TBC",2018,"TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Muhammad Al Lamadani + \nDebmalya Jojo Das","-","-","-","-","Seller Request","19/Sep/2025"],["15","AC015","Bombardier CR7-900\n(6,000 remaining)","","CF34-8C5","TBC",2006,"TBC","TBC","TBC","11,000,000",null,"550,000","11,550,000","TBC","Surewings Experts","Rustin Nahulandran","-","-","-","Seller Request","22/Sep/2025"],["16","AC016","Bombardier CR7-900\n(4,000 remaining)","","CF34-8C5","TBC",2006,"TBC","TBC","TBC","11,000,000",null,"550,000","11,550,000","TBC","Surewings Experts","Rustin Nahulandran","-","-","-","Seller Request","22/Sep/2025"],["17","AC017","Fokker 50","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","30/Oct/2025"],["","AC018","Cessna Caravan 208","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","1,800,000","TBC","UK Aviation Sales Ltd.","-","-","-","-","Buyer: Finalizing LOI and APA","06/Nov/2025"],["","AC019","Embraer E190","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","-","-","-","-","Buyer Request","06/Nov/2025"],["","AC020","K-8 (QTY 33)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC021","An-74 (QTY 3)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC022","Mi-8 (QTY 30)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Egyptian Air Force","-","-","-","-","Seller Request","24/Nov/2025"],["","AC023","A380 (QTY 2) - for teardown","","Trent 900","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","-","-","-","-","Seller Request","28/Nov/2025"],["","AC024","B737-800 (QTY 3)","","TBC","TBC","2010-2012","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","PJ","-","-","-","-","Buyer Request","03/Dec/2025"],["","AC025","A330-300 (QTY 2)","","Trent 772B-60/16","TBC",2014,"35,833\n38,281","6,323\n6,705","12 BC / 365 EC\n12 BC / 365 EC","TBC",null,"TBD","53,500,000\n53,500,000","TBC","TBC","-","-","-","-","Seller Request","10/Dec/2025"],["","AC026","A320-232","","V2527-A5","TBC",2019,18022,"8,057","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC027","A320-232","","V2527-A5","TBC",2018,19837,"9,043","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC028","A320-232","","V2527-A5","TBC",2018,19335,"8,710","TBC","32,300,000",null,"1,615,000","TBD","TBC","TBC","-","-","-","-","Seller Request",46034],["","AC029","A320-232","","V2527-A5","TBC",2015,32701,"14,879","8 BC / 174 EC","",null,"","35,000,000","TBC","TBC","-","-","-","-","Seller Request",46034]]},"Aircraft Lease":{"columns":["No","Deal #","Aircraft","Files","Engine","Manufacturers S/N","Date-Of-Manufacture","Total Time","Total Cycles","Configuration","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Buyer(s) 2","Buyer(s) 3","Buyer(s) 4","Status","Date Received"],"data":[["1","LAC001","A320-232","","V2527-A5",8659,"2018-12-17 00:00:00",19411,"8,850",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["2","LAC002","A320-232","","CFM LEAP-1A26","TBA",2024,0,"0","TBC","73,000,000",null,"3,650,000","76,650,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["3","LAC003","A320-232","","V2527-A5",8623,"2018-12-17 00:00:00",19334,"8,710",174,"32,300,000",null,"1,615,000","33,915,000","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","29/Sep/2025"],["4","LAC004","A320-231","","V2533-A4",7394,"2017-02-20 00:00:00",25311,"11,284","8/219","TBC",null,"TBD","TBD","TBC","Kirubel Tegene / Other","-","-","-","-","Lessor Request","28/Sep/2025"],["5","LAC005","A330 equivalent (QTY 3)","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Global Aviation Bureau","-","-","-","Lessee Request","21/Nov/2025"],["6","LAC006","Dash 8 Q300 equivalent","","TBC","TBC","TBC","TBC","TBC","TBC","TBC",null,"TBD","TBD","TBC","TBC","Libya","-","-","-","Lessee Request","21/Nov/2025"]]},"Parts":{"columns":["No","Deal #","Part","Files","Manufacturers S/N","Seller's Price \n(USD)","Team Commission\n(%)","Team Commission\n(USD)","Price \n(USD)","Location","Seller / Broker","Buyer(s)","Status","Date Received"],"data":[["1","","","","","",null,"","","","","","",""]]}};
-
         async function loadData() {
-            try {
-                // ── Detect whether Supabase has been configured ──
-                const stillPlaceholder = !window._sbReady;
-
-                if (stillPlaceholder) {
-                    // ── FALLBACK: load from inline data, then data.json ──
-                    console.info('ℹ️ Supabase not ready — trying data.json / inline data');
-                    let loaded = false;
-                    // Try fetching data.json first
-                    try {
-                        const response = await fetch('./data.json');
-                        if (response.ok) {
-                            const rawData = await response.json();
-                            data = convertData(rawData);
-                            loaded = true;
-                            console.log('✅ Loaded from data.json');
-                        }
-                    } catch(fetchErr) {
-                        console.warn('data.json fetch failed:', fetchErr.message);
-                    }
-                    // If data.json failed, try inline embedded data
-                    if (!loaded && window.__INLINE_DATA__) {
-                        data = convertData(window.__INLINE_DATA__);
-                        loaded = true;
-                        console.log('✅ Loaded from inline embedded data');
-                    }
-                    if (!loaded) {
-                        throw new Error('No data source available. Upload data.json alongside index.html.');
-                    }
-                } else {
-                    // ── SUPABASE PATH: SELECT all rows from each table ──
-                    const sb = window._sb;
-                    const TABLE_MAP = {
-                        'Engines':        'engines',
-                        'Aircraft Sale':  'aircraft_sale',
-                        'Aircraft Lease': 'aircraft_lease',
-                        'Parts':          'parts'
-                    };
-                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-
-                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                        const { data: rows, error } = await sb
-                            .from(tableName)
-                            .select('*')
-                            .order('no', { ascending: true });
-                        if (error) throw new Error(`Supabase SELECT ${tableName}: ${error.message}`);
-                        // Map snake_case columns back and tag _docId for upserts
-                        data[sheetName] = (rows || []).map(r => {
-                            const mapped = mapFromSupabase(r, sheetName);
-                            mapped._docId = String(r.id || r.no || '');
-                            return mapped;
-                        });
-                    }
+            // ── Helper: after any data load, render the table ──
+            function _afterLoad(source) {
+                console.log('✅ Data loaded from:', source);
+                // Hide jet engine loading spinner
+                const spinner = document.getElementById('engineSpinner');
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                    setTimeout(() => { spinner.style.display = 'none'; }, 450);
                 }
-
-                // Auto-calc Price and Commission USD for all existing rows
-                Object.keys(data).forEach(sheet => {
-                    data[sheet].forEach((row, idx) => {
-                        const sellerPrice = parseFloat(String(row[KEY_SELLER_PRICE] || '').replace(/,/g, '')) || 0;
-                        const commPct     = parseFloat(String(row[KEY_COMM_PCT]    || '').replace(/,/g, '')) || 0;
-                        const commUSD     = parseFloat(String(row[KEY_COMM_USD]    || '').replace(/,/g, '')) || 0;
-                        const priceField  = row[KEY_PRICE];
-                        const hasManualPrice = priceField !== null && priceField !== undefined && priceField !== '';
-
-                        if (sellerPrice > 0 && !hasManualPrice) {
-                            const calcCommUSD = commUSD || (sellerPrice * commPct / 100);
-                            data[sheet][idx][KEY_COMM_USD] = calcCommUSD || '';
-                            data[sheet][idx][KEY_PRICE]    = sellerPrice + (calcCommUSD || 0);
-                        }
-                    });
-                });
-
-                // Strip [] brackets from all Location values
-                Object.keys(data).forEach(sheet => {
-                    data[sheet].forEach(row => {
-                        if (row['Location']) {
-                            row['Location'] = row['Location'].toString().replace(/^\[|\]$/g, '').trim();
-                        }
-                    });
-                });
-
-                console.log('✅ Data loaded successfully');
+                if (typeof renderFilters === 'function') renderFilters();
                 renderTable();
-                renderFilters();
-                if (typeof updateStats === 'function') updateStats();
                 if (typeof filterTable === 'function') filterTable();
+            }
 
-            } catch (err) {
-                console.error('Data load error:', err);
-                const tableEl = document.getElementById('dataTable');
-                if (tableEl) tableEl.innerHTML =
-                    '<tr><td style="text-align:center;padding:40px;color:#dc2626;">' +
-                    '<div style="font-size:20px;margin-bottom:8px;">⚠️</div>' +
-                    '<strong>Data Load Error</strong><br>' +
-                    '<span style="font-size:12px;color:#64748b;display:block;margin-top:6px;">' + err.message + '</span>' +
-                    '<br><button onclick="loadData()" style="margin-top:10px;background:#1e5ba8;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">🔄 Retry</button>' +
-                    '</td></tr>';
+            // ── Detect file:// protocol → use data.json ──
+            const isLocalFile = window.location.protocol === 'file:';
+            if (isLocalFile) {
+                console.info('ℹ️ Running from file:// — loading data.json');
+                try {
+                    const r = await fetch('data.json');
+                    if (!r.ok) throw new Error('data.json not found (status ' + r.status + ')');
+                    const rawData = await r.json();
+                    data = convertData(rawData);
+                    _afterLoad('data.json (local)');
+                } catch(e) {
+                    showError('Local File Mode', 'Could not load data.json.<br>Make sure <code>data.json</code> is in the same folder as <code>index.html</code>.<br><br>For live Supabase data upload to GitHub Pages.');
+                }
+                return;
+            }
+
+            // ── Check Supabase readiness ──
+            const sbReady = window._sbReady === true && window._sb;
+            if (!sbReady) {
+                console.info('ℹ️ Supabase not configured — loading from data.json');
+                try {
+                    const r = await fetch('data.json');
+                    if (!r.ok) throw new Error('data.json fetch failed: ' + r.status);
+                    const rawData = await r.json();
+                    data = convertData(rawData);
+                    _afterLoad('data.json (no Supabase config)');
+                } catch(e) {
+                    // Try inline embedded data as last resort
+                    if (window.__INLINE_DATA__) {
+                        try {
+                            data = convertData(window.__INLINE_DATA__);
+                            _afterLoad('inline data');
+                            return;
+                        } catch(e2) {}
+                    }
+                    showError('Data Load Error', 'Could not load data.json: ' + e.message);
+                }
+                return;
+            }
+
+            // ── Supabase path ──
+            const TABLE_MAP = {
+                'Engines':        'engines',
+                'Aircraft Sale':  'aircraft_sale',
+                'Aircraft Lease': 'aircraft_lease',
+                'Parts':          'parts'
+            };
+            data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+
+            try {
+                const sb = window._sb;
+                for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
+                    let result;
+                    try {
+                        result = await sb.from(tableName).select('*').order('no', { ascending: true });
+                    } catch(fetchErr) {
+                        console.warn('Supabase network error for', tableName, ':', fetchErr.message);
+                        throw fetchErr; // caught by outer try
+                    }
+                    if (result.error) {
+                        throw new Error('Supabase SELECT ' + tableName + ': ' + result.error.message);
+                    }
+                    data[sheetName] = (result.data || []).map(r => {
+                        const mapped = mapFromSupabase(r, sheetName);
+                        mapped._docId = String(r.id || r.no || '');
+                        return mapped;
+                    });
+                }
+                // Sort each sheet by No
+                for (const sheet of Object.values(data)) {
+                    sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                }
+                _afterLoad('Supabase');
+
+            } catch(e) {
+                console.error('Supabase load failed:', e.message, '— trying data.json fallback');
+                try {
+                    const r = await fetch('data.json');
+                    if (!r.ok) throw new Error('data.json also unavailable (status ' + r.status + ')');
+                    const rawData = await r.json();
+                    data = convertData(rawData);
+                    _afterLoad('data.json (Supabase fallback)');
+                    showToast('⚠️ Supabase error — showing cached data');
+                } catch(e2) {
+                    // Try inline embedded data as last resort
+                    if (window.__INLINE_DATA__) {
+                        try {
+                            data = convertData(window.__INLINE_DATA__);
+                            _afterLoad('inline data fallback');
+                            return;
+                        } catch(e3) {}
+                    }
+                    showError('Cannot Load Data',
+                        '<b>Supabase error:</b> ' + e.message + '<br><br>' +
+                        '<b>data.json fallback also failed:</b> ' + e2.message + '<br><br>' +
+                        'Please check:<br>' +
+                        '• Supabase project is active at <a href="https://supabase.com" target="_blank">supabase.com</a><br>' +
+                        '• RLS policies allow public SELECT on tables: engines, aircraft_sale, aircraft_lease, parts<br>' +
+                        '• data.json is in the same folder as index.html'
+                    );
+                }
             }
         }
 
@@ -1884,7 +2002,6 @@
         // inserting Team Commission (%) right after Seller's Price (USD)
         function getOrderedColumns(sheetData) {
             if (!sheetData || sheetData.length === 0) return [];
-            const sheetName = getSheetName(currentTab);
             const cols = Object.keys(sheetData[0]).filter(c => c !== '_docId');
             // Ensure KEY_COMM_PCT is present after Seller Price
             if (!cols.includes(KEY_COMM_PCT)) {
@@ -1894,15 +2011,6 @@
             }
             // Ensure Comments column is always last (before nothing)
             if (!cols.includes(KEY_COMMENTS)) cols.push(KEY_COMMENTS);
-
-            // Apply custom column order if set via drag-and-drop
-            if (columnOrder[sheetName] && columnOrder[sheetName].length > 0) {
-                const ordered = columnOrder[sheetName];
-                // Keep only cols that exist in data, in dragged order, then append any new cols
-                const reordered = ordered.filter(c => cols.includes(c));
-                const remaining = cols.filter(c => !reordered.includes(c));
-                return [...reordered, ...remaining];
-            }
             return cols;
         }
 
@@ -2629,29 +2737,6 @@
         }
 
         // Save function (Admin only)
-        async // ─── Toast helper ───────────────────────────────────────────
-        function showToast(msg, duration) {
-            duration = duration || 3000;
-            // Try to reuse the saveToast element with a custom message
-            const t = document.getElementById('saveToast');
-            if (t) {
-                const prev = t.textContent;
-                t.textContent = msg;
-                t.classList.add('show');
-                setTimeout(function() {
-                    t.classList.remove('show');
-                    t.textContent = '✅ Changes saved successfully!';
-                }, duration);
-            } else {
-                // Fallback: floating div
-                const d = document.createElement('div');
-                d.style.cssText = 'position:fixed;bottom:30px;right:30px;background:#1e293b;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
-                d.textContent = msg;
-                document.body.appendChild(d);
-                setTimeout(function() { d.remove(); }, duration);
-            }
-        }
-
         async function saveChanges() {
             if (!isAdmin) return;
             const toast = document.getElementById('saveToast');
@@ -2701,7 +2786,7 @@
                 // Reveal login/logout buttons for admin session
                 const lb = document.getElementById('loginBtn');
                 if (lb) lb.style.display = '';
-                isAdmin = true; updateAdminUI(true);
+                isAdmin = true; if(typeof updateAdminUI==='function') updateAdminUI(true);
                 document.getElementById('roleBadge').textContent = 'Admin';
                 document.getElementById('roleBadge').classList.add('admin');
                 document.getElementById('roleBadge').style.display = '';
@@ -2719,20 +2804,20 @@
 
         function logout() {
             isAdmin = false;
-            updateAdminUI(false);
             // Re-hide login button unless on /admin route
             const path = window.location.pathname;
             const hash = window.location.hash;
             if (!path.endsWith('/admin') && hash !== '#admin') {
                 const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = 'none';
             }
             document.getElementById('roleBadge').textContent = 'External Viewer';
             document.getElementById('roleBadge').classList.remove('admin');
             document.getElementById('roleBadge').style.display = 'none';
             document.getElementById('loginBtn').style.display = 'inline-block';
             document.getElementById('logoutBtn').style.display = 'none';
-            // document.getElementById('addBtn').classList.remove('admin-only'); // handled by updateAdminUI
-            // document.getElementById('saveBtn').classList.remove('admin-only'); // handled by updateAdminUI
+            document.getElementById('addBtn').classList.remove('admin-only');
+            document.getElementById('saveBtn').classList.remove('admin-only');
             renderTable();
             renderFilters();
             updateStats();
@@ -2745,6 +2830,17 @@
             document.documentElement.style.setProperty('--tip-x', (e.clientX + 14) + 'px');
             document.documentElement.style.setProperty('--tip-y', (e.clientY - 10) + 'px');
         });
+
+        window.onload = async function() {
+            await loadData();
+            // Admin access: show login if URL contains #admin or path ends /admin
+            const _p = window.location.pathname;
+            const _h = window.location.hash;
+            if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
+                const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = 'inline-block';
+            }
+        };
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -3095,6 +3191,100 @@ function toggleRowSelection(rowIndex, trEl) {
         }
         // ── End Supabase helpers ─────────────────────────────────────────────
 
+    </script>
+
+    <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
+
+    <!-- ── Place My Interest – Email Modal ──────────────────── -->
+    <div id="interestModal">
+      <div class="interest-modal-box">
+        <div id="interestModalBody">
+          <h2>&#x1F4E7; Place My Interest</h2>
+          <p class="subtitle">
+            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="97f4f8f9e3f6f4e3d7e6baa4f4b9f4f8fa">[email&#160;protected]</a></strong> on your behalf.
+          </p>
+          <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
+          <label for="senderEmailInput">
+            Your contact email address <span style="color:#ef4444">*</span>
+          </label>
+          <input type="email" id="senderEmailInput" placeholder="you@example.com"
+                 oninput="document.getElementById('emailSendError').style.display='none'">
+          <div class="email-send-error" id="emailSendError">Please enter a valid email address.</div>
+          <div class="interest-modal-footer">
+            <button class="btn-cancel-interest" onclick="closeInterestModal()">Cancel</button>
+            <button class="btn-send-interest"   onclick="sendInterestEmail()">&#x2709;&#xFE0F; Send Email</button>
+          </div>
+        </div>
+        <div id="interestSentMsg" class="interest-sent-msg" style="display:none">
+          &#x2705; Your interest has been registered!<br>
+          <span style="font-size:13px;color:#64748b;margin-top:6px;display:block">
+            The Q3 Consultancy team will be in touch shortly.
+          </span>
+          <button class="btn-cancel-interest" style="margin-top:16px" onclick="closeInterestModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Global floating tooltip for Place my Interest button -->
+    <div id="interestTip" style="display:none;position:fixed;background:rgba(30,41,59,0.96);color:#fff;font-size:12px;font-weight:400;border-radius:8px;padding:10px 14px;width:260px;line-height:1.55;white-space:normal;z-index:99999;box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+        Please select the entries that you are interested in.<br><br>
+        Click any row to highlight it. Multiple rows can be selected at once.
+        Click a highlighted row again to deselect it.
+    </div>
+
+    <!-- ── Disclaimer Modal ─────────────────────────────────── -->
+    <div id="disclaimerModal" class="interest-modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+      <div class="interest-modal-box" style="max-width:760px;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="font-size:16px;color:#1e3a5f;">Aviation Opportunities Portal – Disclaimer</h2>
+            <button onclick="document.getElementById('disclaimerModal').classList.remove('show')"
+                    style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">&times;</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.7;color:#334155;">
+
+          <p><strong>1. Introduction – Platform Only</strong><br>
+          The Aviation Opportunities Portal is operated by Q3 Consultancy LLC as a consultancy and advisory platform to connect potential buyers and sellers of aviation assets, parts and services. Q3 Consultancy provides introductions and opportunity visibility only.</p>
+
+          <p><strong>2. No Trading of Aircraft or Parts</strong><br>
+          Q3 Consultancy does not buy, sell, own, broker, import, export or otherwise trade aircraft, engines, APUs, components, tools or any related aviation parts or consumables. All commercial and contractual arrangements are strictly and exclusively between the buyer and the seller.</p>
+
+          <p><strong>3. Buyer–Seller KYC and Compliance</strong><br>
+          Any initial screening by Q3 Consultancy is limited and does not replace full know your customer (KYC), sanctions, export control or compliance checks. Each buyer and seller is independently responsible for performing its own KYC, sanctions and export control checks, technical and quality due diligence, and ensuring compliance with all applicable aviation, safety, customs and trade regulations.</p>
+
+          <p><strong>4. Technical and Airworthiness Responsibility</strong><br>
+          All information about aircraft, engines, parts and documentation (including status, hours/cycles, back to birth trace, certifications such as EASA Form 1, FAA 8130-3 or equivalent, and service history) is provided by the seller. It is the buyer's sole responsibility to verify airworthiness, traceability, configuration, SB/AD status, and regulatory conformity before use or installation, including compliance with the relevant aviation authority requirements (e.g. GCAA, EASA, FAA).</p>
+
+          <p><strong>5. No Verification, Warranty or Endorsement</strong><br>
+          Q3 Consultancy does not inspect, audit or certify any aircraft, engine, part, record or document and gives no guarantee or warranty (express or implied) as to accuracy, condition, airworthiness, suitability for a particular aircraft type, maintenance program compatibility or future supportability. Inclusion of a listing does not constitute an endorsement or recommendation.</p>
+
+          <p><strong>6. No Legal, Regulatory or Engineering Advice</strong><br>
+          Information on the portal is for general information only and does not constitute legal, regulatory, tax, financial or engineering advice. Users must seek independent professional advice (including from aviation lawyers, CAMO/Part M/Part CAMO, Part 145/MRO or DOA/POA organisations as appropriate) before entering into any engagement or installing any part.</p>
+
+          <p><strong>7. Limitation of Liability</strong><br>
+          Q3 Consultancy will not be liable for any loss, damage, cost or claim of any kind arising out of or in connection with:
+          <ul style="margin:6px 0 6px 20px;">
+            <li>any negotiation, agreement or dispute between buyers and sellers;</li>
+            <li>the condition, airworthiness, documentation, traceability or legality of any aircraft, engine, part or service; or</li>
+            <li>any reliance on information displayed or communicated via the portal.</li>
+          </ul></p>
+
+          <p><strong>8. Business Activity</strong><br>
+          Q3 Consultancy operates strictly within the scope of its consultancy and advisory business activities as licensed in the UAE and does not engage in trading of goods. Nothing on this portal shall be interpreted as Q3 Consultancy acting as a seller, buyer or broker of aviation parts or assets.</p>
+
+          <p><strong>9. User Acknowledgement</strong><br>
+          By using this portal, you confirm that you understand and accept that Q3 Consultancy's role is limited to consultancy and introductions, and that all KYC, due diligence, contractual and operational responsibilities rest solely with the counterparties to each engagement.</p>
+
+        </div>
+        <div style="text-align:right;margin-top:16px;">
+            <button class="btn-cancel-interest"
+                    onclick="document.getElementById('disclaimerModal').classList.remove('show')">
+                Close
+            </button>
+        </div>
+      </div>
+    </div>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
 // ═══════════════════════════════════════════
 // V16 JS ADDITIONS
 // ═══════════════════════════════════════════
@@ -3127,20 +3317,13 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
-    // Show/hide admin-only buttons with explicit inline-block
-    ['btnColOrder','saveBtn','addBtn'].forEach(id => {
+    ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
-        if (!el) return;
-        el.style.display = isAdminMode ? 'inline-block' : 'none';
-        el.style.visibility = isAdminMode ? 'visible' : 'hidden';
-    });
-    // Also handle by class for any other admin-only elements
-    document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdminMode ? 'inline-block' : 'none';
+        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
     const rb = document.getElementById('roleBadge');
     if (rb) {
-        rb.style.display = isAdminMode ? 'inline-block' : 'none';
+        rb.style.display = isAdminMode ? '' : 'none';
         rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
         rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
     }
@@ -3171,21 +3354,14 @@ function updateAdminUI(isAdminMode) {
 
         function colDrop(e, targetCol) {
             e.stopPropagation();
-            e.preventDefault();
-            const th = e.currentTarget;
-            th.style.background = '';
-            th.style.borderLeft = '';
-            th.style.borderRight = '';
-            th.style.opacity = '';
-            if (_dragSrcCol === targetCol || !_dragSrcCol) { _dragSrcCol = null; return false; }
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+            e.currentTarget.style.opacity = '';
+            if (_dragSrcCol === targetCol || !_dragSrcCol) return false;
 
             // Reorder columns in columnOrder for current sheet
             const sheetName = getSheetName(currentTab);
-            // Initialize from current visible columns if not already set
-            const currentCols = window._visibleCols ? [...window._visibleCols] : Object.keys((data[sheetName]||[{}])[0]||{}).filter(c=>c!=='_docId');
-            let order = columnOrder[sheetName] && columnOrder[sheetName].length > 0 
-                ? [...columnOrder[sheetName]] 
-                : currentCols;
+            let order = columnOrder[sheetName] || (window._visibleCols ? [...window._visibleCols] : []);
             const srcIdx = order.indexOf(_dragSrcCol);
             const dstIdx = order.indexOf(targetCol);
             if (srcIdx !== -1 && dstIdx !== -1) {
@@ -3193,7 +3369,7 @@ function updateAdminUI(isAdminMode) {
                 order.splice(dstIdx, 0, _dragSrcCol);
                 columnOrder[sheetName] = order;
                 renderTable();
-                showToast('✅ Column "' + _dragSrcCol + '" moved');
+                showToast('✅ Column order updated');
             }
             _dragSrcCol = null;
             return false;
@@ -3358,17 +3534,6 @@ function resetColumnOrder() {
             }
         });
 
-                window.onload = function() {
-            loadData();
-            // Admin access: show login if URL contains #admin or path ends /admin
-            const _p = window.location.pathname;
-            const _h = window.location.hash;
-            if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
-                const lb = document.getElementById('loginBtn');
-                if (lb) lb.style.display = 'inline-block';
-            }
-        };
-
         document.addEventListener('DOMContentLoaded', function() {
     initFilterToggle();
     // Admin show/hide login button based on URL
@@ -3378,109 +3543,36 @@ function resetColumnOrder() {
 });
 
     
+
+        function showToast(msg, duration) {
+            duration = duration || 3000;
+            const t = document.getElementById('saveToast');
+            if (t) {
+                const orig = t.textContent;
+                t.textContent = msg;
+                t.style.display = 'block';
+                t.style.opacity = '1';
+                setTimeout(function() {
+                    t.style.opacity = '0';
+                    setTimeout(function() {
+                        t.style.display = 'none';
+                        t.textContent = orig;
+                    }, 400);
+                }, duration);
+            }
+        }
         function showError(title, msg) {
             // Hide spinner on any error
+            const spinner = document.getElementById('engineSpinner');
+            if (spinner) { spinner.classList.add('hidden'); setTimeout(() => { spinner.style.display = 'none'; }, 450); }
             const existing = document.getElementById('_portalErrorBanner');
             if (existing) existing.remove();
             const div = document.createElement('div');
             div.id = '_portalErrorBanner';
             div.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;background:#fff;border:2px solid #ef4444;border-radius:10px;padding:20px 28px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px;color:#1e293b;';
-            div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:22px;">⚠️</span><strong style="font-size:15px;color:#dc2626;">' + title + '</strong><button onclick="document.getElementById(\'_portalErrorBanner\').remove()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8;">✕</button></div>' + msg;
+            div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:22px;">⚠️</span><strong style="font-size:15px;color:#dc2626;">' + title + '</strong><button onclick="this.closest('#_portalErrorBanner').remove()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8;">✕</button></div>' + msg;
             document.body.appendChild(div);
         }
 
-    </script>
-
-    <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
-
-    <!-- ── Place My Interest – Email Modal ──────────────────── -->
-    <div id="interestModal">
-      <div class="interest-modal-box">
-        <div id="interestModalBody">
-          <h2>&#x1F4E7; Place My Interest</h2>
-          <p class="subtitle">
-            A draft email will be sent to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="97f4f8f9e3f6f4e3d7e6baa4f4b9f4f8fa">[email&#160;protected]</a></strong> on your behalf.
-          </p>
-          <div class="email-draft-box" id="interestEmailDraft"><!-- populated by JS --></div>
-          <label for="senderEmailInput">
-            Your contact email address <span style="color:#ef4444">*</span>
-          </label>
-          <input type="email" id="senderEmailInput" placeholder="you@example.com"
-                 oninput="document.getElementById('emailSendError').style.display='none'">
-          <div class="email-send-error" id="emailSendError">Please enter a valid email address.</div>
-          <div class="interest-modal-footer">
-            <button class="btn-cancel-interest" onclick="closeInterestModal()">Cancel</button>
-            <button class="btn-send-interest"   onclick="sendInterestEmail()">&#x2709;&#xFE0F; Send Email</button>
-          </div>
-        </div>
-        <div id="interestSentMsg" class="interest-sent-msg" style="display:none">
-          &#x2705; Your interest has been registered!<br>
-          <span style="font-size:13px;color:#64748b;margin-top:6px;display:block">
-            The Q3 Consultancy team will be in touch shortly.
-          </span>
-          <button class="btn-cancel-interest" style="margin-top:16px" onclick="closeInterestModal()">Close</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- Global floating tooltip for Place my Interest button -->
-    <div id="interestTip" style="display:none;position:fixed;background:rgba(30,41,59,0.96);color:#fff;font-size:12px;font-weight:400;border-radius:8px;padding:10px 14px;width:260px;line-height:1.55;white-space:normal;z-index:99999;box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
-        Please select the entries that you are interested in.<br><br>
-        Click any row to highlight it. Multiple rows can be selected at once.
-        Click a highlighted row again to deselect it.
-    </div>
-
-    <!-- ── Disclaimer Modal ─────────────────────────────────── -->
-    <div id="disclaimerModal" class="interest-modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
-      <div class="interest-modal-box" style="max-width:760px;max-height:85vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2 style="font-size:16px;color:#1e3a5f;">Aviation Opportunities Portal – Disclaimer</h2>
-            <button onclick="document.getElementById('disclaimerModal').classList.remove('show')"
-                    style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">&times;</button>
-        </div>
-        <div style="font-size:12.5px;line-height:1.7;color:#334155;">
-
-          <p><strong>1. Introduction – Platform Only</strong><br>
-          The Aviation Opportunities Portal is operated by Q3 Consultancy LLC as a consultancy and advisory platform to connect potential buyers and sellers of aviation assets, parts and services. Q3 Consultancy provides introductions and opportunity visibility only.</p>
-
-          <p><strong>2. No Trading of Aircraft or Parts</strong><br>
-          Q3 Consultancy does not buy, sell, own, broker, import, export or otherwise trade aircraft, engines, APUs, components, tools or any related aviation parts or consumables. All commercial and contractual arrangements are strictly and exclusively between the buyer and the seller.</p>
-
-          <p><strong>3. Buyer–Seller KYC and Compliance</strong><br>
-          Any initial screening by Q3 Consultancy is limited and does not replace full know your customer (KYC), sanctions, export control or compliance checks. Each buyer and seller is independently responsible for performing its own KYC, sanctions and export control checks, technical and quality due diligence, and ensuring compliance with all applicable aviation, safety, customs and trade regulations.</p>
-
-          <p><strong>4. Technical and Airworthiness Responsibility</strong><br>
-          All information about aircraft, engines, parts and documentation (including status, hours/cycles, back to birth trace, certifications such as EASA Form 1, FAA 8130-3 or equivalent, and service history) is provided by the seller. It is the buyer's sole responsibility to verify airworthiness, traceability, configuration, SB/AD status, and regulatory conformity before use or installation, including compliance with the relevant aviation authority requirements (e.g. GCAA, EASA, FAA).</p>
-
-          <p><strong>5. No Verification, Warranty or Endorsement</strong><br>
-          Q3 Consultancy does not inspect, audit or certify any aircraft, engine, part, record or document and gives no guarantee or warranty (express or implied) as to accuracy, condition, airworthiness, suitability for a particular aircraft type, maintenance program compatibility or future supportability. Inclusion of a listing does not constitute an endorsement or recommendation.</p>
-
-          <p><strong>6. No Legal, Regulatory or Engineering Advice</strong><br>
-          Information on the portal is for general information only and does not constitute legal, regulatory, tax, financial or engineering advice. Users must seek independent professional advice (including from aviation lawyers, CAMO/Part M/Part CAMO, Part 145/MRO or DOA/POA organisations as appropriate) before entering into any engagement or installing any part.</p>
-
-          <p><strong>7. Limitation of Liability</strong><br>
-          Q3 Consultancy will not be liable for any loss, damage, cost or claim of any kind arising out of or in connection with:
-          <ul style="margin:6px 0 6px 20px;">
-            <li>any negotiation, agreement or dispute between buyers and sellers;</li>
-            <li>the condition, airworthiness, documentation, traceability or legality of any aircraft, engine, part or service; or</li>
-            <li>any reliance on information displayed or communicated via the portal.</li>
-          </ul></p>
-
-          <p><strong>8. Business Activity</strong><br>
-          Q3 Consultancy operates strictly within the scope of its consultancy and advisory business activities as licensed in the UAE and does not engage in trading of goods. Nothing on this portal shall be interpreted as Q3 Consultancy acting as a seller, buyer or broker of aviation parts or assets.</p>
-
-          <p><strong>9. User Acknowledgement</strong><br>
-          By using this portal, you confirm that you understand and accept that Q3 Consultancy's role is limited to consultancy and introductions, and that all KYC, due diligence, contractual and operational responsibilities rest solely with the counterparties to each engagement.</p>
-
-        </div>
-        <div style="text-align:right;margin-top:16px;">
-            <button class="btn-cancel-interest"
-                    onclick="document.getElementById('disclaimerModal').classList.remove('show')">
-                Close
-            </button>
-        </div>
-      </div>
-    </div>
-</body>
+    </script></body>
 </html>
