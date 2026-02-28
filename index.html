@@ -1208,19 +1208,7 @@
         th[draggable="true"]:active { cursor: grabbing !important; }
 
         /* ── Thin Loading Progress Bar (replaces full-screen spinner) ── */
-        #loadingBar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #1e5ba8 0%, #4a9eff 50%, #1e5ba8 100%);
-            background-size: 200% 100%;
-            animation: barSlide 1.0s linear infinite;
-            z-index: 9999;
-        }
-        #loadingBar.done { display: none !important; }
-        @keyframes barSlide {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+100% { background-position: -200% 0; }
         }
     </style>
 
@@ -1262,9 +1250,6 @@
     
 </head>
 <body>
-    <!-- Jet Engine Fan Blade Loading Spinner -->
-    <div id="loadingBar"></div>
-
     <div class="container">
         <header>
             <div class="logo-container">
@@ -1876,10 +1861,6 @@
                 });
 
                 console.log('✅ Data loaded successfully');
-                // Hide loading bar
-                const lb = document.getElementById('loadingBar');
-                if (lb) lb.classList.add('done');
-                window._portalLoaded = true;
                 renderTable();
                 renderFilters();
                 if (typeof updateStats === 'function') updateStats();
@@ -1887,10 +1868,6 @@
 
             } catch (err) {
                 console.error('Data load error:', err);
-                // Hide loading bar even on error
-                const lb = document.getElementById('loadingBar');
-                if (lb) lb.classList.add('done');
-                window._portalLoaded = true;
                 const tableEl = document.getElementById('dataTable');
                 if (tableEl) tableEl.innerHTML =
                     '<tr><td style="text-align:center;padding:40px;color:#dc2626;">' +
@@ -2748,7 +2725,6 @@
             const hash = window.location.hash;
             if (!path.endsWith('/admin') && hash !== '#admin') {
                 const lb = document.getElementById('loginBtn');
-                if (lb) lb.classList.add('done');
             }
             document.getElementById('roleBadge').textContent = 'External Viewer';
             document.getElementById('roleBadge').classList.remove('admin');
@@ -2769,27 +2745,6 @@
             document.documentElement.style.setProperty('--tip-x', (e.clientX + 14) + 'px');
             document.documentElement.style.setProperty('--tip-y', (e.clientY - 10) + 'px');
         });
-
-        // ── Start immediately — DOM is ready (script is at bottom of body) ──
-        (async function startPortal() {
-            // Hard 5-second spinner safety — fires regardless of anything else
-            const _killSpinner = setTimeout(function() {
-                if (!window._portalLoaded) {
-                    const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
-                }
-            }, 12000);
-            try {
-                await loadData();
-            } catch(fatalErr) {
-                console.error('Fatal error in startPortal:', fatalErr);
-                const lb2 = document.getElementById('loadingBar'); if (lb2) lb2.classList.add('done');
-                window._portalLoaded = true;
-            } finally {
-                clearTimeout(_killSpinner);
-            }
-        })();
-
-
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -3403,6 +3358,17 @@ function resetColumnOrder() {
             }
         });
 
+                window.onload = function() {
+            loadData();
+            // Admin access: show login if URL contains #admin or path ends /admin
+            const _p = window.location.pathname;
+            const _h = window.location.hash;
+            if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
+                const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = 'inline-block';
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
     initFilterToggle();
     // Admin show/hide login button based on URL
@@ -3414,7 +3380,6 @@ function resetColumnOrder() {
     
         function showError(title, msg) {
             // Hide spinner on any error
-            const lb3 = document.getElementById('loadingBar'); if (lb3) lb3.classList.add('done');
             const existing = document.getElementById('_portalErrorBanner');
             if (existing) existing.remove();
             const div = document.createElement('div');
