@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Q3 Consultancy - Aviation Opportunities Portal</title>
+    <title>Aviation Opportunities Platform</title>
     <style>
         * {
             margin: 0;
@@ -1204,7 +1204,7 @@
             padding: 5px 16px;
             border-bottom: 1px solid #164a8a;
         }
-        .page-subtitle-band strong { color: #fbbf24; }
+        .page-subtitle-band .subtitle-powered { color: rgba(255,255,255,0.8); font-weight: 500; font-size: 10px; }
 
         /* ── Disclaimer / Interest Modal Overlay ── */
         .interest-modal-overlay { display: none; }
@@ -1215,10 +1215,58 @@
         /* ── Mobile subtitle band ── */
         @media (max-width: 768px) {
             .page-subtitle-band { font-size: 10px; padding: 4px 10px; }
+            .page-subtitle-band .subtitle-powered { display: block; font-size: 9px; margin-top: 1px; }
             .header-text h1 { font-size: 18px; }
             .logo-container { width: 80px; height: 65px; }
         }
 
+
+        /* ── Draggable Column Headers ── */
+        .draggable-col { user-select: none; }
+        .draggable-col:hover { background: rgba(30,91,168,0.08) !important; }
+        th[draggable="true"] { cursor: grab !important; }
+        th[draggable="true"]:active { cursor: grabbing !important; }
+
+        /* ── Jet Engine Fan Blade Loading Spinner ── */
+        #engineSpinner {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 26, 60, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.4s ease;
+        }
+        #engineSpinner.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .engine-fan {
+            width: 90px;
+            height: 90px;
+            animation: spinFan 1.2s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(30, 91, 168, 0.8));
+        }
+        @keyframes spinFan {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner-text {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            margin-top: 18px;
+            font-family: inherit;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        .spinner-sub {
+            color: rgba(255,255,255,0.5);
+            font-size: 10px;
+            margin-top: 5px;
+            letter-spacing: 0.5px;
+        }
     </style>
 
     <!-- ═══════════════════════════════════════════════════
@@ -1259,6 +1307,45 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+    <!-- Jet Engine Fan Blade Loading Spinner -->
+    <div id="engineSpinner">
+        <svg class="engine-fan" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <!-- Center hub -->
+            <circle cx="50" cy="50" r="8" fill="#1e5ba8"/>
+            <circle cx="50" cy="50" r="4" fill="#2d74c4"/>
+            <!-- Fan blades (6 blades) -->
+            <g fill="#1e5ba8" opacity="0.9">
+                <!-- Blade 1 (0°) -->
+                <path d="M50,50 C52,40 56,28 50,14 C44,14 46,32 46,42 Z" fill="url(#blade1)"/>
+                <!-- Blade 2 (60°) -->
+                <path d="M50,50 C40,44 28,40 17,46 C17,52 35,52 44,54 Z" fill="url(#blade2)"/>
+                <!-- Blade 3 (120°) -->
+                <path d="M50,50 C44,60 40,72 46,84 C52,84 52,66 54,56 Z" fill="url(#blade1)"/>
+                <!-- Blade 4 (180°) -->
+                <path d="M50,50 C60,56 72,60 84,54 C84,48 66,48 56,46 Z" fill="url(#blade2)"/>
+                <!-- Blade 5 (240°) -->
+                <path d="M50,50 C56,40 60,28 54,16 C48,16 48,34 46,44 Z" fill="url(#blade1)" transform="rotate(240 50 50)"/>
+                <!-- Blade 6 (300°) -->
+                <path d="M50,50 C40,44 28,40 17,46 C17,52 35,52 44,54 Z" fill="url(#blade2)" transform="rotate(60 50 50)"/>
+            </g>
+            <!-- Outer ring -->
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#1e5ba8" stroke-width="2.5" opacity="0.5"/>
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#2d74c4" stroke-width="1" opacity="0.3"/>
+            <defs>
+                <linearGradient id="blade1" x1="50%" y1="100%" x2="50%" y2="0%">
+                    <stop offset="0%" stop-color="#1e5ba8"/>
+                    <stop offset="100%" stop-color="#4a9eed"/>
+                </linearGradient>
+                <linearGradient id="blade2" x1="0%" y1="50%" x2="100%" y2="50%">
+                    <stop offset="0%" stop-color="#1e5ba8"/>
+                    <stop offset="100%" stop-color="#4a9eed"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        <div class="spinner-text">Loading Aviation Data...</div>
+        <div class="spinner-sub">Aviation Opportunities Platform</div>
+    </div>
+
     <div class="container">
         <header>
             <div class="logo-container">
@@ -1268,7 +1355,7 @@
                      onerror="this.style.display='none';">
             </div>
             <div class="header-text">
-                <h1>Q3 Consultancy</h1>
+                <h1>Aviation Opportunities Platform</h1>
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
@@ -1277,7 +1364,7 @@
         </header>
         <!-- Page subtitle band — not in header -->
         <div class="page-subtitle-band">
-            Aircraft, Engine &amp; Parts Opportunities &nbsp;—&nbsp; <strong>Powered by Q3 Consultancy</strong>
+            Aircraft, Engine &amp; Parts Opportunities &nbsp;—&nbsp; <span class="subtitle-powered">Powered by Q3 Consultancy</span>
         </div>
 
         <div class="tabs">
@@ -1791,6 +1878,12 @@
             // ── Helper: after any data load, render the table ──
             function _afterLoad(source) {
                 console.log('✅ Data loaded from:', source);
+                // Hide jet engine loading spinner
+                const spinner = document.getElementById('engineSpinner');
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                    setTimeout(() => { spinner.style.display = 'none'; }, 450);
+                }
                 if (typeof renderFilters === 'function') renderFilters();
                 renderTable();
                 if (typeof filterTable === 'function') filterTable();
@@ -1920,11 +2013,24 @@
             // Store visible columns globally for filterTable
             window._visibleCols = visibleColumns;
 
-            // Build table header with sort functionality
+            // Build table header with sort + drag-to-reorder functionality
             let html = '<thead><tr>';
-            visibleColumns.forEach(col => {
+            visibleColumns.forEach((col, colIdx) => {
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
-                html += `<th class="sortable ${sortClass}" onclick="sortTable('${col.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">${getColDisplayName(col)}</th>`;
+                const safeCol = col.replace(/'/g, "\\'").replace(/\n/g, "\\n");
+                if (isAdmin) {
+                    html += `<th class="sortable ${sortClass} draggable-col" draggable="true" 
+                        data-col="${safeCol}" data-col-idx="${colIdx}"
+                        onclick="sortTable('${safeCol}')"
+                        ondragstart="colDragStart(event, '${safeCol}')"
+                        ondragover="colDragOver(event)"
+                        ondragleave="colDragLeave(event)"
+                        ondrop="colDrop(event, '${safeCol}')"
+                        title="Drag to reorder column"
+                        style="cursor:grab;">${getColDisplayName(col)} <span style='font-size:9px;opacity:0.5;'>⠿</span></th>`;
+                } else {
+                    html += `<th class="sortable ${sortClass}" onclick="sortTable('${safeCol}')">${getColDisplayName(col)}</th>`;
+                }
             });
             if (isAdmin) {
                 html += '<th>Actions</th>';
@@ -2666,8 +2772,7 @@
                 document.getElementById('roleBadge').style.display = '';
                 document.getElementById('loginBtn').style.display = 'none';
                 document.getElementById('logoutBtn').style.display = 'inline-block';
-                document.getElementById('addBtn').classList.add('admin-only');
-                document.getElementById('saveBtn').classList.add('admin-only');
+                // admin-only display handled by updateAdminUI above
                 hideLoginModal();
                 renderTable();
                 renderFilters();
@@ -3194,7 +3299,7 @@ const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
     ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = isAdminMode ? '' : 'none';
+        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
     const rb = document.getElementById('roleBadge');
     if (rb) {
@@ -3203,6 +3308,61 @@ function updateAdminUI(isAdminMode) {
         rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
     }
 }
+
+// ─── Column Drag-and-Drop Reordering ───
+        let _dragSrcCol = null;
+
+        function colDragStart(e, colName) {
+            _dragSrcCol = colName;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', colName);
+            e.currentTarget.style.opacity = '0.5';
+        }
+
+        function colDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.style.background = 'rgba(30,91,168,0.15)';
+            e.currentTarget.style.borderLeft = '3px solid #1e5ba8';
+            return false;
+        }
+
+        function colDragLeave(e) {
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+        }
+
+        function colDrop(e, targetCol) {
+            e.stopPropagation();
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+            e.currentTarget.style.opacity = '';
+            if (_dragSrcCol === targetCol || !_dragSrcCol) return false;
+
+            // Reorder columns in columnOrder for current sheet
+            const sheetName = getSheetName(currentTab);
+            let order = columnOrder[sheetName] || (window._visibleCols ? [...window._visibleCols] : []);
+            const srcIdx = order.indexOf(_dragSrcCol);
+            const dstIdx = order.indexOf(targetCol);
+            if (srcIdx !== -1 && dstIdx !== -1) {
+                order.splice(srcIdx, 1);
+                order.splice(dstIdx, 0, _dragSrcCol);
+                columnOrder[sheetName] = order;
+                renderTable();
+                showToast('✅ Column order updated');
+            }
+            _dragSrcCol = null;
+            return false;
+        }
+
+        // Reset all th opacity on dragend (in case drop didn't fire)
+        document.addEventListener('dragend', function(e) {
+            if (e.target && e.target.tagName === 'TH') {
+                e.target.style.opacity = '';
+                e.target.style.background = '';
+                e.target.style.borderLeft = '';
+            }
+        });
 
 // ─── Excel Export ───
 function handleExport() {
@@ -3364,6 +3524,9 @@ function resetColumnOrder() {
 
     
         function showError(title, msg) {
+            // Hide spinner on any error
+            const spinner = document.getElementById('engineSpinner');
+            if (spinner) { spinner.classList.add('hidden'); setTimeout(() => { spinner.style.display = 'none'; }, 450); }
             const existing = document.getElementById('_portalErrorBanner');
             if (existing) existing.remove();
             const div = document.createElement('div');
