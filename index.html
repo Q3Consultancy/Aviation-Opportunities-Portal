@@ -1368,16 +1368,16 @@
         </div>
 
         <div class="tabs">
-            <div class="tab" data-tab="engines" active" onclick="switchTab('engines')">
+            <div class="tab active" data-tab="engines" onclick="switchTab('engines')">
                 <span style="font-size: 18px;">⚙️</span> Engines
             </div>
-            <div class="tab" data-tab="aircraft-sale"" onclick="switchTab('aircraft-sale')">
+            <div class="tab" data-tab="aircraft-sale" onclick="switchTab('aircraft-sale')">
                 <span style="font-size: 18px;">✈️</span> Aircraft Sale
             </div>
-            <div class="tab" data-tab="aircraft-lease"" onclick="switchTab('aircraft-lease')">
+            <div class="tab" data-tab="aircraft-lease" onclick="switchTab('aircraft-lease')">
                 <span style="font-size: 18px;">🛩️</span> Aircraft Lease
             </div>
-            <div class="tab" data-tab="parts"" onclick="switchTab('parts')">
+            <div class="tab" data-tab="parts" onclick="switchTab('parts')">
                 <span style="font-size: 18px;">🔧</span> Parts
             </div>
         </div>
@@ -1879,121 +1879,87 @@
 
         // Load data
         async function loadData() {
-            // ── Helper: after any data load, render the table ──
-            function _afterLoad(source) {
-                console.log('✅ Data loaded from:', source);
-                // Hide jet engine loading spinner
-                const spinner = document.getElementById('engineSpinner');
-                if (spinner) {
-                    spinner.classList.add('hidden');
-                    setTimeout(() => { spinner.style.display = 'none'; }, 450);
-                }
-                if (typeof renderFilters === 'function') renderFilters();
-                renderTable();
-                if (typeof filterTable === 'function') filterTable();
-            }
-
-            // ── Detect file:// protocol → use data.json ──
-            const isLocalFile = window.location.protocol === 'file:';
-            if (isLocalFile) {
-                console.info('ℹ️ Running from file:// — loading data.json');
+            // ── Step 1: Load inline data immediately (always works, no network) ──
+            if (window.__INLINE_DATA__) {
                 try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json not found (status ' + r.status + ')');
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (local)');
+                    data = convertData(window.__INLINE_DATA__);
+                    const spinner = document.getElementById('engineSpinner');
+                    if (spinner) {
+                        spinner.classList.add('hidden');
+                        setTimeout(() => { spinner.style.display = 'none'; }, 450);
+                    }
+                    if (typeof renderFilters === 'function') renderFilters();
+                    renderTable();
+                    if (typeof updateStats === 'function') updateStats();
+                    if (typeof filterTable === 'function') filterTable();
+                    console.log('✅ Inline data loaded:', 
+                        Object.entries(data).map(([k,v]) => k+':'+v.length).join(', '));
                 } catch(e) {
-                    showError('Local File Mode', 'Could not load data.json.<br>Make sure <code>data.json</code> is in the same folder as <code>index.html</code>.<br><br>For live Supabase data upload to GitHub Pages.');
+                    console.error('Inline data error:', e);
                 }
-                return;
             }
 
-            // ── Check Supabase readiness ──
+            // ── Step 2: Try Supabase for live data (background refresh) ──
             const sbReady = window._sbReady === true && window._sb;
-            if (!sbReady) {
-                console.info('ℹ️ Supabase not configured — loading from data.json');
+            if (sbReady) {
                 try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json fetch failed: ' + r.status);
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (no Supabase config)');
-                } catch(e) {
-                    // Try inline embedded data as last resort
-                    if (window.__INLINE_DATA__) {
-                        try {
-                            data = convertData(window.__INLINE_DATA__);
-                            _afterLoad('inline data');
-                            return;
-                        } catch(e2) {}
+                    const TABLE_MAP = {
+                        'Engines':        'engines',
+                        'Aircraft Sale':  'aircraft_sale',
+                        'Aircraft Lease': 'aircraft_lease',
+                        'Parts':          'parts'
+                    };
+                    const freshData = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                    const sb = window._sb;
+                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
+                        const result = await sb.from(tableName).select('*').order('no', { ascending: true });
+                        if (result.error) throw new Error('Supabase ' + tableName + ': ' + result.error.message);
+                        freshData[sheetName] = (result.data || []).map(r => {
+                            const mapped = mapFromSupabase(r, sheetName);
+                            mapped._docId = String(r.id || r.no || '');
+                            return mapped;
+                        });
                     }
-                    showError('Data Load Error', 'Could not load data.json: ' + e.message);
+                    // Only update if Supabase returned data
+                    const totalRows = Object.values(freshData).reduce((s, a) => s + a.length, 0);
+                    if (totalRows > 0) {
+                        for (const sheet of Object.values(freshData)) {
+                            sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                        }
+                        data = freshData;
+                        if (typeof renderFilters === 'function') renderFilters();
+                        renderTable();
+                        if (typeof updateStats === 'function') updateStats();
+                        if (typeof filterTable === 'function') filterTable();
+                        console.log('✅ Supabase live data loaded');
+                        if (typeof showToast === 'function') showToast('✅ Live data loaded from Supabase');
+                    } else {
+                        console.info('ℹ️ Supabase returned 0 rows — keeping inline data');
+                    }
+                } catch(e) {
+                    console.warn('⚠️ Supabase fetch failed (using inline data):', e.message);
                 }
                 return;
             }
 
-            // ── Supabase path ──
-            const TABLE_MAP = {
-                'Engines':        'engines',
-                'Aircraft Sale':  'aircraft_sale',
-                'Aircraft Lease': 'aircraft_lease',
-                'Parts':          'parts'
-            };
-            data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-
+            // ── Step 3: Try data.json for additional/updated data ──
             try {
-                const sb = window._sb;
-                for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                    let result;
-                    try {
-                        result = await sb.from(tableName).select('*').order('no', { ascending: true });
-                    } catch(fetchErr) {
-                        console.warn('Supabase network error for', tableName, ':', fetchErr.message);
-                        throw fetchErr; // caught by outer try
-                    }
-                    if (result.error) {
-                        throw new Error('Supabase SELECT ' + tableName + ': ' + result.error.message);
-                    }
-                    data[sheetName] = (result.data || []).map(r => {
-                        const mapped = mapFromSupabase(r, sheetName);
-                        mapped._docId = String(r.id || r.no || '');
-                        return mapped;
-                    });
+                const r = await fetch('data.json');
+                if (!r.ok) throw new Error('data.json status ' + r.status);
+                const rawData = await r.json();
+                const jsonData = convertData(rawData);
+                // Only use if it has data
+                const totalRows = Object.values(jsonData).reduce((s, a) => s + a.length, 0);
+                if (totalRows > 0) {
+                    data = jsonData;
+                    if (typeof renderFilters === 'function') renderFilters();
+                    renderTable();
+                    if (typeof updateStats === 'function') updateStats();
+                    if (typeof filterTable === 'function') filterTable();
+                    console.log('✅ data.json loaded:', totalRows, 'rows');
                 }
-                // Sort each sheet by No
-                for (const sheet of Object.values(data)) {
-                    sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
-                }
-                _afterLoad('Supabase');
-
             } catch(e) {
-                console.error('Supabase load failed:', e.message, '— trying data.json fallback');
-                try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json also unavailable (status ' + r.status + ')');
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (Supabase fallback)');
-                    showToast('⚠️ Supabase error — showing cached data');
-                } catch(e2) {
-                    // Try inline embedded data as last resort
-                    if (window.__INLINE_DATA__) {
-                        try {
-                            data = convertData(window.__INLINE_DATA__);
-                            _afterLoad('inline data fallback');
-                            return;
-                        } catch(e3) {}
-                    }
-                    showError('Cannot Load Data',
-                        '<b>Supabase error:</b> ' + e.message + '<br><br>' +
-                        '<b>data.json fallback also failed:</b> ' + e2.message + '<br><br>' +
-                        'Please check:<br>' +
-                        '• Supabase project is active at <a href="https://supabase.com" target="_blank">supabase.com</a><br>' +
-                        '• RLS policies allow public SELECT on tables: engines, aircraft_sale, aircraft_lease, parts<br>' +
-                        '• data.json is in the same folder as index.html'
-                    );
-                }
+                console.info('ℹ️ data.json not available — using inline data (already loaded)');
             }
         }
 
@@ -3574,5 +3540,14 @@ function resetColumnOrder() {
             document.body.appendChild(div);
         }
 
-    </script></body>
+    </script>
+    <script>
+        // Safety: force-hide spinner after 8 seconds no matter what
+        setTimeout(function() {
+            var sp = document.getElementById('engineSpinner');
+            if (sp) { sp.style.display = 'none'; }
+        }, 8000);
+    </script>
+
+</body>
 </html>
