@@ -2005,15 +2005,16 @@
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
                 const safeCol = col.replace(/'/g, "\\'").replace(/\n/g, "\\n");
                 if (isAdmin) {
-                    html += `<th class="sortable ${sortClass} draggable-col" draggable="true" 
-                        data-col="${safeCol}" data-col-idx="${colIdx}"
-                        onclick="sortTable('${safeCol}')"
-                        ondragstart="colDragStart(event, '${safeCol}')"
-                        ondragover="colDragOver(event)"
-                        ondragleave="colDragLeave(event)"
-                        ondrop="colDrop(event, '${safeCol}')"
-                        title="Drag to reorder column"
-                        style="cursor:grab;">${getColDisplayName(col)} <span style='font-size:9px;opacity:0.5;'>⠿</span></th>`;
+                    html += `<th class="sortable ${sortClass} draggable-col" draggable="true"
+                        data-col-idx="${colIdx}"
+                        onclick="_colClick(event, ${colIdx})"
+                        ondragstart="_colDragStart(event, ${colIdx})"
+                        ondragover="_colDragOver(event)"
+                        ondragleave="_colDragLeave(event)"
+                        ondrop="_colDrop(event, ${colIdx})"
+                        ondragend="_colDragEnd(event)"
+                        title="⠿ Drag to reorder  |  Click to sort"
+                        >${getColDisplayName(col)}&nbsp;<span style="font-size:9px;opacity:0.45;vertical-align:middle;">⠿</span></th>`;
                 } else {
                     html += `<th class="sortable ${sortClass}" onclick="sortTable('${safeCol}')">${getColDisplayName(col)}</th>`;
                 }
@@ -2403,38 +2404,57 @@
             if (!isAdmin) return;
 
             const sheetName = getSheetName(currentTab);
-            const fields = TAB_FORM_FIELDS[sheetName] || [];
+            const fields = TAB_FORM_FIELDS[sheetName] || TAB_FORM_FIELDS['Engines'] || [];
 
             // Update modal title
             const tabEmoji = { 'Engines': '🔧', 'Aircraft Sale': '✈️', 'Aircraft Lease': '🛫', 'Parts': '🔩' };
             document.getElementById('addDealModalTitle').textContent =
-                `➕ Add New Deal — ${tabEmoji[sheetName] || ''} ${sheetName}`;
+                `➕ Add New Entry — ${tabEmoji[sheetName] || ''} ${sheetName}`;
+
+            // Calculate next No
+            const sheetData = data[sheetName] || [];
+            const nextNo = sheetData.length > 0
+                ? Math.max(...sheetData.map(r => parseInt(r['No']) || 0)) + 1
+                : 1;
 
             // Build form fields
             const container = document.getElementById('addDealFormFields');
             let html = '';
+
+            // Always show No. first as read-only pre-filled
+            html += `<div class="form-group">
+                <label class="form-label">No. <span style="font-size:11px;color:#888;">(auto)</span></label>
+                <input type="number" class="form-input" id="add_No" data-key="No"
+                       value="${nextNo}" readonly
+                       style="background:#f0f4fa;cursor:default;opacity:0.8;">
+            </div>`;
 
             fields.forEach(field => {
                 if (field.section) {
                     html += `<div class="form-section-title">${field.section}</div>`;
                     return;
                 }
+                if (field.key === 'No') return; // already shown above
                 const reqStar = field.required ? '<span class="required-star">*</span>' : '';
                 const fieldId = `add_${field.key.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
                 if (field.type === 'select') {
-                    const opts = field.options.map(o => `<option value="${o}">${o || '— Select —'}</option>`).join('');
+                    const opts = (field.options || []).map(o =>
+                        `<option value="${o}">${o || '— Select —'}</option>`).join('');
                     html += `<div class="form-group">
                         <label class="form-label" for="${fieldId}">${field.label}${reqStar}</label>
-                        <select class="form-select" id="${fieldId}" data-key="${field.key}" ${field.required ? 'required' : ''}>
-                            ${opts}
+                        <select class="form-select" id="${fieldId}" data-key="${field.key}"
+                                ${field.required ? 'required' : ''}>
+                            <option value="">— Select —</option>${opts}
                         </select>
                     </div>`;
                 } else {
                     html += `<div class="form-group">
                         <label class="form-label" for="${fieldId}">${field.label}${reqStar}</label>
-                        <input type="${field.type}" class="form-input" id="${fieldId}" data-key="${field.key}"
-                               placeholder="${field.placeholder || ''}" ${field.required ? 'required' : ''}>
+                        <input type="${field.type}" class="form-input" id="${fieldId}"
+                               data-key="${field.key}"
+                               placeholder="${(field.placeholder || '').replace(/"/g,'&quot;')}"
+                               ${field.required ? 'required' : ''}>
                     </div>`;
                 }
             });
@@ -2445,16 +2465,9 @@
             const dateField = container.querySelector('[data-key="Date Received"]');
             if (dateField) dateField.value = todayFormatted;
 
-            // Pre-fill No (next sequential)
-            const sheetData = data[sheetName] || [];
-            const nextNo = sheetData.length > 0
-                ? Math.max(...sheetData.map(r => parseInt(r['No']) || 0)) + 1
-                : 1;
-            // No is auto-set on submit
-
             document.getElementById('addDealModal').classList.add('show');
-            // Focus first required field
-            const firstInput = container.querySelector('input[required], select[required]');
+            // Focus first required input (skip No.)
+            const firstInput = container.querySelector('input:not([readonly])[required], select[required]');
             if (firstInput) setTimeout(() => firstInput.focus(), 100);
         }
 
@@ -3298,217 +3311,81 @@ function updateAdminUI(isAdminMode) {
 // ─── Column Drag-and-Drop Reordering ───
         let _dragSrcCol = null;
 
-        function colDragStart(e, colName) {
-            _dragSrcCol = colName;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', colName);
-            e.currentTarget.style.opacity = '0.5';
+        // ─── Column Drag-and-Drop (index-based, works with any column name) ───
+        let _dragSrcIdx = null;
+
+        function _colClick(e, colIdx) {
+            // Only sort if NOT a drag (drag won't fire click in modern browsers,
+            // but just in case: ignore if drag happened)
+            if (e.defaultPrevented) return;
+            const col = window._visibleCols && window._visibleCols[colIdx];
+            if (col) sortTable(col);
         }
 
-        function colDragOver(e) {
+        function _colDragStart(e, colIdx) {
+            _dragSrcIdx = colIdx;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(colIdx));
+            e.currentTarget.style.opacity = '0.45';
+            e.currentTarget.style.outline = '2px dashed #1e5ba8';
+        }
+
+        function _colDragOver(e) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            e.currentTarget.style.background = 'rgba(30,91,168,0.15)';
+            e.currentTarget.style.background = 'rgba(30,91,168,0.18)';
             e.currentTarget.style.borderLeft = '3px solid #1e5ba8';
-            return false;
         }
 
-        function colDragLeave(e) {
+        function _colDragLeave(e) {
             e.currentTarget.style.background = '';
             e.currentTarget.style.borderLeft = '';
         }
 
-        function colDrop(e, targetCol) {
+        function _colDragEnd(e) {
+            // Reset source header styles
+            e.currentTarget.style.opacity = '';
+            e.currentTarget.style.outline = '';
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+            _dragSrcIdx = null;
+        }
+
+        function _colDrop(e, targetIdx) {
+            e.preventDefault();
             e.stopPropagation();
             e.currentTarget.style.background = '';
             e.currentTarget.style.borderLeft = '';
-            e.currentTarget.style.opacity = '';
-            if (_dragSrcCol === targetCol || !_dragSrcCol) return false;
 
-            // Reorder columns in columnOrder for current sheet
+            if (_dragSrcIdx === null || _dragSrcIdx === targetIdx) return;
+
+            const srcIdx    = _dragSrcIdx;
+            _dragSrcIdx     = null;
+
+            // Get the current visible column order
             const sheetName = getSheetName(currentTab);
-            let order = columnOrder[sheetName] || (window._visibleCols ? [...window._visibleCols] : []);
-            const srcIdx = order.indexOf(_dragSrcCol);
-            const dstIdx = order.indexOf(targetCol);
-            if (srcIdx !== -1 && dstIdx !== -1) {
-                order.splice(srcIdx, 1);
-                order.splice(dstIdx, 0, _dragSrcCol);
-                columnOrder[sheetName] = order;
-                renderTable();
-                showToast('✅ Column order updated');
-            }
-            _dragSrcCol = null;
-            return false;
+            const currentOrder = window._visibleCols ? [...window._visibleCols] : [];
+            if (currentOrder.length === 0) return;
+
+            if (srcIdx < 0 || srcIdx >= currentOrder.length) return;
+            if (targetIdx < 0 || targetIdx >= currentOrder.length) return;
+
+            // Perform the reorder
+            const moved = currentOrder.splice(srcIdx, 1)[0];
+            currentOrder.splice(targetIdx, 0, moved);
+
+            // Store and re-render
+            columnOrder[sheetName] = currentOrder;
+            renderTable();
+            if (typeof showToast === 'function') showToast('✅ Column moved');
         }
 
-        // Reset all th opacity on dragend (in case drop didn't fire)
-        document.addEventListener('dragend', function(e) {
-            if (e.target && e.target.tagName === 'TH') {
-                e.target.style.opacity = '';
-                e.target.style.background = '';
-                e.target.style.borderLeft = '';
-            }
-        });
+        // Legacy aliases (keep in case anything calls the old names)
+        function colDragStart(e, col) { /* superseded by _colDragStart */ }
+        function colDragOver(e)       { _colDragOver(e); }
+        function colDragLeave(e)      { _colDragLeave(e); }
+        function colDrop(e, col)      { /* superseded by _colDrop */ }
 
-// ─── Excel Export ───
-function handleExport() {
-    if (typeof XLSX === 'undefined') { alert('Excel library loading, please wait...'); return; }
-    exportToExcel();
-}
-function exportToExcel() {
-    if (typeof XLSX === 'undefined') { alert('SheetJS not loaded.'); return; }
-    const wb = XLSX.utils.book_new();
-    const sheetNames = { 'Engines': 'engines', 'Aircraft Sale': 'aircraft-sale', 'Aircraft Lease': 'aircraft-lease', 'Parts': 'parts' };
-    Object.entries(sheetNames).forEach(([label, key]) => {
-        const rows = window._data && window._data[key] ? window._data[key] : (typeof data !== 'undefined' ? data[key] : []);
-        if (!rows || !rows.length) return;
-        const ws = XLSX.utils.json_to_sheet(rows.map(r => {
-            const o = Object.assign({}, r);
-            delete o._docId; delete o._rowIndex;
-            return o;
-        }));
-        XLSX.utils.book_append_sheet(wb, ws, label);
-    });
-    const today = new Date();
-    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][today.getMonth()];
-    const fname = `Q3_Aviation_Portal_${today.getDate()}${m}${today.getFullYear()}.xlsx`;
-    XLSX.writeFile(wb, fname);
-}
-
-// ─── Excel Import ───
-function importFromExcel(input) {
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        if (typeof XLSX === 'undefined') { alert('SheetJS not loaded.'); return; }
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const sheetMap = {
-            'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
-            'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
-        };
-        let totalImported = 0, errors = [];
-        for (const [sheetLabel, tableName] of Object.entries(sheetMap)) {
-            const wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === sheetLabel.toLowerCase());
-            if (!wsName) continue;
-            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wsName]);
-            if (!rows.length) continue;
-            for (const row of rows) {
-                try {
-                    const mapped = mapImportedRow(row, tableName);
-                    if (!mapped['deal_#'] && !mapped['Deal #']) continue;
-                    await supabaseRequest('POST',
-                        `/rest/v1/${tableName}?on_conflict=deal_%23`,
-                        Object.assign({ Prefer: 'resolution=merge-duplicates' }, {}),
-                        mapped
-                    );
-                    totalImported++;
-                } catch(ex) { errors.push(`${sheetLabel}: ${ex.message}`); }
-            }
-        }
-        alert(`✅ Import complete!\n${totalImported} records imported.${errors.length ? '\n\nErrors:\n' + errors.slice(0,5).join('\n') : ''}`);
-        if (typeof loadData === 'function') loadData();
-        input.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-}
-function mapImportedRow(row, tableName) {
-    const result = {};
-    Object.keys(row).forEach(k => {
-        result[k] = row[k] === undefined ? null : String(row[k]);
-    });
-    return result;
-}
-
-// ─── Column Drag-and-Drop Ordering ───
-let adminColumnOrder = null;
-function getAdminColumnOrder(sheetKey) {
-    try {
-        const stored = localStorage.getItem('colOrder_' + sheetKey);
-        return stored ? JSON.parse(stored) : null;
-    } catch(e) { return null; }
-}
-function saveAdminColumnOrder(sheetKey, order) {
-    localStorage.setItem('colOrder_' + sheetKey, JSON.stringify(order));
-    adminColumnOrder = order;
-}
-function openColumnPanel() {
-    const panel = document.getElementById('columnOrderPanel');
-    const overlay = document.getElementById('colPanelOverlay');
-    if (!panel) return;
-    const activeTab = document.querySelector('.tab.active');
-    const sheetKey = activeTab ? activeTab.getAttribute('data-tab') || activeTab.textContent.trim().toLowerCase() : 'engines';
-    const rows = window._data && window._data[sheetKey] ? window._data[sheetKey] : [];
-    const cols = rows.length ? Object.keys(rows[0]).filter(k => k !== '_docId' && k !== '_rowIndex') : [];
-    const currentOrder = getAdminColumnOrder(sheetKey) || cols;
-    const list = document.getElementById('colOrderList');
-    if (!list) return;
-    list.innerHTML = '';
-    currentOrder.forEach(col => {
-        const item = document.createElement('div');
-        item.className = 'col-order-item';
-        item.draggable = true;
-        item.dataset.col = col;
-        item.innerHTML = `<span class="drag-handle">⠿</span> ${col}`;
-        item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', col); item.classList.add('dragging'); });
-        item.addEventListener('dragend', () => item.classList.remove('dragging'));
-        item.addEventListener('dragover', e => { e.preventDefault(); item.style.borderTop = '2px solid #c9a227'; });
-        item.addEventListener('dragleave', () => { item.style.borderTop = ''; });
-        item.addEventListener('drop', e => {
-            e.preventDefault(); item.style.borderTop = '';
-            const fromCol = e.dataTransfer.getData('text/plain');
-            const items = [...list.querySelectorAll('.col-order-item')];
-            const fromEl = items.find(i => i.dataset.col === fromCol);
-            if (fromEl && fromEl !== item) list.insertBefore(fromEl, item);
-        });
-        list.appendChild(item);
-    });
-    panel.style.display = 'block';
-    if (overlay) overlay.style.display = 'block';
-    panel.dataset.sheetKey = sheetKey;
-}
-function applyColumnOrder() {
-    const panel = document.getElementById('columnOrderPanel');
-    const overlay = document.getElementById('colPanelOverlay');
-    const sheetKey = panel.dataset.sheetKey || 'engines';
-    const items = [...document.querySelectorAll('.col-order-item')];
-    const order = items.map(i => i.dataset.col);
-    saveAdminColumnOrder(sheetKey, order);
-    panel.style.display = 'none';
-    if (overlay) overlay.style.display = 'none';
-    if (typeof renderTable === 'function') renderTable();
-}
-function resetColumnOrder() {
-    const panel = document.getElementById('columnOrderPanel');
-    const sheetKey = panel.dataset.sheetKey || 'engines';
-    localStorage.removeItem('colOrder_' + sheetKey);
-    panel.style.display = 'none';
-    const overlay = document.getElementById('colPanelOverlay');
-    if (overlay) overlay.style.display = 'none';
-    if (typeof renderTable === 'function') renderTable();
-}
-
-// ─── On DOM ready: initialise new features ───
-
-        // ── Warn if opened from file:// ──
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.location.protocol === 'file:') {
-                const div = document.createElement('div');
-                div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#fef3c7;border-bottom:2px solid #f59e0b;padding:8px 16px;font-size:12px;color:#92400e;text-align:center;';
-                div.innerHTML = '📂 <strong>Local file mode</strong> — Supabase is not available when opening directly. Data is loaded from <code>data.json</code>. To see live data, upload to <a href="https://github.com/q3consultancy/Aviation-Opportunities-Portal" target="_blank" style="color:#1e5ba8;">GitHub Pages</a>.&nbsp;&nbsp;<button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:14px;">✕</button>';
-                document.body.prepend(div);
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
-    initFilterToggle();
-    // Admin show/hide login button based on URL
-    const isAdminPage = window.location.pathname.includes('admin') || window.location.hash === '#admin';
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) loginBtn.style.display = isAdminPage ? '' : 'none';
-});
-
-    
 
         function showToast(msg, duration) {
             duration = duration || 3000;
