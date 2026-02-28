@@ -1117,30 +1117,10 @@
         #filterCollapsible.collapsed { max-height: 0 !important; }
 
         /* ── Excel Import/Export Buttons ── */
-        .btn-excel-export {
-            background: #217346;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
+        
         .btn-excel-export:hover { background: #155724; }
 
-        .btn-excel-import {
-            background: #1e5ba8;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
+        
         .btn-excel-import:hover { background: #164a8a; }
 
         /* ── Column Order Button ── */
@@ -1304,7 +1284,7 @@
       }
     })();
   </script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
 </head>
 <body>
     <!-- Jet Engine Fan Blade Loading Spinner -->
@@ -1415,9 +1395,7 @@
                 <div class="controls">
                     <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search deals..." onkeyup="filterTable()">
                     <button class="btn-export" onclick="exportToCSV()">📥 CSV</button>
-                    <button class="btn-excel-export" id="btnExcelExport" onclick="handleExport()" style="display:none;">📊 Export Excel</button>
-                    <button class="btn-excel-import" id="btnExcelImport" onclick="document.getElementById('excelImportInput').click()" style="display:none;">📂 Import Excel</button>
-                    <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;" onchange="importFromExcel(this)">
+                    
                     <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" style="display:none;">⚙️ Columns</button>
                     <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
                     <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add Deal</button>
@@ -1987,12 +1965,13 @@
                     showToast('⚠️ Supabase error — showing cached data');
                 } catch(e2) {
                     showError('Cannot Load Data',
-                        '<b>Supabase error:</b> ' + e.message + '<br><br>' +
+                        '<b>Network / Supabase issue:</b> ' + e.message + '<br><br>' +
                         '<b>data.json fallback also failed:</b> ' + e2.message + '<br><br>' +
-                        'Please check:<br>' +
+                        'This usually means the page is being opened locally.<br>' +
+                        'Upload <code>index.html</code> and <code>data.json</code> to your GitHub Pages repo to fix this.<br><br>' +
+                        'If already on GitHub Pages check:<br>' +
                         '• Supabase project is active at <a href="https://supabase.com" target="_blank">supabase.com</a><br>' +
-                        '• RLS policies allow public SELECT on tables: engines, aircraft_sale, aircraft_lease, parts<br>' +
-                        '• data.json is in the same folder as index.html'
+                        '• RLS policies allow public SELECT on tables: engines, aircraft_sale, aircraft_lease, parts'
                     );
                 }
             }
@@ -2748,6 +2727,29 @@
         }
 
         // Save function (Admin only)
+        async // ─── Toast helper ───────────────────────────────────────────
+        function showToast(msg, duration) {
+            duration = duration || 3000;
+            // Try to reuse the saveToast element with a custom message
+            const t = document.getElementById('saveToast');
+            if (t) {
+                const prev = t.textContent;
+                t.textContent = msg;
+                t.classList.add('show');
+                setTimeout(function() {
+                    t.classList.remove('show');
+                    t.textContent = '✅ Changes saved successfully!';
+                }, duration);
+            } else {
+                // Fallback: floating div
+                const d = document.createElement('div');
+                d.style.cssText = 'position:fixed;bottom:30px;right:30px;background:#1e293b;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+                d.textContent = msg;
+                document.body.appendChild(d);
+                setTimeout(function() { d.remove(); }, duration);
+            }
+        }
+
         async function saveChanges() {
             if (!isAdmin) return;
             const toast = document.getElementById('saveToast');
@@ -3234,7 +3236,7 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
-    ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
+    ['btnColOrder','saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
