@@ -1287,16 +1287,16 @@
         </div>
 
         <div class="tabs">
-            <div class="tab" data-tab="engines" active" onclick="switchTab('engines')">
+            <div class="tab" data-tab="engines" onclick="switchTab('engines')">
                 <span style="font-size: 18px;">⚙️</span> Engines
             </div>
-            <div class="tab" data-tab="aircraft-sale"" onclick="switchTab('aircraft-sale')">
+            <div class="tab" data-tab="aircraft-sale" onclick="switchTab('aircraft-sale')">
                 <span style="font-size: 18px;">✈️</span> Aircraft Sale
             </div>
-            <div class="tab" data-tab="aircraft-lease"" onclick="switchTab('aircraft-lease')">
+            <div class="tab" data-tab="aircraft-lease" onclick="switchTab('aircraft-lease')">
                 <span style="font-size: 18px;">🛩️</span> Aircraft Lease
             </div>
-            <div class="tab" data-tab="parts"" onclick="switchTab('parts')">
+            <div class="tab" data-tab="parts" onclick="switchTab('parts')">
                 <span style="font-size: 18px;">🔧</span> Parts
             </div>
         </div>
@@ -1791,13 +1791,17 @@
 
         // Load data
         async function loadData() {
+            // ── Show "loading" state immediately in table ──
+            const tableEl = document.getElementById('dataTable');
+            if (tableEl) tableEl.innerHTML = '<tr><td style="text-align:center;padding:30px;color:#64748b;">⏳ Loading data…</td></tr>';
 
-            // ── Guaranteed spinner hide (safety net - fires after 15s no matter what) ──
+            // ── Safety: hide loadingBar after 12s no matter what ──
             const _spinnerSafety = setTimeout(function() {
-                const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
-            }, 10000);
+                const lb = document.getElementById('loadingBar');
+                if (lb) lb.classList.add('done');
+            }, 12000);
 
-            // ── Helper: runs after every successful load ──
+            // ── Helper: called on every successful data load ──
             function _afterLoad(source) {
                 clearTimeout(_spinnerSafety);
                 window._portalLoaded = true;
@@ -1809,112 +1813,122 @@
                 if (typeof filterTable === 'function') filterTable();
             }
 
-            // ── Helper: fetch data.json reliably ──
-            async function _loadDataJson(reason) {
-                const r = await fetch('./data.json');
-                if (!r.ok) throw new Error('data.json HTTP ' + r.status);
-                const raw = await r.json();
-                data = convertData(raw);
-                _afterLoad('data.json (' + reason + ')');
-                showToast('ℹ️ Showing cached data');
+            // ── Helper: show error in table + optional banner ──
+            function _showDataError(title, detail) {
+                clearTimeout(_spinnerSafety);
+                const lb = document.getElementById('loadingBar');
+                if (lb) lb.classList.add('done');
+                data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                const t = document.getElementById('dataTable');
+                if (t) t.innerHTML = '<tr><td style="text-align:center;padding:40px;color:#dc2626;">' +
+                    '<div style="font-size:20px;margin-bottom:8px;">⚠️</div>' +
+                    '<strong>' + title + '</strong><br>' +
+                    '<span style="font-size:11px;color:#64748b;margin-top:6px;display:block;">' + detail + '</span>' +
+                    '<br><button onclick="loadData()" style="margin-top:10px;background:#1e5ba8;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">🔄 Retry</button>' +
+                    '</td></tr>';
             }
 
-            // ── Detect file:// — Supabase cannot work locally ──
+            // ── Helper: fetch a single Supabase table with timeout ──
+            function _fetchTable(sb, sheetName, tableName) {
+                return new Promise(function(resolve, reject) {
+                    var done = false;
+                    var timer = setTimeout(function() {
+                        if (!done) { done = true; reject(new Error('Timeout: ' + tableName)); }
+                    }, 10000);
+                    // Try without order first (more compatible), then map
+                    sb.from(tableName).select('*')
+                        .then(function(result) {
+                            clearTimeout(timer);
+                            if (done) return;
+                            done = true;
+                            if (result.error) {
+                                reject(new Error(result.error.message || result.error.code || 'Supabase error'));
+                            } else {
+                                var rows = (result.data || []).map(function(r) {
+                                    var mapped = mapFromSupabase(r, sheetName);
+                                    mapped._docId = String(r.id || r.no || '');
+                                    return mapped;
+                                });
+                                // Sort by No
+                                rows.sort(function(a, b) {
+                                    return (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0);
+                                });
+                                resolve({ sheetName: sheetName, rows: rows });
+                            }
+                        })
+                        .catch(function(e) {
+                            clearTimeout(timer);
+                            if (!done) { done = true; reject(e); }
+                        });
+                });
+            }
+
+            // ── Detect file:// ──
             if (window.location.protocol === 'file:') {
                 try {
-                    await _loadDataJson('local file');
+                    var r = await fetch('./data.json');
+                    if (!r.ok) throw new Error('data.json not found');
+                    var raw = await r.json();
+                    data = convertData(raw);
+                    _afterLoad('data.json (local)');
                 } catch(e) {
-                    clearTimeout(_spinnerSafety);
-                    // Even on file://, try to render with empty data so page is usable
-                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-                    renderTable();
-                    const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
-                    showError('Local File Mode',
-                        'Open via a web server or GitHub Pages for live data.<br>' +
-                        'Place <code>data.json</code> in the same folder as <code>index.html</code> for offline fallback.'
-                    );
+                    _showDataError('Local File Mode',
+                        'Open via a web server for live data. Place data.json alongside index.html for offline use.');
                 }
                 return;
             }
 
-            // ── Supabase path (with 8-second timeout per table) ──
+            // ── Supabase path ──
             if (window._sbReady && window._sb) {
-                const TABLE_MAP = {
-                    'Engines':        'engines',
-                    'Aircraft Sale':  'aircraft_sale',
-                    'Aircraft Lease': 'aircraft_lease',
-                    'Parts':          'parts'
+                var TABLE_MAP = {
+                    'Engines':       'engines',
+                    'Aircraft Sale': 'aircraft_sale',
+                    'Aircraft Lease':'aircraft_lease',
+                    'Parts':         'parts'
                 };
-
                 try {
-                    const sb = window._sb;
-                    // Fetch all tables IN PARALLEL with individual 8-second timeouts
-                    const fetchTable = function(sheetName, tableName) {
-                        return new Promise(async function(resolve, reject) {
-                            const timer = setTimeout(function() {
-                                reject(new Error('Timeout fetching ' + tableName + ' (8s)'));
-                            }, 8000);
-                            try {
-                                const result = await sb.from(tableName).select('*').order('no', { ascending: true });
-                                clearTimeout(timer);
-                                if (result.error) reject(new Error(result.error.message));
-                                else resolve({ sheetName: sheetName, rows: result.data || [] });
-                            } catch(e) {
-                                clearTimeout(timer);
-                                reject(e);
-                            }
-                        });
-                    };
-
-                    const results = await Promise.all(
-                        Object.entries(TABLE_MAP).map(([sn, tn]) => fetchTable(sn, tn))
+                    var sb = window._sb;
+                    var results = await Promise.all(
+                        Object.entries(TABLE_MAP).map(function(entry) {
+                            return _fetchTable(sb, entry[0], entry[1]);
+                        })
                     );
-
-                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-                    results.forEach(function(res) {
-                        data[res.sheetName] = res.rows.map(function(r) {
-                            const mapped = mapFromSupabase(r, res.sheetName);
-                            mapped._docId = String(r.id || r.no || '');
-                            return mapped;
-                        });
-                        data[res.sheetName].sort(function(a, b) {
-                            return (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0);
-                        });
-                    });
-
+                    data = {};
+                    results.forEach(function(res) { data[res.sheetName] = res.rows; });
                     _afterLoad('Supabase');
                     return;
-
                 } catch(sbErr) {
-                    console.warn('Supabase failed:', sbErr.message, '— trying data.json fallback');
+                    console.warn('⚠️ Supabase failed:', sbErr.message);
+                    // Try data.json fallback
                     try {
-                        await _loadDataJson('Supabase fallback');
+                        var r2 = await fetch('./data.json');
+                        if (!r2.ok) throw new Error('data.json HTTP ' + r2.status);
+                        var raw2 = await r2.json();
+                        data = convertData(raw2);
+                        _afterLoad('data.json fallback');
+                        showToast('ℹ️ Using cached data (Supabase unavailable)');
                         return;
                     } catch(jsonErr) {
-                        clearTimeout(_spinnerSafety);
-                        data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-                        renderTable();
-                        const sp = document.getElementById('loadingBar');
-                        if (sp) sp.classList.add('done')
-                        showError('Cannot Load Data',
-                            '<b>Supabase:</b> ' + sbErr.message + '<br>' +
-                            '<b>data.json:</b> ' + jsonErr.message + '<br><br>' +
-                            'Check: Supabase project active · RLS allows public SELECT · data.json in repo root'
+                        _showDataError(
+                            'Cannot Load Data',
+                            'Supabase: ' + sbErr.message + ' · data.json: ' + jsonErr.message +
+                            '<br>Check: Supabase active · RLS allows public SELECT · data.json in repo root'
                         );
                         return;
                     }
                 }
             }
 
-            // ── No Supabase configured — use data.json directly ──
+            // ── No Supabase — try data.json only ──
             try {
-                await _loadDataJson('no Supabase config');
+                var r3 = await fetch('./data.json');
+                if (!r3.ok) throw new Error('data.json HTTP ' + r3.status);
+                var raw3 = await r3.json();
+                data = convertData(raw3);
+                _afterLoad('data.json');
             } catch(e) {
-                clearTimeout(_spinnerSafety);
-                data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-                renderTable();
-                const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
-                showError('No Data', 'Supabase not configured and data.json not found.<br>' + e.message);
+                _showDataError('No Data Source',
+                    'Supabase is not configured and data.json was not found.<br>' + e.message);
             }
         }
 
@@ -3486,7 +3500,7 @@ function resetColumnOrder() {
     <div id="disclaimerModal" class="interest-modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
       <div class="interest-modal-box" style="max-width:760px;max-height:85vh;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2 style="font-size:16px;color:#1e3a5f;">✈️ Aviation Opportunities Portal – Disclaimer</h2>
+            <h2 style="font-size:16px;color:#1e3a5f;">Aviation Opportunities Portal – Disclaimer</h2>
             <button onclick="document.getElementById('disclaimerModal').classList.remove('show')"
                     style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">&times;</button>
         </div>
@@ -3518,7 +3532,7 @@ function resetColumnOrder() {
             <li>any reliance on information displayed or communicated via the portal.</li>
           </ul></p>
 
-          <p><strong>8. Business Licence Scope</strong><br>
+          <p><strong>8. Business Activity</strong><br>
           Q3 Consultancy operates strictly within the scope of its consultancy and advisory business activities as licensed in the UAE and does not engage in trading of goods. Nothing on this portal shall be interpreted as Q3 Consultancy acting as a seller, buyer or broker of aviation parts or assets.</p>
 
           <p><strong>9. User Acknowledgement</strong><br>
