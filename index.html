@@ -1207,46 +1207,20 @@
         th[draggable="true"] { cursor: grab !important; }
         th[draggable="true"]:active { cursor: grabbing !important; }
 
-        /* ── Jet Engine Fan Blade Loading Spinner ── */
-        #engineSpinner {
+        /* ── Thin Loading Progress Bar (replaces full-screen spinner) ── */
+        #loadingBar {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10, 26, 60, 0.92);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #1e5ba8 0%, #4a9eff 50%, #1e5ba8 100%);
+            background-size: 200% 100%;
+            animation: barSlide 1.0s linear infinite;
             z-index: 9999;
-            transition: opacity 0.4s ease;
         }
-        #engineSpinner.hidden {
-            opacity: 0;
-            pointer-events: none;
-            display: none !important;
-        }
-        .engine-fan {
-            width: 130px;
-            height: 130px;
-            animation: spinFan 1.4s linear infinite;
-            filter: drop-shadow(0 0 18px rgba(74, 158, 255, 0.9));
-        }
-        @keyframes spinFan {
-            0%   { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .spinner-text {
-            color: rgba(255,255,255,0.85);
-            font-size: 13px;
-            margin-top: 18px;
-            font-family: inherit;
-            letter-spacing: 1px;
-            font-weight: 500;
-        }
-        .spinner-sub {
-            color: rgba(255,255,255,0.5);
-            font-size: 10px;
-            margin-top: 5px;
-            letter-spacing: 0.5px;
+        #loadingBar.done { display: none !important; }
+        @keyframes barSlide {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
 
@@ -1289,82 +1263,7 @@
 </head>
 <body>
     <!-- Jet Engine Fan Blade Loading Spinner -->
-    <div id="engineSpinner">
-        <svg class="engine-fan" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <radialGradient id="hubGrad" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stop-color="#4a9eff"/>
-                    <stop offset="60%" stop-color="#1e5ba8"/>
-                    <stop offset="100%" stop-color="#0a1a3c"/>
-                </radialGradient>
-                <radialGradient id="ringGrad" cx="50%" cy="50%" r="50%">
-                    <stop offset="80%" stop-color="transparent"/>
-                    <stop offset="90%" stop-color="#1e5ba8" stop-opacity="0.4"/>
-                    <stop offset="100%" stop-color="#4a9eff" stop-opacity="0.8"/>
-                </radialGradient>
-                <linearGradient id="blade0" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#6ab4ff"/>
-                    <stop offset="100%" stop-color="#1e5ba8"/>
-                </linearGradient>
-                <linearGradient id="blade1" x1="100%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="#6ab4ff"/>
-                    <stop offset="100%" stop-color="#1e5ba8"/>
-                </linearGradient>
-                <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                </filter>
-            </defs>
-
-            <!-- Outer nacelle ring -->
-            <circle cx="100" cy="100" r="96" fill="none" stroke="#1e5ba8" stroke-width="3" opacity="0.5"/>
-            <circle cx="100" cy="100" r="90" fill="#0a1230" opacity="0.6"/>
-
-            <!-- 8 swept fan blades using proper aerofoil paths -->
-            <!-- Each blade is a swept, tapered shape rotated around centre -->
-            <g transform="rotate(0, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(45, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(90, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(135, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(180, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(225, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(270, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade0)" opacity="0.92"/>
-            </g>
-            <g transform="rotate(315, 100, 100)">
-                <path d="M100,100 C108,85 118,62 105,28 C102,20 98,20 95,28 C88,55 90,80 100,100Z" fill="url(#blade1)" opacity="0.92"/>
-            </g>
-
-            <!-- Spinner cone (centre hub) -->
-            <circle cx="100" cy="100" r="22" fill="url(#hubGrad)" filter="url(#glow)"/>
-            <circle cx="100" cy="100" r="16" fill="#0d2a6b"/>
-            <circle cx="100" cy="100" r="8" fill="#4a9eff" opacity="0.8"/>
-            <!-- Hub bolt holes -->
-            <circle cx="100" cy="84" r="2.5" fill="#0a1a3c"/>
-            <circle cx="114" cy="108" r="2.5" fill="#0a1a3c"/>
-            <circle cx="86" cy="108" r="2.5" fill="#0a1a3c"/>
-
-            <!-- Outer glow ring -->
-            <circle cx="100" cy="100" r="93" fill="none" stroke="#4a9eff" stroke-width="1.5" opacity="0.3"/>
-        </svg>
-        <div class="spinner-text">Loading Aviation Data...</div>
-        <div class="spinner-sub">Aviation Opportunities Platform</div>
-    </div>
+    <div id="loadingBar"></div>
 
     <div class="container">
         <header>
@@ -1895,20 +1794,16 @@
 
             // ── Guaranteed spinner hide (safety net - fires after 15s no matter what) ──
             const _spinnerSafety = setTimeout(function() {
-                const sp = document.getElementById('engineSpinner');
-                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
             }, 10000);
 
             // ── Helper: runs after every successful load ──
             function _afterLoad(source) {
                 clearTimeout(_spinnerSafety);
-                window._portalLoaded = true;  // Signal to outer kill timer
+                window._portalLoaded = true;
                 console.log('✅ Data loaded from:', source);
-                const spinner = document.getElementById('engineSpinner');
-                if (spinner) {
-                    spinner.style.opacity = '0';
-                    spinner.style.display = 'none';
-                }
+                const lb = document.getElementById('loadingBar');
+                if (lb) lb.classList.add('done');
                 if (typeof renderFilters === 'function') renderFilters();
                 renderTable();
                 if (typeof filterTable === 'function') filterTable();
@@ -1933,8 +1828,7 @@
                     // Even on file://, try to render with empty data so page is usable
                     data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
                     renderTable();
-                    const sp = document.getElementById('engineSpinner');
-                    if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                    const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
                     showError('Local File Mode',
                         'Open via a web server or GitHub Pages for live data.<br>' +
                         'Place <code>data.json</code> in the same folder as <code>index.html</code> for offline fallback.'
@@ -2000,8 +1894,8 @@
                         clearTimeout(_spinnerSafety);
                         data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
                         renderTable();
-                        const sp = document.getElementById('engineSpinner');
-                        if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                        const sp = document.getElementById('loadingBar');
+                        if (sp) sp.classList.add('done')
                         showError('Cannot Load Data',
                             '<b>Supabase:</b> ' + sbErr.message + '<br>' +
                             '<b>data.json:</b> ' + jsonErr.message + '<br><br>' +
@@ -2019,8 +1913,7 @@
                 clearTimeout(_spinnerSafety);
                 data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
                 renderTable();
-                const sp = document.getElementById('engineSpinner');
-                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
                 showError('No Data', 'Supabase not configured and data.json not found.<br>' + e.message);
             }
         }
@@ -2871,7 +2764,7 @@
             const hash = window.location.hash;
             if (!path.endsWith('/admin') && hash !== '#admin') {
                 const lb = document.getElementById('loginBtn');
-                if (lb) lb.style.display = 'none';
+                if (lb) lb.classList.add('done');
             }
             document.getElementById('roleBadge').textContent = 'External Viewer';
             document.getElementById('roleBadge').classList.remove('admin');
@@ -2898,16 +2791,14 @@
             // Hard 5-second spinner safety — fires regardless of anything else
             const _killSpinner = setTimeout(function() {
                 if (!window._portalLoaded) {
-                    const sp = document.getElementById('engineSpinner');
-                    if (sp) sp.style.display = 'none';
+                    const lb = document.getElementById('loadingBar'); if (lb) lb.classList.add('done');
                 }
             }, 12000);
             try {
                 await loadData();
             } catch(fatalErr) {
                 console.error('Fatal error:', fatalErr);
-                const sp = document.getElementById('engineSpinner');
-                if (sp) sp.style.display = 'none';
+                const lb2 = document.getElementById('loadingBar'); if (lb2) lb2.classList.add('done');
                 if (typeof showError === 'function') showError('Startup Error', fatalErr.message);
             } finally {
                 clearTimeout(_killSpinner);
@@ -3539,8 +3430,7 @@ function resetColumnOrder() {
     
         function showError(title, msg) {
             // Hide spinner on any error
-            const spinner = document.getElementById('engineSpinner');
-            if (spinner) { spinner.classList.add('hidden'); setTimeout(() => { spinner.style.display = 'none'; }, 450); }
+            const lb3 = document.getElementById('loadingBar'); if (lb3) lb3.classList.add('done');
             const existing = document.getElementById('_portalErrorBanner');
             if (existing) existing.remove();
             const div = document.createElement('div');
