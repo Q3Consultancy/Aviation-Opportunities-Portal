@@ -1874,106 +1874,135 @@
 
         // Load data
         async function loadData() {
-            // ── Helper: after any data load, render the table ──
+
+            // ── Guaranteed spinner hide (safety net - fires after 15s no matter what) ──
+            const _spinnerSafety = setTimeout(function() {
+                const sp = document.getElementById('engineSpinner');
+                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+            }, 15000);
+
+            // ── Helper: runs after every successful load ──
             function _afterLoad(source) {
+                clearTimeout(_spinnerSafety);
                 console.log('✅ Data loaded from:', source);
-                // Hide jet engine loading spinner
                 const spinner = document.getElementById('engineSpinner');
                 if (spinner) {
                     spinner.classList.add('hidden');
-                    setTimeout(() => { spinner.style.display = 'none'; }, 450);
+                    setTimeout(function() { spinner.style.display = 'none'; }, 400);
                 }
                 if (typeof renderFilters === 'function') renderFilters();
                 renderTable();
                 if (typeof filterTable === 'function') filterTable();
             }
 
-            // ── Detect file:// protocol → use data.json ──
-            const isLocalFile = window.location.protocol === 'file:';
-            if (isLocalFile) {
-                console.info('ℹ️ Running from file:// — loading data.json');
-                try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json not found (status ' + r.status + ')');
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (local)');
-                } catch(e) {
-                    showError('Local File Mode', 'Could not load data.json.<br>Make sure <code>data.json</code> is in the same folder as <code>index.html</code>.<br><br>For live Supabase data upload to GitHub Pages.');
-                }
-                return;
+            // ── Helper: fetch data.json reliably ──
+            async function _loadDataJson(reason) {
+                const r = await fetch('./data.json');
+                if (!r.ok) throw new Error('data.json HTTP ' + r.status);
+                const raw = await r.json();
+                data = convertData(raw);
+                _afterLoad('data.json (' + reason + ')');
+                showToast('ℹ️ Showing cached data');
             }
 
-            // ── Check Supabase readiness ──
-            const sbReady = window._sbReady === true && window._sb;
-            if (!sbReady) {
-                console.info('ℹ️ Supabase not configured — loading from data.json');
+            // ── Detect file:// — Supabase cannot work locally ──
+            if (window.location.protocol === 'file:') {
                 try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json fetch failed: ' + r.status);
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (no Supabase config)');
+                    await _loadDataJson('local file');
                 } catch(e) {
-                    showError('Data Load Error', 'Could not load data.json: ' + e.message);
-                }
-                return;
-            }
-
-            // ── Supabase path ──
-            const TABLE_MAP = {
-                'Engines':        'engines',
-                'Aircraft Sale':  'aircraft_sale',
-                'Aircraft Lease': 'aircraft_lease',
-                'Parts':          'parts'
-            };
-            data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-
-            try {
-                const sb = window._sb;
-                for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                    let result;
-                    try {
-                        result = await sb.from(tableName).select('*').order('no', { ascending: true });
-                    } catch(fetchErr) {
-                        console.warn('Supabase network error for', tableName, ':', fetchErr.message);
-                        throw fetchErr; // caught by outer try
-                    }
-                    if (result.error) {
-                        throw new Error('Supabase SELECT ' + tableName + ': ' + result.error.message);
-                    }
-                    data[sheetName] = (result.data || []).map(r => {
-                        const mapped = mapFromSupabase(r, sheetName);
-                        mapped._docId = String(r.id || r.no || '');
-                        return mapped;
-                    });
-                }
-                // Sort each sheet by No
-                for (const sheet of Object.values(data)) {
-                    sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
-                }
-                _afterLoad('Supabase');
-
-            } catch(e) {
-                console.error('Supabase load failed:', e.message, '— trying data.json fallback');
-                try {
-                    const r = await fetch('data.json');
-                    if (!r.ok) throw new Error('data.json also unavailable (status ' + r.status + ')');
-                    const rawData = await r.json();
-                    data = convertData(rawData);
-                    _afterLoad('data.json (Supabase fallback)');
-                    showToast('⚠️ Supabase error — showing cached data');
-                } catch(e2) {
-                    showError('Cannot Load Data',
-                        '<b>Network / Supabase issue:</b> ' + e.message + '<br><br>' +
-                        '<b>data.json fallback also failed:</b> ' + e2.message + '<br><br>' +
-                        'This usually means the page is being opened locally.<br>' +
-                        'Upload <code>index.html</code> and <code>data.json</code> to your GitHub Pages repo to fix this.<br><br>' +
-                        'If already on GitHub Pages check:<br>' +
-                        '• Supabase project is active at <a href="https://supabase.com" target="_blank">supabase.com</a><br>' +
-                        '• RLS policies allow public SELECT on tables: engines, aircraft_sale, aircraft_lease, parts'
+                    clearTimeout(_spinnerSafety);
+                    // Even on file://, try to render with empty data so page is usable
+                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                    renderTable();
+                    const sp = document.getElementById('engineSpinner');
+                    if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                    showError('Local File Mode',
+                        'Open via a web server or GitHub Pages for live data.<br>' +
+                        'Place <code>data.json</code> in the same folder as <code>index.html</code> for offline fallback.'
                     );
                 }
+                return;
+            }
+
+            // ── Supabase path (with 8-second timeout per table) ──
+            if (window._sbReady && window._sb) {
+                const TABLE_MAP = {
+                    'Engines':        'engines',
+                    'Aircraft Sale':  'aircraft_sale',
+                    'Aircraft Lease': 'aircraft_lease',
+                    'Parts':          'parts'
+                };
+
+                try {
+                    const sb = window._sb;
+                    // Fetch all tables IN PARALLEL with individual 8-second timeouts
+                    const fetchTable = function(sheetName, tableName) {
+                        return new Promise(async function(resolve, reject) {
+                            const timer = setTimeout(function() {
+                                reject(new Error('Timeout fetching ' + tableName + ' (8s)'));
+                            }, 8000);
+                            try {
+                                const result = await sb.from(tableName).select('*').order('no', { ascending: true });
+                                clearTimeout(timer);
+                                if (result.error) reject(new Error(result.error.message));
+                                else resolve({ sheetName: sheetName, rows: result.data || [] });
+                            } catch(e) {
+                                clearTimeout(timer);
+                                reject(e);
+                            }
+                        });
+                    };
+
+                    const results = await Promise.all(
+                        Object.entries(TABLE_MAP).map(([sn, tn]) => fetchTable(sn, tn))
+                    );
+
+                    data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                    results.forEach(function(res) {
+                        data[res.sheetName] = res.rows.map(function(r) {
+                            const mapped = mapFromSupabase(r, res.sheetName);
+                            mapped._docId = String(r.id || r.no || '');
+                            return mapped;
+                        });
+                        data[res.sheetName].sort(function(a, b) {
+                            return (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0);
+                        });
+                    });
+
+                    _afterLoad('Supabase');
+                    return;
+
+                } catch(sbErr) {
+                    console.warn('Supabase failed:', sbErr.message, '— trying data.json fallback');
+                    try {
+                        await _loadDataJson('Supabase fallback');
+                        return;
+                    } catch(jsonErr) {
+                        clearTimeout(_spinnerSafety);
+                        data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                        renderTable();
+                        const sp = document.getElementById('engineSpinner');
+                        if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                        showError('Cannot Load Data',
+                            '<b>Supabase:</b> ' + sbErr.message + '<br>' +
+                            '<b>data.json:</b> ' + jsonErr.message + '<br><br>' +
+                            'Check: Supabase project active · RLS allows public SELECT · data.json in repo root'
+                        );
+                        return;
+                    }
+                }
+            }
+
+            // ── No Supabase configured — use data.json directly ──
+            try {
+                await _loadDataJson('no Supabase config');
+            } catch(e) {
+                clearTimeout(_spinnerSafety);
+                data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+                renderTable();
+                const sp = document.getElementById('engineSpinner');
+                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                showError('No Data', 'Supabase not configured and data.json not found.<br>' + e.message);
             }
         }
 
@@ -2845,7 +2874,25 @@
         });
 
         window.onload = async function() {
-            await loadData();
+            // Global safety: force-hide spinner after 20s no matter what
+            const _globalSafety = setTimeout(function() {
+                const sp = document.getElementById('engineSpinner');
+                if (sp && sp.style.display !== 'none') {
+                    sp.classList.add('hidden');
+                    setTimeout(function() { sp.style.display = 'none'; }, 400);
+                    console.warn('⚠️ Global safety timeout fired — spinner force-hidden');
+                }
+            }, 20000);
+            try {
+                await loadData();
+            } catch(fatalErr) {
+                console.error('Fatal loadData error:', fatalErr);
+                const sp = document.getElementById('engineSpinner');
+                if (sp) { sp.classList.add('hidden'); sp.style.display = 'none'; }
+                if (typeof showError === 'function') showError('Startup Error', fatalErr.message);
+            } finally {
+                clearTimeout(_globalSafety);
+            }
             // Admin access: show login if URL contains #admin or path ends /admin
             const _p = window.location.pathname;
             const _h = window.location.hash;
