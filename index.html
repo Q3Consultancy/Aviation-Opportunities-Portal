@@ -1307,9 +1307,9 @@
         }
         /* Desktop columns (visible at all widths) */
         body:not(.admin-mode) .table-container th:nth-child(1),
-        body:not(.admin-mode) .table-container td:nth-child(1) { width: 34px; min-width: 34px; max-width: 34px; }   /* No */
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 34px; min-width: 34px; max-width: 38px; white-space: normal; }   /* No — fully visible */
         body:not(.admin-mode) .table-container th:nth-child(2),
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: 32px; min-width: 32px; max-width: 32px; }   /* Files */
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: 44px; min-width: 40px; max-width: 50px; white-space: normal; }   /* Files — fully visible */
         body:not(.admin-mode) .table-container th:nth-child(3),
         body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
         body:not(.admin-mode) .table-container th:nth-child(4),
@@ -1406,6 +1406,32 @@
         
         .public-row { cursor: pointer; }
         .public-row:hover { background: #f0f7ff; }
+
+        /* Condition badge — non-admin table cell */
+        .cond-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: help;
+            letter-spacing: 0.02em;
+        }
+        /* Condition select in admin table */
+        .condition-select {
+            min-width: 62px;
+            max-width: 80px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 3px;
+            border-radius: 4px;
+            border: 1px solid #93c5fd;
+            background: #eff6ff;
+            cursor: pointer;
+        }
 
         </style>
 
@@ -1782,6 +1808,24 @@
 
         // Fields shown inside the row detail card (non-admin hover/tap)
         const CARD_FIELDS = ['Condition', 'Cycles Remaining', 'Location', 'Status'];
+
+        // Condition acronym → label + description
+        const CONDITION_MAP = {
+            'FN':     { label: 'Factory New',             desc: 'Top tier, new, warranty.' },
+            'OH':     { label: 'Overhauled',               desc: 'Fully refurbished to as-new standards.' },
+            'SV':     { label: 'Serviceable',              desc: 'Tested and safe to fly.' },
+            'RP':     { label: 'Repaired',                 desc: 'Fixed and certified.' },
+            'AR':     { label: 'As Removed',               desc: '"As is," untested, needs MRO inspection.' },
+            'BER':    { label: 'Beyond Economical Repair', desc: 'Too expensive to fix.' },
+            'RJ/SCR': { label: 'Rejected/Scrap',          desc: 'Unsafe, end of life.' }
+        };
+
+        function getConditionDisplay(code) {
+            if (!code) return { short: '—', full: '', desc: '' };
+            const entry = CONDITION_MAP[code];
+            if (!entry) return { short: code, full: code, desc: '' };
+            return { short: code, full: entry.label, desc: entry.desc };
+        }
 
         // Columns to show filter boxes for (non-admin). null = show all.
         const FILTER_COLUMNS = {
@@ -2358,10 +2402,25 @@
                         return;
                     }
 
-                    // Price (USD) — auto-calculated, read-only always
+                    // Price (USD) — auto-calculated; background mirrors row Status colour
                     if (col === KEY_PRICE) {
                         const priceDisplay = value !== '' && value !== null && value !== undefined ? formatNumber(value) : '-';
-                        html += `<td style="background:#f0fdf4;font-weight:600;color:#065f46;" title="Auto-calculated: Seller Price + Commission">${priceDisplay}</td>`;
+                        const rowStatus = row['Status'] || row['status'] || '';
+                        const rowSCls   = getStatusClass(rowStatus);
+                        const _pMap = {
+                            'status-buyer-looking':    'background:#d1fae5;color:#065f46;',
+                            'status-buyer-reviewing':  'background:#fef3c7;color:#92400e;',
+                            'status-buyer-finalizing': 'background:#fef3c7;color:#92400e;',
+                            'status-buyer-submitted':  'background:#e9d5ff;color:#6b21a8;',
+                            'status-seller-looking':   'background:#dbeafe;color:#1e40af;',
+                            'status-lessor-looking':   'background:#dbeafe;color:#1e40af;',
+                            'status-lessee-looking':   'background:#d1fae5;color:#065f46;',
+                            'status-negotiation':      'background:#fef3c7;color:#92400e;',
+                            'status-financial':        'background:#ede9fe;color:#5b21b6;',
+                            'status-sold':             'background:#fee2e2;color:#991b1b;',
+                        };
+                        const pStyle = (_pMap[rowSCls] || 'background:#f0fdf4;color:#065f46;') + 'font-weight:600;';
+                        html += `<td style="${pStyle}" title="Auto-calculated: Seller Price + Commission">${priceDisplay}</td>`;
                         return;
                     }
 
@@ -2376,6 +2435,29 @@
                             // No % set — allow manual entry
                             const colIdx = visibleColumns.indexOf(col);
                             html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
+                        }
+                        return;
+                    }
+
+                    // Condition — special dropdown (admin) or badge (non-admin)
+                    if (col === 'Condition') {
+                        if (isAdmin) {
+                            const _ccodes = ['','FN','OH','SV','RP','AR','BER','RJ/SCR'];
+                            const _copts  = _ccodes.map(c => {
+                                const _cm  = CONDITION_MAP[c];
+                                const _tip = _cm ? c + ' — ' + _cm.label + ': ' + _cm.desc : '— None —';
+                                return '<option value="' + c + '" title="' + _tip + '"' + (value===c?' selected':'') + '>' + (c||'—') + '</option>';
+                            }).join('');
+                            const _cFull = value ? getConditionDisplay(value).full + ': ' + getConditionDisplay(value).desc : 'Select condition';
+                            html += '<td data-row="' + index + '" data-col-idx="' + visibleColumns.indexOf(col) + '" data-col="Condition">' +
+                                '<select class="status-select condition-select" style="min-width:62px;font-size:11px;" ' +
+                                'onchange="saveCell(' + index + ',\'Condition\',this.value);renderTable();" ' +
+                                'title="' + _cFull + '">' +
+                                '<option value="">—</option>' + _copts + '</select></td>';
+                        } else {
+                            const _cd = getConditionDisplay(value);
+                            const _tip = value ? value + ' — ' + _cd.full + ': ' + _cd.desc : '—';
+                            html += '<td><span class="cond-badge" title="' + _tip + '">' + (value || '—') + '</span></td>';
                         }
                         return;
                     }
@@ -2589,7 +2671,7 @@
                 { key: 'Buyer(s) 4',     label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 5',     label: 'Buyer(s) 5',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'FN', 'OH', 'SV', 'RP', 'AR', 'BER', 'RJ/SCR'] },
                 { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY', defaultValue: todayFormatted },
             ],
@@ -2616,7 +2698,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'FN', 'OH', 'SV', 'RP', 'AR', 'BER', 'RJ/SCR'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
@@ -2643,7 +2725,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
-                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'FN', 'OH', 'SV', 'RP', 'AR', 'BER', 'RJ/SCR'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Lessor Request', 'Lessee Request', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
@@ -2662,7 +2744,7 @@
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
                 { key: 'Buyer(s)',         label: 'Buyer(s)',           type: 'text',   required: false, placeholder: 'Primary buyer' },
                 { section: '📋 Status & Date' },
-                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'FN', 'OH', 'SV', 'RP', 'AR', 'BER', 'RJ/SCR'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ]
@@ -3260,12 +3342,19 @@
                     ? 'Total Cycles' : col;
                 const isEmpty = (val === null || val === undefined || val === '');
                 let displayVal = isEmpty ? '—' : String(val);
+                let cardTip    = '';
+                if (col === 'Condition' && !isEmpty) {
+                    const _cd = getConditionDisplay(val);
+                    // Show "SV — Serviceable" as the value, full desc as tooltip
+                    displayVal = val + (_cd.full ? ' — ' + _cd.full : '');
+                    cardTip    = _cd.desc ? ' title="' + _cd.desc + '"' : '';
+                }
                 if (col === 'Location' && !isEmpty) displayVal = addFlagToLocation(displayVal);
                 if (col === 'Status'   && !isEmpty) displayVal = normalizeStatus(displayVal) || displayVal;
                 const dimStyle = isEmpty ? 'color:#475569;font-style:italic;' : '';
                 rows += `<div class="rdc-row">` +
                         `<span class="rdc-label">${displayLabel}</span>` +
-                        `<span class="rdc-value" style="${dimStyle}">${displayVal}</span>` +
+                        `<span class="rdc-value" style="${dimStyle}"${cardTip}>${displayVal}</span>` +
                         `</div>`;
             });
 
