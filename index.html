@@ -1400,7 +1400,7 @@
                     <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;" onchange="importFromExcel(this)">
                     <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" style="display:none;">⚙️ Columns</button>
                     <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
-                    <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add Deal</button>
+                    <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add New Entry</button>
                 </div>
                 <div class="filter-row" id="filterRow">
                     <!-- Column filters will be populated by JavaScript -->
@@ -1477,6 +1477,7 @@
         let rawData = {};
         let data = {};
         let sortColumn = null;
+        let columnOrder = {};   // per-sheet custom column order after drag
         let sortDirection = 'asc';
         let columnFilters = {};
 
@@ -1633,6 +1634,8 @@
         const STATUS_OPTIONS = [
             'Buyer Request',
             'Seller Request',
+            'Lessor Request',
+            'Lessee Request',
             'Buyer Evaluation',
             'Negotiation',
             'Closed'
@@ -1640,6 +1643,8 @@
         const ADMIN_STATUS_OPTIONS = [
             'Buyer Request',
             'Seller Request',
+            'Lessor Request',
+            'Lessee Request',
             'Buyer Evaluation',
             'Negotiation',
             'Financial Closing',
@@ -1647,26 +1652,69 @@
         ];
 
 
+
+        // ── Normalize legacy status values to new display names ───────────────
+        function normalizeStatus(val) {
+            if (!val) return val;
+            // Normalize newlines and brackets for consistent matching
+            const v = val.toString().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            const vl = v.toLowerCase();
+            // Closed patterns
+            if (vl.startsWith('closed') || vl.includes('sold to another buyer')) return 'Closed';
+            // Seller patterns → Seller Request
+            if (vl.startsWith('seller:') || vl.startsWith('seller ')) return 'Seller Request';
+            // Buyer patterns
+            if (vl === 'buyer: looking for a seller' || vl === 'buyer: looking for seller') return 'Buyer Request';
+            if (vl.startsWith('buyer: looking')) return 'Buyer Request';
+            if (vl.startsWith('buyer: finalizing') || vl.startsWith('buyer: reviewing') ||
+                vl.startsWith('buyer: submitted') || vl.startsWith('buyer: evaluating')) return 'Buyer Evaluation';
+            // Lessor/Lessee patterns
+            if (vl.startsWith('lessor:') || vl.startsWith('lessor ')) return 'Lessor Request';
+            if (vl.startsWith('lessee:') || vl.startsWith('lessee ')) return 'Lessee Request';
+            // Already-normalized values pass through
+            const validStatuses = ['Buyer Request','Seller Request','Lessor Request','Lessee Request',
+                                   'Buyer Evaluation','Negotiation','Financial Closing','Closed'];
+            if (validStatuses.includes(v)) return v;
+            return v;
+        }
+
+        function normalizeAllStatuses() {
+            ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
+                if (!data[sheet]) return;
+                data[sheet].forEach(row => {
+                    if (row['Status']) row['Status'] = normalizeStatus(row['Status']);
+                });
+            });
+        }
+        
         // Status color mapping
         function getStatusClass(statusValue) {
             if (!statusValue) return '';
             const status = statusValue.toString().toLowerCase().trim();
-            // Closed variations → grey
-            if (status === 'closed' || status.includes('sold to another buyer') || status.includes('closed')) return 'status-sold';
-            // Buyer patterns → green shades
-            if (status === 'buyer request' || status.includes('buyer request')) return 'status-buyer-looking';
-            if (status === 'buyer evaluation' || status.includes('buyer evaluation')) return 'status-buyer-reviewing';
-            if (status.includes('buyer: looking')) return 'status-buyer-looking';
-            if (status.includes('buyer: submitted')) return 'status-buyer-submitted';
-            if (status.includes('buyer: reviewing')) return 'status-buyer-reviewing';
-            if (status.includes('buyer: finalizing')) return 'status-buyer-finalizing';
+            // Closed → red/grey
+            if (status === 'closed' || status.startsWith('closed')) return 'status-sold';
+            // Buyer Request → green
+            if (status === 'buyer request') return 'status-buyer-looking';
+            // Buyer Evaluation → amber
+            if (status === 'buyer evaluation') return 'status-buyer-reviewing';
+            // Seller Request → blue
+            if (status === 'seller request') return 'status-seller-looking';
+            // Lessor Request → blue-teal
+            if (status === 'lessor request') return 'status-lessor-looking';
+            // Lessee Request → green-teal
+            if (status === 'lessee request') return 'status-lessee-looking';
             // Negotiation → amber
-            if (status === 'negotiation' || status.includes('negotiation')) return 'status-negotiation';
+            if (status === 'negotiation') return 'status-negotiation';
             // Financial Closing → purple
-            if (status === 'financial closing' || status.includes('financial closing')) return 'status-financial';
-            // Seller patterns → blue
-            if (status === 'seller request' || status.includes('seller request')) return 'status-seller-looking';
-            if (status.includes('seller: looking')) return 'status-seller-looking';
+            if (status === 'financial closing') return 'status-financial';
+            // Legacy fallbacks
+            if (status.includes('sold to another buyer')) return 'status-sold';
+            if (status.includes('buyer request') || status.includes('buyer: looking')) return 'status-buyer-looking';
+            if (status.includes('seller request') || status.includes('seller: looking')) return 'status-seller-looking';
+            if (status.includes('lessor')) return 'status-lessor-looking';
+            if (status.includes('lessee')) return 'status-lessee-looking';
+            if (status.includes('negotiation')) return 'status-negotiation';
+            if (status.includes('financial closing')) return 'status-financial';
             // Lessor/Lessee
             if (status.includes('lessor request')) return 'status-lessor-looking';
             if (status.includes('lessor: looking')) return 'status-lessor-looking';
@@ -1698,10 +1746,8 @@
         function shouldHideRow(row) {
             if (isAdmin) return false;
             const status = (row['Status'] || '').toString().toLowerCase().trim();
-            // 'Sold to another buyer' rows now shown (greyed) instead of hidden
-            // Hide entries dated before 1 Nov 2025 (only if date is present and parseable)
-            const dateReceived = parseDateReceived(row['Date Received']);
-            // Date cutoff filter removed — all dated entries visible
+            // Hide 'Closed' rows for non-admin users
+            if (status === 'closed' || status.includes('sold to another buyer')) return true;
             return false;
         }
 
@@ -1822,7 +1868,12 @@
                     const uniqueVals = [...new Set(
                         sheetData
                             .filter(row => !shouldHideRow(row))
-                            .map(row => (row[col] || '').toString().trim())
+                            .map(row => {
+                                let v = (row[col] || '').toString().trim();
+                                // Strip country-code brackets e.g. [USA] → USA
+                                if (col === 'Location') v = v.replace(/^\[|\]$/g, '').replace(/\[([^\]]+)\]/g, '$1').trim();
+                                return v;
+                            })
                             .filter(v => v && v !== 'null' && v !== 'undefined' && v !== '')
                     )].sort();
 
@@ -1888,6 +1939,7 @@
                         spinner.classList.add('hidden');
                         setTimeout(() => { spinner.style.display = 'none'; }, 450);
                     }
+                    normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
                     if (typeof updateStats === 'function') updateStats();
@@ -1952,6 +2004,7 @@
                 const totalRows = Object.values(jsonData).reduce((s, a) => s + a.length, 0);
                 if (totalRows > 0) {
                     data = jsonData;
+                    normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
                     if (typeof updateStats === 'function') updateStats();
@@ -1975,8 +2028,18 @@
                 if (idx > -1) cols.splice(idx + 1, 0, KEY_COMM_PCT);
                 else cols.push(KEY_COMM_PCT);
             }
-            // Ensure Comments column is always last (before nothing)
+            // Ensure Comments column is always last
             if (!cols.includes(KEY_COMMENTS)) cols.push(KEY_COMMENTS);
+
+            // Apply any custom column ordering from drag-and-drop (admin only)
+            const sheetName = getSheetName(currentTab);
+            if (isAdmin && columnOrder[sheetName] && columnOrder[sheetName].length > 0) {
+                const custom = columnOrder[sheetName];
+                // Reorder: put custom first (only cols that exist), then remainder
+                const reordered = custom.filter(c => cols.includes(c));
+                const remainder = cols.filter(c => !reordered.includes(c));
+                return [...reordered, ...remainder];
+            }
             return cols;
         }
 
@@ -2140,6 +2203,11 @@
                             html += `<td class="${editableClass} ${statusClass}" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
                                     `<select class="status-select" onchange="saveCell(${index},'Status',this.value);renderTable();" ${isAdmin ? '' : 'disabled'}>` +
                                     `<option value="">— Select —</option>${selOpts}</select></td>`;
+                        } else if (col === 'Status' && !isAdmin) {
+                            // Non-admin: show colored status badge
+                            const dispStatus = normalizeStatus(value) || value;
+                            const statusBadgeClass = getStatusClass(dispStatus);
+                            html += `<td class="${statusBadgeClass}" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;">${dispStatus}</span></td>`;
                         } else if (col === KEY_COMMENTS) {
                             // Comments: visible to all, editable only by admin, with tooltip preview
                             const commVal = (value || '').replace(/"/g, '&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -2737,11 +2805,19 @@
                         if (error) throw error;
                         savedCount += rows.length;
                     }
+                    console.log(`✅ Saved ${savedCount} records to Supabase`);
+                } else {
+                    // Local / no-Supabase mode — count all records
+                    Object.values(data).forEach(arr => { savedCount += (arr || []).length; });
+                    console.log(`✅ Changes saved locally (${savedCount} records in memory)`);
                 }
 
-                console.log(`✅ Saved ${savedCount} records to Supabase`);
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
+                // Show success toast
+                if (toast) {
+                    toast.textContent = '✅ Changes saved successfully!';
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 3000);
+                }
             } catch (err) {
                 console.error('Save error:', err);
                 alert('❌ Save failed: ' + err.message);
@@ -2756,7 +2832,13 @@
         }
 
         function hideLoginModal() {
-            document.getElementById('loginModal').classList.remove('show');
+            const m = document.getElementById('loginModal');
+            if (m) { m.classList.remove('show'); m.style.display = ''; }
+        }
+
+        function toggleAdmin() {
+            // Show admin login modal (button in header)
+            showLoginModal();
         }
 
         function login() {
@@ -2773,6 +2855,7 @@
                 document.getElementById('logoutBtn').style.display = 'inline-block';
                 // admin-only display handled by updateAdminUI above
                 hideLoginModal();
+                normalizeAllStatuses();
                 renderTable();
                 renderFilters();
                 updateStats();
@@ -2812,12 +2895,14 @@
 
         window.onload = async function() {
             await loadData();
-            // Admin access: show login if URL contains #admin or path ends /admin
+            // Admin access: show login button and open login modal if URL has #admin
             const _p = window.location.pathname;
             const _h = window.location.hash;
             if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
                 const lb = document.getElementById('loginBtn');
                 if (lb) lb.style.display = 'inline-block';
+                // Auto-open the login modal when accessing admin URL
+                setTimeout(() => showLoginModal(), 300);
             }
         };
 
