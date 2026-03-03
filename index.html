@@ -641,6 +641,19 @@
             color: #475569;
         }
 
+        .clone-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-right: 4px;
+        }
+        .clone-btn:hover {
+            background: #2563eb;
+        }
         .delete-btn {
             background: #ef4444;
             color: white;
@@ -2410,7 +2423,10 @@
                         }
                 });
                 if (isAdmin) {
-                    html += `<td><button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button></td>`;
+                    html += `<td style="white-space:nowrap;">` +
+                        `<button class="clone-btn admin-only" onclick="cloneRow(${index})" title="Clone this row">🔁 Clone</button>` +
+                        `<button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button>` +
+                        `</td>`;
                 }
                 html += '</tr>';
             });
@@ -2652,7 +2668,7 @@
             ]
         };
 
-        function showAddDealModal() {
+        function showAddDealModal(cloneSource) {
             if (!isAdmin) return;
 
             const sheetName = getSheetName(currentTab);
@@ -2660,8 +2676,16 @@
 
             // Update modal title
             const tabEmoji = { 'Engines': '🔧', 'Aircraft Sale': '✈️', 'Aircraft Lease': '🛫', 'Parts': '🔩' };
-            document.getElementById('addDealModalTitle').textContent =
-                `➕ Add New Entry — ${tabEmoji[sheetName] || ''} ${sheetName}`;
+            const assetKeyMap = {'Engines':'Engine','Aircraft Sale':'Aircraft','Aircraft Lease':'Aircraft','Parts':'Part'};
+            let modalTitle;
+            if (cloneSource) {
+                const srcNo   = cloneSource['No'] || '?';
+                const srcName = cloneSource[assetKeyMap[sheetName]] || cloneSource['Deal #'] || '';
+                modalTitle = `🔁 Clone of #${srcNo}${srcName ? ' — ' + srcName : ''} — ${tabEmoji[sheetName] || ''} ${sheetName}`;
+            } else {
+                modalTitle = `➕ Add New Entry — ${tabEmoji[sheetName] || ''} ${sheetName}`;
+            }
+            document.getElementById('addDealModalTitle').textContent = modalTitle;
 
             // Calculate next No
             const sheetData = data[sheetName] || [];
@@ -2714,9 +2738,21 @@
 
             container.innerHTML = html;
 
-            // Pre-fill Date Received with today
+            // Pre-fill Date Received with today (blank if cloning — clone keeps original date)
             const dateField = container.querySelector('[data-key="Date Received"]');
-            if (dateField) dateField.value = todayFormatted;
+            if (dateField && !cloneSource) dateField.value = todayFormatted;
+
+            // If cloning, pre-fill all fields from the source row (except No which is already set to nextNo)
+            if (cloneSource) {
+                container.querySelectorAll('[data-key]').forEach(el => {
+                    const key = el.getAttribute('data-key');
+                    if (key === 'No') return; // keep the new auto-incremented No
+                    const srcVal = cloneSource[key];
+                    if (srcVal !== null && srcVal !== undefined && srcVal !== '') {
+                        el.value = srcVal;
+                    }
+                });
+            }
 
             document.getElementById('addDealModal').classList.add('show');
             // Focus first required input (skip No.)
@@ -2727,6 +2763,19 @@
         function hideAddDealModal() {
             document.getElementById('addDealModal').classList.remove('show');
             document.getElementById('addDealForm').reset();
+        }
+
+        function cloneRow(filteredIndex) {
+            if (!isAdmin) return;
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            // filteredIndex is the index in the filtered (visible) rows
+            // We need the actual sheetData row — use the same indexOf approach
+            // filteredData is local to renderTable, so rebuild it here
+            const filteredData = sheetData.filter(r => !shouldHideRow(r));
+            const srcRow = filteredData[filteredIndex] || sheetData[filteredIndex];
+            if (!srcRow) { showToast('⚠️ Row not found', '#f59e0b'); return; }
+            showAddDealModal(srcRow);
         }
 
         async function submitAddDeal(event) {
