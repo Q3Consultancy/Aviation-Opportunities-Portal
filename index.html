@@ -1267,7 +1267,72 @@
             margin-top: 5px;
             letter-spacing: 0.5px;
         }
-    </style>
+    
+        /* ── Mobile column compacting ─────────────────────────────────────── */
+        th, td {
+            padding: 5px 4px !important;
+            font-size: 11px !important;
+            white-space: nowrap;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        th { position: relative; }
+        @media (max-width: 600px) {
+            th, td { padding: 4px 3px !important; font-size: 10px !important; }
+        }
+
+        /* ── Column resize handle (admin) ─────────────────────────────────── */
+        .col-resize-handle {
+            position: absolute; right: 0; top: 0;
+            width: 8px; height: 100%;
+            cursor: col-resize;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #94a3b8; user-select: none; z-index: 3;
+        }
+        .col-resize-handle:hover { color: #3b82f6; background: rgba(59,130,246,0.1); border-radius: 2px; }
+        body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+        /* ── Row detail card ─────────────────────────────────────────────── */
+        #rowDetailCard {
+            position: fixed; z-index: 9999;
+            background: rgba(15,23,42,0.88);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px; padding: 14px 16px 12px;
+            min-width: 230px; max-width: 320px;
+            max-height: 72vh; overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            color: #f1f5f9; font-size: 12px;
+            pointer-events: none;
+            opacity: 0; transform: translateY(8px) scale(0.97);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+        #rowDetailCard.show {
+            opacity: 1; transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .rdc-close {
+            position: absolute; top: 8px; right: 10px;
+            background: none; border: none; color: #64748b;
+            font-size: 16px; cursor: pointer; line-height: 1; padding: 2px;
+        }
+        .rdc-close:hover { color: #f1f5f9; }
+        .rdc-title {
+            font-size: 13px; font-weight: 700; color: #60a5fa;
+            margin-bottom: 10px; padding-bottom: 7px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-right: 20px;
+        }
+        .rdc-row { display: flex; gap: 8px; margin-bottom: 5px; align-items: flex-start; }
+        .rdc-label {
+            color: #94a3b8; font-size: 10px; min-width: 95px; flex-shrink: 0;
+            text-transform: uppercase; letter-spacing: 0.04em; padding-top: 1px;
+        }
+        .rdc-value { color: #e2e8f0; font-size: 12px; word-break: break-word; }
+        .rdc-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0; }
+
+        </style>
 
     <!-- ═══════════════════════════════════════════════════
          SUPABASE CONFIGURATION
@@ -1480,6 +1545,7 @@
         let data = {};
         let sortColumn = null;
         let columnOrder = {};   // per-sheet custom column order after drag
+        let columnWidths = {};  // per-sheet per-column pixel widths (admin resize)
         let sortDirection = 'asc';
         let columnFilters = {};
 
@@ -1625,6 +1691,16 @@
                 "Manufacturers S/N",
                 "Total Time"
             ]
+        };
+
+        // ── Public (non-admin) visible columns per tab ──────────────────────
+        // Everything NOT in this list is hidden in the table but appears in the
+        // row detail card (hover/tap). Condition is shown in the card always.
+        const PUBLIC_COLUMNS = {
+            'Engines':        ['No', 'Files', 'Engine', 'Cycles Remaining', 'Price \n(USD)', 'Status', 'Location'],
+            'Aircraft Sale':  ['No', 'Files', 'Aircraft', 'Total Cycles',   'Price \n(USD)', 'Status', 'Location'],
+            'Aircraft Lease': ['No', 'Files', 'Aircraft', 'Total Cycles',   'Price \n(USD)', 'Status', 'Location'],
+            'Parts':          ['No', 'Files', 'Part',                       'Price \n(USD)', 'Status', 'Location']
         };
 
         // Columns to show filter boxes for (non-admin). null = show all.
@@ -2072,8 +2148,14 @@
             }
 
             const allColumns = getOrderedColumns(sheetData);
-            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+            // Admin: show all. Non-admin: only PUBLIC_COLUMNS
+            let visibleColumns;
+            if (isAdmin) {
+                visibleColumns = allColumns;
+            } else {
+                const pubCols = PUBLIC_COLUMNS[sheetName] || [];
+                visibleColumns = pubCols.filter(col => allColumns.includes(col));
+            }
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
             // Store visible columns globally for filterTable
@@ -2085,16 +2167,20 @@
                 const sortClass = sortColumn === col ? (sortDirection === 'asc' ? 'sort-asc' : 'sort-desc') : '';
                 const safeCol = col.replace(/'/g, "\\'").replace(/\n/g, "\\n");
                 if (isAdmin) {
+                    const _sn2 = getSheetName(currentTab);
+                    const _storedW = (columnWidths[_sn2] && columnWidths[_sn2][col]) ? ` style="width:${columnWidths[_sn2][col]}px;min-width:${columnWidths[_sn2][col]}px;"` : '';
+                    const _safeKey = col.replace(/'/g,"\\'");
                     html += `<th class="sortable ${sortClass} draggable-col" draggable="true"
                         data-col-idx="${colIdx}"
+                        data-col-key="${col.replace(/"/g,'&quot;')}"
                         onclick="_colClick(event, ${colIdx})"
                         ondragstart="_colDragStart(event, ${colIdx})"
                         ondragover="_colDragOver(event)"
                         ondragleave="_colDragLeave(event)"
                         ondrop="_colDrop(event, ${colIdx})"
                         ondragend="_colDragEnd(event)"
-                        title="⠿ Drag to reorder  |  Click to sort"
-                        >${getColDisplayName(col)}&nbsp;<span style="font-size:9px;opacity:0.45;vertical-align:middle;">⠿</span></th>`;
+                        title="⠿ Drag / Click to sort | Right-edge drag to resize"
+                        ${_storedW}>${getColDisplayName(col)}&nbsp;<span style="font-size:9px;opacity:0.45;">⠿</span><span class="col-resize-handle" onmousedown="colResizeStart(event,'${_safeKey}')">&#8942;</span></th>`;
                 } else {
                     html += `<th class="sortable ${sortClass}" onclick="sortTable('${safeCol}')">${getColDisplayName(col)}</th>`;
                 }
@@ -2108,7 +2194,14 @@
             filteredData.forEach((row, index) => {
                 const isSelected = selectedRows.has(index);
                 const selClass = isSelected ? ' row-selected' : '';
-                html += `<tr class="${selClass}" onclick="toggleRowSelection(${index}, this)">`;
+                if (isAdmin) {
+                    html += `<tr class="${selClass}" onclick="toggleRowSelection(${index}, this)">`;
+                } else {
+                    html += `<tr class="${selClass}" data-ridx="${index}"
+                        onmouseenter="showRowCard(event,${index})"
+                        onmouseleave="hideRowCard()"
+                        onclick="toggleRowCard(event,${index})">`;
+                }
                 visibleColumns.forEach(col => {
                     let value = row[col] !== null && row[col] !== undefined ? row[col] : '';
                     
@@ -2410,6 +2503,7 @@
                 { key: 'Buyer(s) 4',     label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 5',     label: 'Buyer(s) 5',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
                 { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY', defaultValue: todayFormatted },
             ],
@@ -2436,6 +2530,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
@@ -2462,6 +2557,7 @@
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Lessor Request', 'Lessee Request', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
@@ -2480,6 +2576,7 @@
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
                 { key: 'Buyer(s)',         label: 'Buyer(s)',           type: 'text',   required: false, placeholder: 'Primary buyer' },
                 { section: '📋 Status & Date' },
+                { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['', 'Serviceable', 'As Removed', 'Overhauled', 'New', 'Repaired', 'Unserviceable', 'Unknown'] },
                 { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Closed [Sold to another Buyer]'] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ]
@@ -3014,6 +3111,146 @@
             document.documentElement.style.setProperty('--tip-y', (e.clientY - 10) + 'px');
         });
 
+
+        // ── Row Detail Card (non-admin hover / tap) ──────────────────────────
+        let _cardPinned = false;
+        let _cardHideTimer = null;
+
+        function _buildCardHTML(rowIndex) {
+            const sheetName = getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            const row = sheetData[rowIndex];
+            if (!row) return '<div style="color:#64748b;font-style:italic;">No data</div>';
+
+            const pubCols  = PUBLIC_COLUMNS[sheetName] || [];
+            const allCols  = getOrderedColumns(sheetData);
+            // Columns to show: everything not in public set (and not internal)
+            const extraCols = allCols.filter(c =>
+                !pubCols.includes(c) && c !== '_docId' && c !== 'Files'
+            );
+
+            const assetKey = {'Engines':'Engine','Aircraft Sale':'Aircraft','Aircraft Lease':'Aircraft','Parts':'Part'};
+            const titleVal = row[assetKey[sheetName]] || row['Deal #'] || ('Entry ' + (rowIndex+1));
+
+            let rows = '';
+
+            // Always lead with Condition
+            const cond = row['Condition'];
+            const condDisplay = (cond !== undefined && cond !== null && cond !== '') ? cond : '—';
+            rows += `<div class="rdc-row"><span class="rdc-label">Condition</span><span class="rdc-value" style="${condDisplay==='—'?'color:#475569;font-style:italic;':''}">${condDisplay}</span></div>`;
+
+            extraCols.forEach(col => {
+                if (col === 'Condition') return;
+                let val = row[col];
+                if (val === null || val === undefined || val === '') return;
+                val = String(val);
+                if (col === 'Location') val = addFlagToLocation(val);
+                const lbl = col.replace(/\n/g,' ').trim();
+                rows += `<div class="rdc-row"><span class="rdc-label">${lbl}</span><span class="rdc-value">${val}</span></div>`;
+            });
+
+            if (!rows) rows = '<div style="color:#64748b;font-style:italic;font-size:11px;">No additional details</div>';
+            return `<div class="rdc-title">📋 ${titleVal}</div>${rows}`;
+        }
+
+        function _positionCard(e) {
+            const card = document.getElementById('rowDetailCard');
+            if (!card) return;
+            const vw = window.innerWidth, vh = window.innerHeight;
+            let x = e.clientX + 18, y = e.clientY + 8;
+            const cw = 330, ch = Math.min(400, vh * 0.72);
+            if (x + cw > vw - 8) x = e.clientX - cw - 10;
+            if (y + ch > vh - 8) y = vh - ch - 8;
+            if (y < 62) y = 62;
+            card.style.left = x + 'px';
+            card.style.top  = y + 'px';
+        }
+
+        function showRowCard(e, rowIndex) {
+            if (isAdmin || _cardPinned) return;
+            clearTimeout(_cardHideTimer);
+            const card = document.getElementById('rowDetailCard');
+            const body = document.getElementById('rowDetailCardBody');
+            if (!card || !body) return;
+            body.innerHTML = _buildCardHTML(rowIndex);
+            _positionCard(e);
+            card.classList.add('show');
+        }
+
+        function hideRowCard() {
+            if (_cardPinned) return;
+            _cardHideTimer = setTimeout(() => {
+                const c = document.getElementById('rowDetailCard');
+                if (c && !_cardPinned) c.classList.remove('show');
+            }, 200);
+        }
+
+        function toggleRowCard(e, rowIndex) {
+            if (isAdmin) { toggleRowSelection(rowIndex, e.currentTarget); return; }
+            const card = document.getElementById('rowDetailCard');
+            const body = document.getElementById('rowDetailCardBody');
+            if (!card || !body) return;
+            if (_cardPinned && card.classList.contains('show')) {
+                _cardPinned = false;
+                card.classList.remove('show');
+                return;
+            }
+            body.innerHTML = _buildCardHTML(rowIndex);
+            _positionCard(e);
+            _cardPinned = true;
+            card.classList.add('show');
+            e.stopPropagation();
+        }
+
+        function pinHideRowCard() {
+            _cardPinned = false;
+            const c = document.getElementById('rowDetailCard');
+            if (c) c.classList.remove('show');
+        }
+
+        // Dismiss card when clicking elsewhere
+        document.addEventListener('click', function(e) {
+            if (!_cardPinned) return;
+            const card = document.getElementById('rowDetailCard');
+            if (card && !card.contains(e.target) && !e.target.closest('tr[data-ridx]')) {
+                pinHideRowCard();
+            }
+        });
+
+        // ── Column Resize (admin mode) ────────────────────────────────────────
+        function colResizeStart(e, colKey) {
+            e.stopPropagation();
+            e.preventDefault();
+            const th = e.target.closest('th');
+            if (!th) return;
+            const startX = e.clientX;
+            const startW = th.offsetWidth;
+            const colIdx = parseInt(th.getAttribute('data-col-idx'));
+            const sn     = getSheetName(currentTab);
+            document.body.classList.add('col-resizing');
+
+            function onMove(ev) {
+                const newW = Math.max(40, startW + (ev.clientX - startX));
+                th.style.width = th.style.minWidth = newW + 'px';
+                const tbl = document.getElementById('dataTable');
+                if (tbl) {
+                    tbl.querySelectorAll('tr').forEach(tr => {
+                        const cell = tr.cells[colIdx];
+                        if (cell) cell.style.width = cell.style.minWidth = newW + 'px';
+                    });
+                }
+            }
+            function onUp(ev) {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',   onUp);
+                document.body.classList.remove('col-resizing');
+                if (!columnWidths[sn]) columnWidths[sn] = {};
+                columnWidths[sn][colKey] = Math.max(40, startW + (ev.clientX - startX));
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',   onUp);
+        }
+
         window.onload = async function() {
             await loadData();
             // Admin access: show login button and open login modal if URL has #admin
@@ -3544,6 +3781,7 @@ function updateAdminUI(isAdminMode) {
     
     </script>
 
+    <div id="rowDetailCard"><button class="rdc-close" onclick="pinHideRowCard()">✕</button><div id="rowDetailCardBody"></div></div>
     <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
 
     <!-- ── Place My Interest – Email Modal ──────────────────── -->
