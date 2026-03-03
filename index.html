@@ -1557,21 +1557,26 @@
         // Add flag to location text
         function addFlagToLocation(location) {
             if (!location) return '';
-            // After bracket stripping, locations are plain names like "Germany", "USA", "Hong Kong"
-            // Try direct lookup first
-            const trimmed = location.trim();
+            // Strip ALL surrounding/embedded brackets e.g. [USA] → USA
+            const trimmed = location.toString().trim()
+                .replace(/^\[+|\]+$/g, '')   // leading/trailing brackets
+                .replace(/\[([^\]]+)\]/g, '$1') // inline [xxx] → xxx
+                .trim();
+            // Direct lookup
             const directFlag = countryFlags[trimmed];
-            if (directFlag) {
-                return directFlag + ' ' + trimmed;
-            }
-            // Fallback: check if location contains a known country name
+            if (directFlag) return directFlag + ' ' + trimmed;
+            // Case-insensitive direct lookup
             for (const [country, flag] of Object.entries(countryFlags)) {
-                if (trimmed.includes(country)) {
+                if (trimmed.toLowerCase() === country.toLowerCase())
                     return flag + ' ' + trimmed;
-                }
             }
-            // No flag found - return as-is
-            return location;
+            // Partial match: country name contained in location string
+            for (const [country, flag] of Object.entries(countryFlags)) {
+                if (trimmed.toLowerCase().includes(country.toLowerCase()))
+                    return flag + ' ' + trimmed;
+            }
+            // No flag found – return cleaned value (no brackets)
+            return trimmed || location;
         }
 
         // Hidden columns for external viewers
@@ -2400,7 +2405,7 @@
                 { key: 'Buyer(s) 5',     label: 'Buyer(s) 5',        type: 'text',   required: false, placeholder: '' },
                 { section: '📋 Status & Date' },
                 { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
-                { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
+                { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY', defaultValue: todayFormatted },
             ],
             'Aircraft Sale': [
                 { section: '✈️ Aircraft Details' },
@@ -2528,6 +2533,7 @@
                         <input type="${field.type}" class="form-input" id="${fieldId}"
                                data-key="${field.key}"
                                placeholder="${(field.placeholder || '').replace(/"/g,'&quot;')}"
+                               value="${field.defaultValue !== undefined ? field.defaultValue : ''}"
                                ${field.required ? 'required' : ''}>
                     </div>`;
                 }
@@ -2660,6 +2666,13 @@
             renderTable();
             renderFilters();
             updateStats();
+            // Update Add Entry button label for current tab
+            const _addBtn = document.getElementById('addBtn');
+            if (_addBtn && isAdmin) {
+                const _tabLabels = {'engines':'Engine','aircraft-sale':'Aircraft Sale','aircraft-lease':'Aircraft Lease','parts':'Part'};
+                const _lbl = _tabLabels[tab] || 'Entry';
+                _addBtn.textContent = '➕ Add ' + _lbl;
+            }
         }
 
         // Update statistics
@@ -2822,7 +2835,7 @@
                 if (toast) {
                     toast.textContent = '✅ Changes saved successfully!';
                     toast.classList.add('show');
-                    setTimeout(() => toast.classList.remove('show'), 3000);
+                    setTimeout(() => toast.classList.remove('show'), 3500);
                 }
             } catch (err) {
                 console.error('Save error:', err);
@@ -3287,6 +3300,172 @@ function toggleRowSelection(rowIndex, trEl) {
         }
         // ── End Supabase helpers ─────────────────────────────────────────────
 
+
+
+        // ═══════════════════════════════════════════
+        // V16 JS ADDITIONS (Filter toggle + column drag)
+        // ═══════════════════════════════════════════
+
+// ─── Collapsible Filters ───
+let filtersVisible = localStorage.getItem('filtersOpen') !== 'false';
+function toggleFilters() {
+    filtersVisible = !filtersVisible;
+    localStorage.setItem('filtersOpen', filtersVisible);
+    const el = document.getElementById('filterCollapsible');
+    const arrow = document.getElementById('filterArrow');
+    if (filtersVisible) {
+        el.classList.remove('collapsed');
+        if (arrow) arrow.classList.remove('collapsed');
+    } else {
+        el.classList.add('collapsed');
+        if (arrow) arrow.classList.add('collapsed');
+    }
+}
+function initFilterToggle() {
+    const el = document.getElementById('filterCollapsible');
+    const arrow = document.getElementById('filterArrow');
+    if (!el) return;
+    if (!filtersVisible) {
+        el.classList.add('collapsed');
+        if (arrow) arrow.classList.add('collapsed');
+    }
+}
+
+// ─── Admin UI Controls ───
+const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
+function updateAdminUI(isAdminMode) {
+    ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
+    });
+    const rb = document.getElementById('roleBadge');
+    if (rb) {
+        rb.style.display = isAdminMode ? '' : 'none';
+        rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
+        rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
+    }
+    // Update Add Entry button label for current tab
+    if (isAdminMode) {
+        const addBtnEl = document.getElementById('addBtn');
+        if (addBtnEl) {
+            const tabLabels = {'engines':'Engine','aircraft-sale':'Aircraft Sale','aircraft-lease':'Aircraft Lease','parts':'Part'};
+            const lbl = (typeof currentTab !== 'undefined' && tabLabels[currentTab]) || 'Entry';
+            addBtnEl.textContent = '➕ Add ' + lbl;
+        }
+    }
+}
+
+// ─── Column Drag-and-Drop Reordering ───
+        let _dragSrcCol = null;
+
+        // ─── Column Drag-and-Drop (index-based, works with any column name) ───
+        let _dragSrcIdx = null;
+
+        function _colClick(e, colIdx) {
+            // Only sort if NOT a drag (drag won't fire click in modern browsers,
+            // but just in case: ignore if drag happened)
+            if (e.defaultPrevented) return;
+            const col = window._visibleCols && window._visibleCols[colIdx];
+            if (col) sortTable(col);
+        }
+
+        function _colDragStart(e, colIdx) {
+            _dragSrcIdx = colIdx;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(colIdx));
+            e.currentTarget.style.opacity = '0.45';
+            e.currentTarget.style.outline = '2px dashed #1e5ba8';
+        }
+
+        function _colDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.style.background = 'rgba(30,91,168,0.18)';
+            e.currentTarget.style.borderLeft = '3px solid #1e5ba8';
+        }
+
+        function _colDragLeave(e) {
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+        }
+
+        function _colDragEnd(e) {
+            // Reset source header styles
+            e.currentTarget.style.opacity = '';
+            e.currentTarget.style.outline = '';
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+            _dragSrcIdx = null;
+        }
+
+        function _colDrop(e, targetIdx) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.borderLeft = '';
+
+            if (_dragSrcIdx === null || _dragSrcIdx === targetIdx) return;
+
+            const srcIdx    = _dragSrcIdx;
+            _dragSrcIdx     = null;
+
+            // Get the current visible column order
+            const sheetName = getSheetName(currentTab);
+            const currentOrder = window._visibleCols ? [...window._visibleCols] : [];
+            if (currentOrder.length === 0) return;
+
+            if (srcIdx < 0 || srcIdx >= currentOrder.length) return;
+            if (targetIdx < 0 || targetIdx >= currentOrder.length) return;
+
+            // Perform the reorder
+            const moved = currentOrder.splice(srcIdx, 1)[0];
+            currentOrder.splice(targetIdx, 0, moved);
+
+            // Store and re-render
+            columnOrder[sheetName] = currentOrder;
+            renderTable();
+            renderFilters();
+            if (typeof showToast === 'function') showToast('✅ Column order saved');
+        }
+
+        // Legacy aliases (keep in case anything calls the old names)
+        function colDragStart(e, col) { /* superseded by _colDragStart */ }
+        function colDragOver(e)       { _colDragOver(e); }
+        function colDragLeave(e)      { _colDragLeave(e); }
+        function colDrop(e, col)      { /* superseded by _colDrop */ }
+
+
+        function showToast(msg, duration) {
+            duration = duration || 3000;
+            const t = document.getElementById('saveToast');
+            if (t) {
+                const orig = t.textContent;
+                t.textContent = msg;
+                t.style.display = 'block';
+                t.style.opacity = '1';
+                setTimeout(function() {
+                    t.style.opacity = '0';
+                    setTimeout(function() {
+                        t.style.display = 'none';
+                        t.textContent = orig;
+                    }, 400);
+                }, duration);
+            }
+        }
+        function showError(title, msg) {
+            // Hide spinner on any error
+            const spinner = document.getElementById('engineSpinner');
+            if (spinner) { spinner.classList.add('hidden'); setTimeout(() => { spinner.style.display = 'none'; }, 450); }
+            const existing = document.getElementById('_portalErrorBanner');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = '_portalErrorBanner';
+            div.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;background:#fff;border:2px solid #ef4444;border-radius:10px;padding:20px 28px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px;color:#1e293b;';
+            div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:22px;">⚠️</span><strong style="font-size:15px;color:#dc2626;">' + title + '</strong><button onclick="(function(){var b=document.getElementById(\'_portalErrorBanner\');if(b)b.remove();})()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8;">✕</button></div>' + msg;
+            document.body.appendChild(div);
+        }
+
+    
     </script>
 
     <div class="toast" id="saveToast">✅ Changes saved successfully!</div>
@@ -3380,161 +3559,7 @@ function toggleRowSelection(rowIndex, trEl) {
         </div>
       </div>
     </div>
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
-// ═══════════════════════════════════════════
-// V16 JS ADDITIONS
-// ═══════════════════════════════════════════
-
-// ─── Collapsible Filters ───
-let filtersVisible = localStorage.getItem('filtersOpen') !== 'false';
-function toggleFilters() {
-    filtersVisible = !filtersVisible;
-    localStorage.setItem('filtersOpen', filtersVisible);
-    const el = document.getElementById('filterCollapsible');
-    const arrow = document.getElementById('filterArrow');
-    if (filtersVisible) {
-        el.classList.remove('collapsed');
-        if (arrow) arrow.classList.remove('collapsed');
-    } else {
-        el.classList.add('collapsed');
-        if (arrow) arrow.classList.add('collapsed');
-    }
-}
-function initFilterToggle() {
-    const el = document.getElementById('filterCollapsible');
-    const arrow = document.getElementById('filterArrow');
-    if (!el) return;
-    if (!filtersVisible) {
-        el.classList.add('collapsed');
-        if (arrow) arrow.classList.add('collapsed');
-    }
-}
-
-// ─── Admin UI Controls ───
-const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
-function updateAdminUI(isAdminMode) {
-    ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
-    });
-    const rb = document.getElementById('roleBadge');
-    if (rb) {
-        rb.style.display = isAdminMode ? '' : 'none';
-        rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
-        rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
-    }
-}
-
-// ─── Column Drag-and-Drop Reordering ───
-        let _dragSrcCol = null;
-
-        // ─── Column Drag-and-Drop (index-based, works with any column name) ───
-        let _dragSrcIdx = null;
-
-        function _colClick(e, colIdx) {
-            // Only sort if NOT a drag (drag won't fire click in modern browsers,
-            // but just in case: ignore if drag happened)
-            if (e.defaultPrevented) return;
-            const col = window._visibleCols && window._visibleCols[colIdx];
-            if (col) sortTable(col);
-        }
-
-        function _colDragStart(e, colIdx) {
-            _dragSrcIdx = colIdx;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', String(colIdx));
-            e.currentTarget.style.opacity = '0.45';
-            e.currentTarget.style.outline = '2px dashed #1e5ba8';
-        }
-
-        function _colDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            e.currentTarget.style.background = 'rgba(30,91,168,0.18)';
-            e.currentTarget.style.borderLeft = '3px solid #1e5ba8';
-        }
-
-        function _colDragLeave(e) {
-            e.currentTarget.style.background = '';
-            e.currentTarget.style.borderLeft = '';
-        }
-
-        function _colDragEnd(e) {
-            // Reset source header styles
-            e.currentTarget.style.opacity = '';
-            e.currentTarget.style.outline = '';
-            e.currentTarget.style.background = '';
-            e.currentTarget.style.borderLeft = '';
-            _dragSrcIdx = null;
-        }
-
-        function _colDrop(e, targetIdx) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.currentTarget.style.background = '';
-            e.currentTarget.style.borderLeft = '';
-
-            if (_dragSrcIdx === null || _dragSrcIdx === targetIdx) return;
-
-            const srcIdx    = _dragSrcIdx;
-            _dragSrcIdx     = null;
-
-            // Get the current visible column order
-            const sheetName = getSheetName(currentTab);
-            const currentOrder = window._visibleCols ? [...window._visibleCols] : [];
-            if (currentOrder.length === 0) return;
-
-            if (srcIdx < 0 || srcIdx >= currentOrder.length) return;
-            if (targetIdx < 0 || targetIdx >= currentOrder.length) return;
-
-            // Perform the reorder
-            const moved = currentOrder.splice(srcIdx, 1)[0];
-            currentOrder.splice(targetIdx, 0, moved);
-
-            // Store and re-render
-            columnOrder[sheetName] = currentOrder;
-            renderTable();
-            if (typeof showToast === 'function') showToast('✅ Column moved');
-        }
-
-        // Legacy aliases (keep in case anything calls the old names)
-        function colDragStart(e, col) { /* superseded by _colDragStart */ }
-        function colDragOver(e)       { _colDragOver(e); }
-        function colDragLeave(e)      { _colDragLeave(e); }
-        function colDrop(e, col)      { /* superseded by _colDrop */ }
-
-
-        function showToast(msg, duration) {
-            duration = duration || 3000;
-            const t = document.getElementById('saveToast');
-            if (t) {
-                const orig = t.textContent;
-                t.textContent = msg;
-                t.style.display = 'block';
-                t.style.opacity = '1';
-                setTimeout(function() {
-                    t.style.opacity = '0';
-                    setTimeout(function() {
-                        t.style.display = 'none';
-                        t.textContent = orig;
-                    }, 400);
-                }, duration);
-            }
-        }
-        function showError(title, msg) {
-            // Hide spinner on any error
-            const spinner = document.getElementById('engineSpinner');
-            if (spinner) { spinner.classList.add('hidden'); setTimeout(() => { spinner.style.display = 'none'; }, 450); }
-            const existing = document.getElementById('_portalErrorBanner');
-            if (existing) existing.remove();
-            const div = document.createElement('div');
-            div.id = '_portalErrorBanner';
-            div.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;background:#fff;border:2px solid #ef4444;border-radius:10px;padding:20px 28px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px;color:#1e293b;';
-            div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:22px;">⚠️</span><strong style="font-size:15px;color:#dc2626;">' + title + '</strong><button onclick="this.closest('#_portalErrorBanner').remove()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8;">✕</button></div>' + msg;
-            document.body.appendChild(div);
-        }
-
-    </script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
     <script>
         // Safety: force-hide spinner after 8 seconds no matter what
         setTimeout(function() {
