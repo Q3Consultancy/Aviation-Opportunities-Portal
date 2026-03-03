@@ -1278,8 +1278,8 @@
   <script>
     // ── YOUR SUPABASE CONFIG ────────────────────────────────────────
     // Paste these two values from Supabase → Project Settings → API
-    const SUPABASE_URL = 'https://fwqlyumbnhylvhaxoedt.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3cWx5dW1ibmh5bHZoYXhvZWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA3NjM4NzQsImV4cCI6MjA1NjMzOTg3NH0.Bm0W-BLN_3LGZq1A9pU4zHJVFf4UVgFRKSQ0zHqdXfE';
+    const SUPABASE_URL = 'https://msijsssnhtbobjvevpoq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zaWpzc3NuaHRib2JqdmV2cG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDY2OTcsImV4cCI6MjA4Nzc4MjY5N30.4GdqjfhYM-fRNqHJKmtNadYJrD1Nc5dRkKXWaMZlAk0';
     // ────────────────────────────────────────────────────────────────
 
     (function initSupabase() {
@@ -1993,7 +1993,17 @@
                         console.log('✅ Supabase live data loaded');
                         if (typeof showToast === 'function') showToast('✅ Live data loaded from Supabase');
                     } else {
-                        console.info('ℹ️ Supabase returned 0 rows — keeping inline data');
+                        console.warn('⚠️ Supabase returned 0 rows — keeping inline data. If you added entries, check Supabase RLS SELECT policy for the anon role.');
+                        // Show admin a soft warning if logged in
+                        if (isAdmin) {
+                            const _tw = document.getElementById('saveToast');
+                            if (_tw) {
+                                _tw.textContent = '⚠️ Database returned 0 rows — check Supabase RLS policies';
+                                _tw.style.background = '#f59e0b';
+                                _tw.classList.add('show');
+                                setTimeout(() => { _tw.classList.remove('show'); _tw.style.background = ''; }, 8000);
+                            }
+                        }
                     }
                 } catch(e) {
                     console.warn('⚠️ Supabase fetch failed (using inline data):', e.message);
@@ -2600,23 +2610,42 @@
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const rowToSave = mapToSupabase({ ...data[sheetName][newIdx] }, sheetName);
+                    // delete id so Supabase auto-assigns it for new rows
+                    delete rowToSave.id;
                     const { data: inserted, error } = await window._sb
                         .from(tableName).insert(rowToSave).select();
                     if (error) throw error;
                     if (inserted && inserted[0]) {
-                        data[sheetName][newIdx]._docId = String(inserted[0].id || inserted[0].no || newIdx+1);
+                        data[sheetName][newIdx]._docId = String(inserted[0].id || inserted[0].no || '');
+                        console.log('✅ New deal saved to Supabase, id=' + data[sheetName][newIdx]._docId);
                     }
-                    console.log('✅ New deal saved to Supabase');
+                    // Show green success toast
+                    const _t2 = document.getElementById('saveToast');
+                    if (_t2) {
+                        _t2.textContent = '✅ Entry saved to database!';
+                        _t2.style.background = '#22c55e';
+                        _t2.classList.add('show');
+                        setTimeout(() => { _t2.classList.remove('show'); _t2.style.background = ''; }, 3000);
+                    }
                 } catch (err) {
                     console.warn('Supabase add error:', err.message);
-                    // Show visible warning so admin knows the row is only in memory
+                    // Show amber toast – entry is in memory, tell admin to click Save
                     const _t = document.getElementById('saveToast');
                     if (_t) {
-                        _t.textContent = '⚠️ Saved locally – database sync failed: ' + (err.message || err);
+                        _t.textContent = '⚠️ Entry added locally — click 💾 Save to sync to database';
                         _t.style.background = '#f59e0b';
                         _t.classList.add('show');
-                        setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 5000);
+                        setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 7000);
                     }
+                }
+            } else {
+                // No Supabase — remind admin to save
+                const _t = document.getElementById('saveToast');
+                if (_t) {
+                    _t.textContent = '⚠️ No database connection — click 💾 Save to persist changes';
+                    _t.style.background = '#f59e0b';
+                    _t.classList.add('show');
+                    setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 6000);
                 }
             }
 
@@ -2823,6 +2852,15 @@
             }
 
             // ── Best-effort background sync to Supabase (never blocks/errors UI) ──
+            if (!window._sbReady && toast) {
+                // No DB connection — update the toast to warn
+                setTimeout(() => {
+                    if (toast.classList.contains('show')) {
+                        toast.textContent = '💾 Saved in memory — no database connection';
+                        toast.style.background = '#f59e0b';
+                    }
+                }, 400);
+            }
             if (window._sbReady) {
                 (async () => {
                     try {
