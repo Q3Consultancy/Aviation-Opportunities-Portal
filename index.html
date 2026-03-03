@@ -1270,14 +1270,29 @@
     
         /* ── Mobile column compacting ─────────────────────────────────────── */
         th, td {
-            padding: 5px 4px !important;
+            padding: 5px 5px !important;
             font-size: 11px !important;
             white-space: nowrap;
-            max-width: 180px;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         th { position: relative; }
+
+        /* Non-admin: 4-column fixed layout that fits any phone width */
+        body:not(.admin-mode) .table-container table {
+            table-layout: fixed;
+            width: 100%;
+            min-width: unset;
+        }
+        body:not(.admin-mode) .table-container th:nth-child(1),
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 36px;  min-width: 36px;  max-width: 36px; }  /* No */
+        body:not(.admin-mode) .table-container th:nth-child(2),
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: 34px;  min-width: 34px;  max-width: 34px; }  /* Files */
+        body:not(.admin-mode) .table-container th:nth-child(3),
+        body:not(.admin-mode) .table-container td:nth-child(3) { width: auto;  }                                      /* Engine/Aircraft/Part — fills remaining */
+        body:not(.admin-mode) .table-container th:nth-child(4),
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 72px;  min-width: 72px;  max-width: 90px; }  /* Price */
+
         @media (max-width: 600px) {
             th, td { padding: 4px 3px !important; font-size: 10px !important; }
         }
@@ -1296,21 +1311,35 @@
         /* ── Row detail card ─────────────────────────────────────────────── */
         #rowDetailCard {
             position: fixed; z-index: 9999;
-            background: rgba(15,23,42,0.88);
-            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            background: rgba(15,23,42,0.92);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 14px; padding: 14px 16px 12px;
-            min-width: 230px; max-width: 320px;
-            max-height: 72vh; overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            color: #f1f5f9; font-size: 12px;
+            border-radius: 14px; padding: 16px 18px 14px;
+            min-width: 200px; max-width: 300px;
+            max-height: 55vh; overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+            color: #f1f5f9; font-size: 13px;
             pointer-events: none;
-            opacity: 0; transform: translateY(8px) scale(0.97);
-            transition: opacity 0.14s ease, transform 0.14s ease;
+            opacity: 0; transform: translateY(10px) scale(0.97);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            box-sizing: border-box;
         }
         #rowDetailCard.show {
             opacity: 1; transform: translateY(0) scale(1);
             pointer-events: auto;
+        }
+        /* Mobile: full-width bottom sheet */
+        @media (max-width: 520px) {
+            #rowDetailCard {
+                min-width: 0; max-width: 100%;
+                width: 100% !important;
+                max-height: 52vh;
+                padding: 18px 20px 24px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                border-top-left-radius: 16px;
+                border-top-right-radius: 16px;
+            }
         }
         .rdc-close {
             position: absolute; top: 8px; right: 10px;
@@ -1696,12 +1725,16 @@
         // ── Public (non-admin) visible columns per tab ──────────────────────
         // Everything NOT in this list is hidden in the table but appears in the
         // row detail card (hover/tap). Condition is shown in the card always.
+        // Non-admin TABLE columns (must fit on phone without scrolling)
         const PUBLIC_COLUMNS = {
-            'Engines':        ['No', 'Files', 'Engine', 'Cycles Remaining', 'Price \n(USD)', 'Status', 'Location'],
-            'Aircraft Sale':  ['No', 'Files', 'Aircraft', 'Total Cycles',   'Price \n(USD)', 'Status', 'Location'],
-            'Aircraft Lease': ['No', 'Files', 'Aircraft', 'Total Cycles',   'Price \n(USD)', 'Status', 'Location'],
-            'Parts':          ['No', 'Files', 'Part',                       'Price \n(USD)', 'Status', 'Location']
+            'Engines':        ['No', 'Files', 'Engine',   'Price \n(USD)'],
+            'Aircraft Sale':  ['No', 'Files', 'Aircraft', 'Price \n(USD)'],
+            'Aircraft Lease': ['No', 'Files', 'Aircraft', 'Price \n(USD)'],
+            'Parts':          ['No', 'Files', 'Part',     'Price \n(USD)']
         };
+
+        // Fields shown inside the row detail card (non-admin hover/tap)
+        const CARD_FIELDS = ['Condition', 'Cycles Remaining', 'Location', 'Status'];
 
         // Columns to show filter boxes for (non-admin). null = show all.
         const FILTER_COLUMNS = {
@@ -3122,48 +3155,68 @@
             const row = sheetData[rowIndex];
             if (!row) return '<div style="color:#64748b;font-style:italic;">No data</div>';
 
-            const pubCols  = PUBLIC_COLUMNS[sheetName] || [];
-            const allCols  = getOrderedColumns(sheetData);
-            // Columns to show: everything not in public set (and not internal)
-            const extraCols = allCols.filter(c =>
-                !pubCols.includes(c) && c !== '_docId' && c !== 'Files'
-            );
-
             const assetKey = {'Engines':'Engine','Aircraft Sale':'Aircraft','Aircraft Lease':'Aircraft','Parts':'Part'};
             const titleVal = row[assetKey[sheetName]] || row['Deal #'] || ('Entry ' + (rowIndex+1));
+            // Also show No if available
+            const noVal = row['No'] ? (' #' + row['No']) : '';
 
             let rows = '';
-
-            // Always lead with Condition
-            const cond = row['Condition'];
-            const condDisplay = (cond !== undefined && cond !== null && cond !== '') ? cond : '—';
-            rows += `<div class="rdc-row"><span class="rdc-label">Condition</span><span class="rdc-value" style="${condDisplay==='—'?'color:#475569;font-style:italic;':''}">${condDisplay}</span></div>`;
-
-            extraCols.forEach(col => {
-                if (col === 'Condition') return;
+            // Show only the fields defined in CARD_FIELDS, in order
+            CARD_FIELDS.forEach(col => {
                 let val = row[col];
-                if (val === null || val === undefined || val === '') return;
-                val = String(val);
-                if (col === 'Location') val = addFlagToLocation(val);
-                const lbl = col.replace(/\n/g,' ').trim();
-                rows += `<div class="rdc-row"><span class="rdc-label">${lbl}</span><span class="rdc-value">${val}</span></div>`;
+                // For aircraft tabs, map 'Cycles Remaining' → 'Total Cycles'
+                if ((col === 'Cycles Remaining') && (val === null || val === undefined || val === '')) {
+                    val = row['Total Cycles'];
+                }
+                const displayLabel = (col === 'Cycles Remaining' &&
+                    (sheetName === 'Aircraft Sale' || sheetName === 'Aircraft Lease'))
+                    ? 'Total Cycles' : col;
+                const isEmpty = (val === null || val === undefined || val === '');
+                let displayVal = isEmpty ? '—' : String(val);
+                if (col === 'Location' && !isEmpty) displayVal = addFlagToLocation(displayVal);
+                if (col === 'Status'   && !isEmpty) displayVal = normalizeStatus(displayVal) || displayVal;
+                const dimStyle = isEmpty ? 'color:#475569;font-style:italic;' : '';
+                rows += `<div class="rdc-row">` +
+                        `<span class="rdc-label">${displayLabel}</span>` +
+                        `<span class="rdc-value" style="${dimStyle}">${displayVal}</span>` +
+                        `</div>`;
             });
 
-            if (!rows) rows = '<div style="color:#64748b;font-style:italic;font-size:11px;">No additional details</div>';
-            return `<div class="rdc-title">📋 ${titleVal}</div>${rows}`;
+            return `<div class="rdc-title">📋 ${titleVal}${noVal}</div>${rows}`;
         }
 
         function _positionCard(e) {
             const card = document.getElementById('rowDetailCard');
             if (!card) return;
             const vw = window.innerWidth, vh = window.innerHeight;
-            let x = e.clientX + 18, y = e.clientY + 8;
-            const cw = 330, ch = Math.min(400, vh * 0.72);
-            if (x + cw > vw - 8) x = e.clientX - cw - 10;
-            if (y + ch > vh - 8) y = vh - ch - 8;
-            if (y < 62) y = 62;
-            card.style.left = x + 'px';
-            card.style.top  = y + 'px';
+            if (vw <= 520) {
+                // Mobile: bottom-anchored, full-width sheet
+                card.style.left   = '0';
+                card.style.right  = '0';
+                card.style.bottom = '0';
+                card.style.top    = 'auto';
+                card.style.width  = '100%';
+                card.style.maxWidth = '100%';
+                card.style.borderBottomLeftRadius  = '0';
+                card.style.borderBottomRightRadius = '0';
+                card.style.borderTopLeftRadius     = '14px';
+                card.style.borderTopRightRadius    = '14px';
+            } else {
+                // Desktop: float near cursor, stay inside viewport
+                card.style.width  = '';
+                card.style.maxWidth = '300px';
+                card.style.right  = '';
+                card.style.bottom = '';
+                card.style.borderRadius = '14px';
+                const cw = 300, ch = Math.min(260, vh * 0.6);
+                let x = e.clientX + 18, y = e.clientY + 8;
+                if (x + cw > vw - 8) x = e.clientX - cw - 10;
+                if (y + ch > vh - 8) y = vh - ch - 8;
+                if (y < 62) y = 62;
+                if (x < 4) x = 4;
+                card.style.left = x + 'px';
+                card.style.top  = y + 'px';
+            }
         }
 
         function showRowCard(e, rowIndex) {
@@ -3647,6 +3700,7 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
+            document.body.classList.toggle('admin-mode', isAdminMode);
     ['saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
