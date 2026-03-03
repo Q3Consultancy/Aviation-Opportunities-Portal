@@ -1279,6 +1279,10 @@
         th { position: relative; }
 
         /* Non-admin: 4-column fixed layout that fits any phone width */
+        /* Non-admin desktop: sensible max width so 4 cols look proportional */
+        body:not(.admin-mode) .table-container {
+            max-width: 700px;
+        }
         body:not(.admin-mode) .table-container table {
             table-layout: fixed;
             width: 100%;
@@ -1328,17 +1332,16 @@
             opacity: 1; transform: translateY(0) scale(1);
             pointer-events: auto;
         }
-        /* Mobile: full-width bottom sheet */
+        /* Mobile: centred floating card, wide, not cut off */
         @media (max-width: 520px) {
             #rowDetailCard {
-                min-width: 0; max-width: 100%;
-                width: 100% !important;
+                min-width: 0;
+                max-width: calc(100vw - 32px) !important;
+                width: calc(100vw - 32px) !important;
                 max-height: 52vh;
-                padding: 18px 20px 24px;
-                border-bottom-left-radius: 0;
-                border-bottom-right-radius: 0;
-                border-top-left-radius: 16px;
-                border-top-right-radius: 16px;
+                padding: 16px 18px 18px;
+                border-radius: 16px !important;
+                left: 16px !important;
             }
         }
         .rdc-close {
@@ -1360,6 +1363,10 @@
         }
         .rdc-value { color: #e2e8f0; font-size: 12px; word-break: break-word; }
         .rdc-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0; }
+
+        
+        .public-row { cursor: pointer; }
+        .public-row:hover { background: #f0f7ff; }
 
         </style>
 
@@ -2230,10 +2237,9 @@
                 if (isAdmin) {
                     html += `<tr class="${selClass}" onclick="toggleRowSelection(${index}, this)">`;
                 } else {
-                    html += `<tr class="${selClass}" data-ridx="${index}"
-                        onmouseenter="showRowCard(event,${index})"
-                        onmouseleave="hideRowCard()"
-                        onclick="toggleRowCard(event,${index})">`;
+                    html += `<tr class="${selClass} public-row" data-ridx="${index}"
+                        onclick="toggleRowCard(event,${index})"
+                        title="Tap for details">`;
                 }
                 visibleColumns.forEach(col => {
                     let value = row[col] !== null && row[col] !== undefined ? row[col] : '';
@@ -3156,9 +3162,10 @@
             if (!row) return '<div style="color:#64748b;font-style:italic;">No data</div>';
 
             const assetKey = {'Engines':'Engine','Aircraft Sale':'Aircraft','Aircraft Lease':'Aircraft','Parts':'Part'};
-            const titleVal = row[assetKey[sheetName]] || row['Deal #'] || ('Entry ' + (rowIndex+1));
-            // Also show No if available
-            const noVal = row['No'] ? (' #' + row['No']) : '';
+            const assetName = row[assetKey[sheetName]] || row['Deal #'] || '';
+            const noVal     = row['No'] ? row['No'] : (rowIndex + 1);
+            // Title format: "#75 V2527-A5"
+            const titleVal  = '#' + noVal + (assetName ? '  ' + assetName : '');
 
             let rows = '';
             // Show only the fields defined in CARD_FIELDS, in order
@@ -3182,7 +3189,7 @@
                         `</div>`;
             });
 
-            return `<div class="rdc-title">📋 ${titleVal}${noVal}</div>${rows}`;
+            return `<div class="rdc-title">${titleVal}</div>${rows}`;
         }
 
         function _positionCard(e) {
@@ -3190,17 +3197,18 @@
             if (!card) return;
             const vw = window.innerWidth, vh = window.innerHeight;
             if (vw <= 520) {
-                // Mobile: bottom-anchored, full-width sheet
-                card.style.left   = '0';
-                card.style.right  = '0';
-                card.style.bottom = '0';
-                card.style.top    = 'auto';
-                card.style.width  = '100%';
-                card.style.maxWidth = '100%';
-                card.style.borderBottomLeftRadius  = '0';
-                card.style.borderBottomRightRadius = '0';
-                card.style.borderTopLeftRadius     = '14px';
-                card.style.borderTopRightRadius    = '14px';
+                // Mobile: centred in upper-mid screen so it's always visible
+                card.style.bottom = '';
+                card.style.right  = '';
+                card.style.width  = 'calc(100vw - 32px)';
+                card.style.maxWidth = 'calc(100vw - 32px)';
+                card.style.borderRadius = '16px';
+                // Position at ~28% from top — visible above fold, above any on-screen keyboard
+                const cardH = Math.min(card.scrollHeight || 240, vh * 0.52);
+                const topY  = Math.max(70, Math.round(vh * 0.22));
+                const leftX = 16;
+                card.style.left = leftX + 'px';
+                card.style.top  = topY + 'px';
             } else {
                 // Desktop: float near cursor, stay inside viewport
                 card.style.width  = '';
@@ -3208,7 +3216,7 @@
                 card.style.right  = '';
                 card.style.bottom = '';
                 card.style.borderRadius = '14px';
-                const cw = 300, ch = Math.min(260, vh * 0.6);
+                const cw = 300, ch = Math.min(240, vh * 0.55);
                 let x = e.clientX + 18, y = e.clientY + 8;
                 if (x + cw > vw - 8) x = e.clientX - cw - 10;
                 if (y + ch > vh - 8) y = vh - ch - 8;
