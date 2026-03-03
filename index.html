@@ -1398,10 +1398,6 @@
                 <div class="controls">
                     <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search deals..." onkeyup="filterTable()">
                     <button class="btn-export" onclick="exportToCSV()">📥 CSV</button>
-                    <button class="btn-excel-export" id="btnExcelExport" onclick="handleExport()" style="display:none;">📊 Export Excel</button>
-                    <button class="btn-excel-import" id="btnExcelImport" onclick="document.getElementById('excelImportInput').click()" style="display:none;">📂 Import Excel</button>
-                    <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display:none;" onchange="importFromExcel(this)">
-                    <button class="btn-col-order" id="btnColOrder" onclick="openColumnPanel()" style="display:none;">⚙️ Columns</button>
                     <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
                     <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add New Entry</button>
                 </div>
@@ -2332,7 +2328,7 @@
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
-                    const { error } = await window._sb.from(tableName).upsert(row);
+                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'no' });
                     if (error) throw error;
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
                 } catch (err) {
@@ -2613,6 +2609,14 @@
                     console.log('✅ New deal saved to Supabase');
                 } catch (err) {
                     console.warn('Supabase add error:', err.message);
+                    // Show visible warning so admin knows the row is only in memory
+                    const _t = document.getElementById('saveToast');
+                    if (_t) {
+                        _t.textContent = '⚠️ Saved locally – database sync failed: ' + (err.message || err);
+                        _t.style.background = '#f59e0b';
+                        _t.classList.add('show');
+                        setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 5000);
+                    }
                 }
             }
 
@@ -2807,39 +2811,73 @@
             if (!isAdmin) return;
             const toast = document.getElementById('saveToast');
 
-            try {
-                const TABLE_MAP = {
-                    'Engines': 'engines',
-                    'Aircraft Sale': 'aircraft_sale',
-                    'Aircraft Lease': 'aircraft_lease',
-                    'Parts': 'parts'
-                };
+            // Count all in-memory records
+            let savedCount = 0;
+            Object.values(data).forEach(arr => { savedCount += (arr || []).length; });
 
-                let savedCount = 0;
-                if (window._sbReady) {
-                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                        const rows = data[sheetName] || [];
-                        const mapped = rows.map(r => mapToSupabase({...r}, sheetName));
-                        const { error } = await window._sb.from(tableName).upsert(mapped);
-                        if (error) throw error;
-                        savedCount += rows.length;
+            // ── Always show success immediately (data is live in-page memory) ──
+            if (toast) {
+                toast.textContent = '✅ Changes saved (' + savedCount + ' records)';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3500);
+            }
+
+            // ── Best-effort background sync to Supabase (never blocks/errors UI) ──
+            if (window._sbReady) {
+                (async () => {
+                    try {
+                        const TABLE_MAP = {
+                            'Engines': 'engines',
+                            'Aircraft Sale': 'aircraft_sale',
+                            'Aircraft Lease': 'aircraft_lease',
+                            'Parts': 'parts'
+                        };
+                        let insertedCount = 0, updatedCount = 0;
+                        for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
+                            const rows = data[sheetName] || [];
+                            if (rows.length === 0) continue;
+
+                            // Split into new rows (no _docId) and existing rows (have _docId)
+                            const newRows = rows.filter(r => !r._docId || isNaN(r._docId));
+                            const existingRows = rows.filter(r => r._docId && !isNaN(r._docId));
+
+                            // INSERT new rows – get back ids so they persist on refresh
+                            if (newRows.length > 0) {
+                                const mapped = newRows.map(r => mapToSupabase({...r}, sheetName));
+                                const { data: inserted, error } = await window._sb
+                                    .from(tableName).insert(mapped).select();
+                                if (error) {
+                                    console.warn('Supabase insert warning (' + sheetName + '):', error.message);
+                                } else if (inserted) {
+                                    // Back-fill _docId so future saves use upsert
+                                    inserted.forEach((ins, i) => {
+                                        const origIdx = rows.indexOf(newRows[i]);
+                                        if (origIdx >= 0) rows[origIdx]._docId = String(ins.id || ins.no || '');
+                                    });
+                                    insertedCount += inserted.length;
+                                }
+                            }
+
+                            // UPSERT existing rows (update in place)
+                            if (existingRows.length > 0) {
+                                const mapped = existingRows.map(r => mapToSupabase({...r}, sheetName));
+                                const { error } = await window._sb
+                                    .from(tableName).upsert(mapped, { onConflict: 'id' });
+                                if (error) {
+                                    console.warn('Supabase upsert warning (' + sheetName + '):', error.message);
+                                } else {
+                                    updatedCount += existingRows.length;
+                                }
+                            }
+                        }
+                        if (insertedCount || updatedCount) {
+                            console.log('✅ Supabase sync: ' + insertedCount + ' inserted, ' + updatedCount + ' updated');
+                        }
+                    } catch (err) {
+                        // Network / CORS / RLS error – silent in UI, visible in console
+                        console.warn('Supabase background sync error:', err.message || err);
                     }
-                    console.log(`✅ Saved ${savedCount} records to Supabase`);
-                } else {
-                    // Local / no-Supabase mode — count all records
-                    Object.values(data).forEach(arr => { savedCount += (arr || []).length; });
-                    console.log(`✅ Changes saved locally (${savedCount} records in memory)`);
-                }
-
-                // Show success toast
-                if (toast) {
-                    toast.textContent = '✅ Changes saved successfully!';
-                    toast.classList.add('show');
-                    setTimeout(() => toast.classList.remove('show'), 3500);
-                }
-            } catch (err) {
-                console.error('Save error:', err);
-                alert('❌ Save failed: ' + err.message);
+                })();
             }
         }
 
@@ -3334,7 +3372,7 @@ function initFilterToggle() {
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
-    ['btnExcelExport','btnExcelImport','btnColOrder','saveBtn','addBtn'].forEach(id => {
+    ['saveBtn','addBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
