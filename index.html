@@ -1283,17 +1283,43 @@
         body:not(.admin-mode) .table-container {
             max-width: 700px;
         }
+        /* ── Non-admin table layout ─────────────────────────────────── */
+        body:not(.admin-mode) .table-container {
+            max-width: 900px;
+        }
         body:not(.admin-mode) .table-container table {
             table-layout: fixed;
             width: 100%;
             min-width: unset;
         }
+        /* Desktop columns (visible at all widths) */
         body:not(.admin-mode) .table-container th:nth-child(1),
-        body:not(.admin-mode) .table-container td:nth-child(1) { width: 36px;  min-width: 36px;  max-width: 36px; }  /* No */
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 34px; min-width: 34px; max-width: 34px; }   /* No */
         body:not(.admin-mode) .table-container th:nth-child(2),
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: 34px;  min-width: 34px;  max-width: 34px; }  /* Files */
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: 32px; min-width: 32px; max-width: 32px; }   /* Files */
         body:not(.admin-mode) .table-container th:nth-child(3),
-        body:not(.admin-mode) .table-container td:nth-child(3) { width: auto;  }                                      /* Engine/Aircraft/Part — fills remaining */
+        body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
+        body:not(.admin-mode) .table-container th:nth-child(4),
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 80px; min-width: 70px; max-width: 90px; }   /* Price */
+        /* Desktop-only extra columns (cols 5-8) */
+        body:not(.admin-mode) .table-container th:nth-child(5),
+        body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px; min-width: 80px; max-width: 100px; }  /* Condition */
+        body:not(.admin-mode) .table-container th:nth-child(6),
+        body:not(.admin-mode) .table-container td:nth-child(6) { width: 80px; min-width: 70px; max-width: 100px; }  /* Cycles Remaining / Total Cycles */
+        body:not(.admin-mode) .table-container th:nth-child(7),
+        body:not(.admin-mode) .table-container td:nth-child(7) { width: 90px; min-width: 80px; max-width: 110px; }  /* Location */
+        body:not(.admin-mode) .table-container th:nth-child(8),
+        body:not(.admin-mode) .table-container td:nth-child(8) { width: 80px; min-width: 70px; max-width: 90px; }   /* Status */
+
+        /* Mobile (≤520 px): hide cols 5-8, keep 4-col compact layout */
+        @media (max-width: 520px) {
+            body:not(.admin-mode) .table-container th:nth-child(n+5),
+            body:not(.admin-mode) .table-container td:nth-child(n+5) { display: none; }
+            body:not(.admin-mode) .table-container th:nth-child(3),
+            body:not(.admin-mode) .table-container td:nth-child(3) { min-width: 60px; }
+            body:not(.admin-mode) .table-container th:nth-child(4),
+            body:not(.admin-mode) .table-container td:nth-child(4) { width: 72px; max-width: 80px; }
+        }
         body:not(.admin-mode) .table-container th:nth-child(4),
         body:not(.admin-mode) .table-container td:nth-child(4) { width: 72px;  min-width: 72px;  max-width: 90px; }  /* Price */
 
@@ -1734,10 +1760,11 @@
         // row detail card (hover/tap). Condition is shown in the card always.
         // Non-admin TABLE columns (must fit on phone without scrolling)
         const PUBLIC_COLUMNS = {
-            'Engines':        ['No', 'Files', 'Engine',   'Price \n(USD)'],
-            'Aircraft Sale':  ['No', 'Files', 'Aircraft', 'Price \n(USD)'],
-            'Aircraft Lease': ['No', 'Files', 'Aircraft', 'Price \n(USD)'],
-            'Parts':          ['No', 'Files', 'Part',     'Price \n(USD)']
+            // Web desktop: 8 cols — mobile CSS hides cols 5-8 (≤520 px)
+            'Engines':        ['No','Files','Engine',   'Price \n(USD)','Condition','Cycles Remaining','Location','Status'],
+            'Aircraft Sale':  ['No','Files','Aircraft', 'Price \n(USD)','Condition','Total Cycles',    'Location','Status'],
+            'Aircraft Lease': ['No','Files','Aircraft', 'Price \n(USD)','Condition','Total Cycles',    'Location','Status'],
+            'Parts':          ['No','Files','Part',     'Price \n(USD)','Condition','Location',        'Status']
         };
 
         // Fields shown inside the row detail card (non-admin hover/tap)
@@ -2193,8 +2220,9 @@
             if (isAdmin) {
                 visibleColumns = allColumns;
             } else {
-                const pubCols = PUBLIC_COLUMNS[sheetName] || [];
-                visibleColumns = pubCols.filter(col => allColumns.includes(col));
+                // Use PUBLIC_COLUMNS directly — don't filter by allColumns so
+                // new columns like 'Condition' show even before any rows have that key
+                visibleColumns = PUBLIC_COLUMNS[sheetName] || [];
             }
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
@@ -2234,11 +2262,14 @@
             filteredData.forEach((row, index) => {
                 const isSelected = selectedRows.has(index);
                 const selClass = isSelected ? ' row-selected' : '';
+                // Use the row's position in sheetData (not the filtered index)
+                // so _buildCardHTML reads the correct row and 'No' value
+                const sdIdx = sheetData.indexOf(row);
                 if (isAdmin) {
                     html += `<tr class="${selClass}" onclick="toggleRowSelection(${index}, this)">`;
                 } else {
-                    html += `<tr class="${selClass} public-row" data-ridx="${index}"
-                        onclick="toggleRowCard(event,${index})"
+                    html += `<tr class="${selClass} public-row" data-ridx="${sdIdx}"
+                        onclick="toggleRowCard(event,${sdIdx})"
                         title="Tap for details">`;
                 }
                 visibleColumns.forEach(col => {
