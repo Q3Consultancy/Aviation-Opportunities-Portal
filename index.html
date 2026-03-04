@@ -641,6 +641,19 @@
             color: #475569;
         }
 
+        .edit-btn {
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-right: 4px;
+        }
+        .edit-btn:hover {
+            background: #059669;
+        }
         .clone-btn {
             background: #3b82f6;
             color: white;
@@ -2236,27 +2249,37 @@
 
         // Get columns for a sheet in the correct display order,
         // inserting Team Commission (%) right after Seller's Price (USD)
+        const BASELINE_COL_ORDER = {
+            'Engines': ['No', 'Deal #', 'Engine', 'Files', 'ESN', 'Cycles Remaining', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'LLP Sheet', 'Last Shop Visit', 'Last Shop Visit Report', 'QEC / Accessory List', 'Engine History', 'NIS', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Buyer(s) 5', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Sale': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Lease': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Parts': ['No', 'Deal #', 'Part', 'Files', 'Manufacturers S/N', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Condition', 'Comments', 'Status', 'Date Received']
+        };
+
         function getOrderedColumns(sheetData) {
             if (!sheetData || sheetData.length === 0) return [];
-            const cols = Object.keys(sheetData[0]).filter(c => c !== '_docId');
-            // Ensure KEY_COMM_PCT is present after Seller Price
-            if (!cols.includes(KEY_COMM_PCT)) {
-                const idx = cols.indexOf(KEY_SELLER_PRICE);
-                if (idx > -1) cols.splice(idx + 1, 0, KEY_COMM_PCT);
-                else cols.push(KEY_COMM_PCT);
-            }
-            // Ensure Comments column is always last
-            if (!cols.includes(KEY_COMMENTS)) cols.push(KEY_COMMENTS);
-
-            // Apply any custom column ordering from drag-and-drop (admin only)
             const sheetName = getSheetName(currentTab);
+
+            // Collect all keys present across rows
+            const dataKeysSet = new Set();
+            sheetData.forEach(r => Object.keys(r).forEach(k => { if (k !== '_docId') dataKeysSet.add(k); }));
+            const dataKeys = Array.from(dataKeysSet);
+
+            // Start with Excel baseline order; always include Condition + Comments
+            const baseline   = BASELINE_COL_ORDER[sheetName] || [];
+            const alwaysShow = ['Condition', KEY_COMMENTS];
+            let cols = baseline.filter(c => dataKeys.includes(c) || alwaysShow.includes(c));
+            // Append any data keys not in baseline (future/unknown columns)
+            dataKeys.forEach(k => { if (!cols.includes(k)) cols.push(k); });
+
+            // Respect user drag-reorder saved in columnOrder
             if (isAdmin && columnOrder[sheetName] && columnOrder[sheetName].length > 0) {
-                const custom = columnOrder[sheetName];
-                // Reorder: put custom first (only cols that exist), then remainder
-                const reordered = custom.filter(c => cols.includes(c));
+                const custom    = columnOrder[sheetName];
+                const reordered = custom.filter(c => cols.includes(c) || alwaysShow.includes(c));
                 const remainder = cols.filter(c => !reordered.includes(c));
-                return [...reordered, ...remainder];
+                cols = [...reordered, ...remainder];
             }
+
             return cols;
         }
 
@@ -2506,7 +2529,8 @@
                 });
                 if (isAdmin) {
                     html += `<td style="white-space:nowrap;">` +
-                        `<button class="clone-btn admin-only" onclick="cloneRow(${index})" title="Clone this row">🔁 Clone</button>` +
+                        `<button class="edit-btn admin-only"  onclick="editRow(${index})"   title="Edit this row">✏️ Edit</button>` +
+                        `<button class="clone-btn admin-only" onclick="cloneRow(${index})"  title="Clone this row">🔁 Clone</button>` +
                         `<button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button>` +
                         `</td>`;
                 }
@@ -2797,14 +2821,28 @@
                 const fieldId = `add_${field.key.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
                 if (field.type === 'select') {
-                    const opts = (field.options || []).map(o =>
-                        `<option value="${o}">${o || '— Select —'}</option>`).join('');
+                    const isCondField = (field.key === 'Condition');
+                    const opts = (field.options || []).map(o => {
+                        if (isCondField && o && CONDITION_MAP[o]) {
+                            const cm = CONDITION_MAP[o];
+                            const tipTxt = o + ' — ' + cm.label + ': ' + cm.desc;
+                            return `<option value="${o}" title="${tipTxt}">${o} — ${cm.label}</option>`;
+                        }
+                        return `<option value="${o}">${o || '— Select —'}</option>`;
+                    }).join('');
+                    const condHint = isCondField
+                        ? `<div class="cond-form-hint" id="${fieldId}_hint" style="font-size:10px;color:#64748b;margin-top:3px;min-height:14px;"></div>`
+                        : '';
+                    const condOnChange = isCondField
+                        ? `onchange="(function(v){var h=document.getElementById('${fieldId}_hint');var cm=CONDITION_MAP[v];if(h)h.textContent=cm?v+' — '+cm.label+': '+cm.desc:'';})(this.value)"`
+                        : '';
                     html += `<div class="form-group">
                         <label class="form-label" for="${fieldId}">${field.label}${reqStar}</label>
                         <select class="form-select" id="${fieldId}" data-key="${field.key}"
+                                ${condOnChange}
                                 ${field.required ? 'required' : ''}>
                             <option value="">— Select —</option>${opts}
-                        </select>
+                        </select>${condHint}
                     </div>`;
                 } else {
                     html += `<div class="form-group">
@@ -2845,6 +2883,103 @@
         function hideAddDealModal() {
             document.getElementById('addDealModal').classList.remove('show');
             document.getElementById('addDealForm').reset();
+            _restoreAddModal();
+        }
+
+        // ── Edit Row ────────────────────────────────────────────────────
+        // editRow opens the Add modal pre-filled with an existing row's data.
+        // On submit, submitEditDeal() overwrites the row in-memory + Supabase.
+        let _editingSheetName = null;
+        let _editingRowIndex  = null;   // index in sheetData (not filteredData)
+
+        function editRow(filteredIndex) {
+            if (!isAdmin) return;
+            const sheetName   = getSheetName(currentTab);
+            const sheetData   = data[sheetName] || [];
+            const filteredData = sheetData.filter(r => !shouldHideRow(r));
+            const srcRow       = filteredData[filteredIndex] || sheetData[filteredIndex];
+            if (!srcRow) { showToast('⚠️ Row not found', '#f59e0b'); return; }
+
+            _editingSheetName = sheetName;
+            _editingRowIndex  = sheetData.indexOf(srcRow);
+
+            // Open modal (cloneSource fills all fields)
+            showAddDealModal(srcRow);
+
+            // Swap title and submit button to "Edit" style
+            const srcNo   = srcRow['No'] || '?';
+            const assetKeyMap = {'Engines':'Engine','Aircraft Sale':'Aircraft','Aircraft Lease':'Aircraft','Parts':'Part'};
+            const srcName = srcRow[assetKeyMap[sheetName]] || srcRow['Deal #'] || '';
+            document.getElementById('addDealModalTitle').textContent =
+                `✏️ Edit #${srcNo}${srcName ? ' — ' + srcName : ''} — ${sheetName}`;
+
+            // Swap the form's submit handler
+            const form = document.getElementById('addDealForm');
+            form.onsubmit = submitEditDeal;
+
+            // Swap the Save button label
+            const saveBtn = form.querySelector('button[type="submit"]');
+            if (saveBtn) saveBtn.textContent = '✅ Update Entry';
+        }
+
+        function _restoreAddModal() {
+            // Restore form to "Add New Entry" mode after editing
+            const form = document.getElementById('addDealForm');
+            form.onsubmit = submitAddDeal;
+            const saveBtn = form.querySelector('button[type="submit"]');
+            if (saveBtn) saveBtn.textContent = '✅ Save Deal';
+            _editingSheetName = null;
+            _editingRowIndex  = null;
+        }
+
+        async function submitEditDeal(event) {
+            event.preventDefault();
+            if (!isAdmin || _editingRowIndex === null) return;
+
+            const sheetName = _editingSheetName || getSheetName(currentTab);
+            const sheetData = data[sheetName] || [];
+            const existingRow = sheetData[_editingRowIndex];
+            if (!existingRow) { showToast('⚠️ Row not found for update', '#ef4444'); return; }
+
+            // Collect all form field values
+            const fields = document.getElementById('addDealFormFields').querySelectorAll('[data-key]');
+            fields.forEach(el => {
+                const key = el.getAttribute('data-key');
+                const val = el.value.trim();
+                existingRow[key] = val;
+            });
+
+            // Recalculate price fields
+            recalcRow(existingRow);
+
+            // Save to Supabase (upsert on 'no')
+            if (window._sbReady && window.supabaseClient) {
+                try {
+                    const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
+                                 'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
+                    if (tbl) {
+                        const mapped = mapToSupabase(existingRow, sheetName);
+                        const { error } = await window.supabaseClient.from(tbl)
+                            .upsert(mapped, { onConflict: 'no' });
+                        if (error) {
+                            console.warn('Supabase update error:', error);
+                            showToast('⚠️ Saved locally — sync issue: ' + error.message, '#f59e0b');
+                        } else {
+                            showToast('✅ Entry updated!', '#10b981');
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Supabase update exception:', e);
+                    showToast('✅ Updated locally', '#10b981');
+                }
+            } else {
+                showToast('✅ Entry updated locally', '#10b981');
+            }
+
+            hideAddDealModal();
+            _restoreAddModal();
+            renderTable();
+            updateStats();
         }
 
         function cloneRow(filteredIndex) {
@@ -3417,6 +3552,14 @@
 
         function toggleRowCard(e, rowIndex) {
             if (isAdmin) { toggleRowSelection(rowIndex, e.currentTarget); return; }
+            // When "Place my Interest" selection mode is active: select row, never show popup
+            if (selectionMode) {
+                const _c = document.getElementById('rowDetailCard');
+                if (_c) { _cardPinned = false; _c.classList.remove('show'); }
+                toggleRowSelection(rowIndex, e.currentTarget);
+                e.stopPropagation();
+                return;
+            }
             const card = document.getElementById('rowDetailCard');
             const body = document.getElementById('rowDetailCardBody');
             if (!card || !body) return;
@@ -3482,6 +3625,11 @@
         }
 
         window.onload = async function() {
+            // Restore persisted column order from previous session
+            try {
+                const _coStored = JSON.parse(localStorage.getItem('portalColOrder') || '{}');
+                Object.assign(columnOrder, _coStored);
+            } catch(e) {}
             await loadData();
             // Admin access: show login button and open login modal if URL has #admin
             const _p = window.location.pathname;
@@ -3965,8 +4113,13 @@ function updateAdminUI(isAdminMode) {
             const moved = currentOrder.splice(srcIdx, 1)[0];
             currentOrder.splice(targetIdx, 0, moved);
 
-            // Store and re-render
+            // Store in memory + persist to localStorage
             columnOrder[sheetName] = currentOrder;
+            try {
+                const _coStored = JSON.parse(localStorage.getItem('portalColOrder') || '{}');
+                _coStored[sheetName] = currentOrder;
+                localStorage.setItem('portalColOrder', JSON.stringify(_coStored));
+            } catch(e) {}
             renderTable();
             renderFilters();
             if (typeof showToast === 'function') showToast('✅ Column order saved');
