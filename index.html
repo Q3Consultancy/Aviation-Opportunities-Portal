@@ -1320,13 +1320,13 @@
         }
         /* Desktop columns (visible at all widths) */
         body:not(.admin-mode) .table-container th:nth-child(1),
-        body:not(.admin-mode) .table-container td:nth-child(1) { width: 34px; min-width: 34px; max-width: 38px; white-space: normal; }   /* No — fully visible */
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 48px; min-width: 44px; max-width: 52px; white-space: nowrap; }   /* No — fully visible */
         body:not(.admin-mode) .table-container th:nth-child(2),
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: 44px; min-width: 40px; max-width: 50px; white-space: normal; }   /* Files — fully visible */
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: 56px; min-width: 52px; max-width: 62px; white-space: nowrap; }   /* Files — fully visible */
         body:not(.admin-mode) .table-container th:nth-child(3),
         body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
         body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 80px; min-width: 70px; max-width: 90px; }   /* Price */
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; white-space: normal; }   /* Price */
         /* Desktop-only extra columns (cols 5-8) */
         body:not(.admin-mode) .table-container th:nth-child(5),
         body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px; min-width: 80px; max-width: 100px; }  /* Condition */
@@ -1344,10 +1344,50 @@
             body:not(.admin-mode) .table-container th:nth-child(3),
             body:not(.admin-mode) .table-container td:nth-child(3) { min-width: 60px; }
             body:not(.admin-mode) .table-container th:nth-child(4),
-            body:not(.admin-mode) .table-container td:nth-child(4) { width: 72px; max-width: 80px; }
+            body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; max-width: 100px; white-space: normal; }
         }
         body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 72px;  min-width: 72px;  max-width: 90px; }  /* Price */
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px;  min-width: 82px;  max-width: 100px; white-space: normal; }  /* Price */
+
+        
+        /* ── Interest / Email modal – mobile responsive ── */
+        @media (max-width: 600px) {
+            .interest-modal-box {
+                padding: 16px 14px !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                max-height: 92vh !important;
+                border-radius: 16px 16px 0 0 !important;
+                align-self: flex-end;
+                overflow-y: auto;
+            }
+            #interestModal {
+                align-items: flex-end !important;
+            }
+            .interest-modal-footer {
+                flex-direction: column !important;
+                gap: 8px !important;
+            }
+            .interest-modal-footer button {
+                width: 100% !important;
+                box-sizing: border-box;
+            }
+            .email-draft-box {
+                font-size: 11px !important;
+                padding: 10px 8px !important;
+            }
+            .email-draft-box table {
+                font-size: 10px !important;
+            }
+            .email-draft-box table th,
+            .email-draft-box table td {
+                padding: 3px 4px !important;
+                word-break: break-word;
+            }
+            .interest-modal-box h2 {
+                font-size: 16px !important;
+            }
+        }
 
         @media (max-width: 600px) {
             th, td { padding: 4px 3px !important; font-size: 10px !important; }
@@ -2250,10 +2290,10 @@
         // Get columns for a sheet in the correct display order,
         // inserting Team Commission (%) right after Seller's Price (USD)
         const BASELINE_COL_ORDER = {
-            'Engines': ['No', 'Deal #', 'Engine', 'Files', 'ESN', 'Cycles Remaining', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'LLP Sheet', 'Last Shop Visit', 'Last Shop Visit Report', 'QEC / Accessory List', 'Engine History', 'NIS', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Buyer(s) 5', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Aircraft Sale': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Aircraft Lease': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Parts': ['No', 'Deal #', 'Part', 'Files', 'Manufacturers S/N', "Seller's Price \n(USD)", 'Team Commission\n(%)', 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Condition', 'Comments', 'Status', 'Date Received']
+            'Engines': ['No', 'Deal #', 'Engine', 'Files', 'ESN', 'Cycles Remaining', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'LLP Sheet', 'Last Shop Visit', 'Last Shop Visit Report', 'QEC / Accessory List', 'Engine History', 'NIS', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Buyer(s) 5', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Sale': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Lease': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
+            'Parts': ['No', 'Deal #', 'Part', 'Files', 'Manufacturers S/N', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Condition', 'Comments', 'Status', 'Date Received']
         };
 
         function getOrderedColumns(sheetData) {
