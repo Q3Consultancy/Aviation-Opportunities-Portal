@@ -1326,7 +1326,7 @@
         body:not(.admin-mode) .table-container th:nth-child(3),
         body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
         body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; white-space: normal; }   /* Price */
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; white-space: nowrap; }   /* Price */
         /* Desktop-only extra columns (cols 5-8) */
         body:not(.admin-mode) .table-container th:nth-child(5),
         body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px; min-width: 80px; max-width: 100px; }  /* Condition */
@@ -1339,45 +1339,53 @@
 
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
         @media (max-width: 520px) {
-            /* Kill horizontal scroll – table must fit the viewport */
+            /* Allow horizontal scroll so long content never overlaps */
             body:not(.admin-mode) .table-container {
-                overflow-x: hidden !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
             }
             body:not(.admin-mode) .table-container table {
                 table-layout: fixed !important;
                 width: 100% !important;
+                min-width: 320px !important;
             }
-            /* Hide extra desktop columns */
+            /* Hide extra desktop columns (cols 5+) */
             body:not(.admin-mode) .table-container th:nth-child(n+5),
             body:not(.admin-mode) .table-container td:nth-child(n+5) { display: none !important; }
-            /* Col 1 – No  (≈12 % of viewport) */
-            body:not(.admin-mode) .table-container th:nth-child(1),
-            body:not(.admin-mode) .table-container td:nth-child(1) {
-                width: 12vw !important; min-width: unset !important; max-width: unset !important;
-                white-space: nowrap !important; overflow: visible !important;
+
+            /* ALL td cells: clip with ellipsis – never overlap neighbour */
+            body:not(.admin-mode) .table-container td {
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
-            /* Col 2 – Files  (≈15 %) */
-            body:not(.admin-mode) .table-container th:nth-child(2),
-            body:not(.admin-mode) .table-container td:nth-child(2) {
-                width: 15vw !important; min-width: unset !important; max-width: unset !important;
-                white-space: nowrap !important; overflow: visible !important;
-            }
-            /* Col 3 – Engine/Aircraft/Part  (auto = remainder, never squeezed) */
-            body:not(.admin-mode) .table-container th:nth-child(3),
-            body:not(.admin-mode) .table-container td:nth-child(3) {
-                width: auto !important; min-width: unset !important;
-                white-space: nowrap !important; overflow: visible !important;
-            }
-            /* Col 4 – Price  (≈24 %) */
-            body:not(.admin-mode) .table-container th:nth-child(4),
-            body:not(.admin-mode) .table-container td:nth-child(4) {
-                width: 24vw !important; min-width: unset !important; max-width: unset !important;
-                white-space: normal !important;
-            }
-            /* Ensure th sort arrows are never clipped */
+            /* ALL th headers: nowrap + visible overflow so sort arrows show */
             body:not(.admin-mode) .table-container th {
+                white-space: nowrap !important;
                 overflow: visible !important;
                 text-overflow: clip !important;
+            }
+
+            /* Col 1 – No  (~11vw, enough for 2-digit number) */
+            body:not(.admin-mode) .table-container th:nth-child(1),
+            body:not(.admin-mode) .table-container td:nth-child(1) {
+                width: 11vw !important; min-width: unset !important; max-width: unset !important;
+            }
+            /* Col 2 – Files  (~14vw) */
+            body:not(.admin-mode) .table-container th:nth-child(2),
+            body:not(.admin-mode) .table-container td:nth-child(2) {
+                width: 14vw !important; min-width: unset !important; max-width: unset !important;
+            }
+            /* Col 3 – Engine/Aircraft/Part  (fills remaining space, min 60px) */
+            body:not(.admin-mode) .table-container th:nth-child(3),
+            body:not(.admin-mode) .table-container td:nth-child(3) {
+                width: auto !important; min-width: 60px !important;
+            }
+            /* Col 4 – Price (USD)  (~25vw, single-line) */
+            body:not(.admin-mode) .table-container th:nth-child(4),
+            body:not(.admin-mode) .table-container td:nth-child(4) {
+                width: 25vw !important; min-width: unset !important; max-width: unset !important;
+                white-space: nowrap !important;   /* keeps "Price (USD)" on one line */
             }
         }
         /* Desktop override for Price col (outside media query) */
@@ -1427,72 +1435,114 @@
 
         /* Mobile (≤600 px): full-width bottom sheet */
         @media (max-width: 600px) {
+            /* Overlay: anchor sheet to bottom, no padding */
             #interestModal {
                 align-items: flex-end !important;
+                justify-content: flex-end !important;
                 padding: 0 !important;
             }
+            /* Bottom sheet container */
             .interest-modal-box {
                 width: 100vw !important;
                 max-width: 100vw !important;
-                max-height: 88vh !important;
-                min-height: 30vh;
+                /* Use dvh if available, fall back to vh */
+                max-height: 92vh !important;
+                max-height: 92dvh !important;
+                min-height: 40vh !important;
                 border-radius: 20px 20px 0 0 !important;
                 padding: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
-                overflow: hidden !important;    /* box itself doesn't scroll */
+                overflow: hidden !important;
+                /* Respect notch/home-bar on iOS */
+                padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+                box-shadow: 0 -8px 40px rgba(0,0,0,0.25) !important;
+                position: relative !important;
+                margin: 0 !important;
             }
+            /* Sticky drag-handle / header */
             .interest-modal-drag-handle {
-                padding: 14px 16px 10px;
-                margin-bottom: 0;
-                position: sticky;
-                top: 0;
-                background: #fff;
-                z-index: 1;
-                border-bottom: 1px solid #e2e8f0;
-                border-radius: 20px 20px 0 0;
+                padding: 12px 16px 10px !important;
+                margin-bottom: 0 !important;
+                position: sticky !important;
+                top: 0 !important;
+                background: #fff !important;
+                z-index: 2 !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                border-radius: 20px 20px 0 0 !important;
+                flex-shrink: 0 !important;
             }
-            /* Scrollable body inside the sheet */
+            /* Visual drag indicator */
+            .interest-modal-drag-handle::before {
+                content: '';
+                display: block;
+                width: 36px;
+                height: 4px;
+                background: #cbd5e1;
+                border-radius: 2px;
+                margin: 0 auto 10px;
+            }
+            /* Scrollable body – takes all remaining height */
             #interestModalBody {
                 overflow-y: auto !important;
-                -webkit-overflow-scrolling: touch;
-                flex: 1;
-                padding: 14px 16px 20px;
+                -webkit-overflow-scrolling: touch !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                padding: 14px 16px 24px !important;
             }
+            /* Horizontally scrollable email draft */
             .email-draft-box {
                 font-size: 11px !important;
                 padding: 8px !important;
                 overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
-                max-width: 100%;
+                -webkit-overflow-scrolling: touch !important;
+                max-width: 100% !important;
             }
             .email-draft-box table {
                 font-size: 10px !important;
-                width: max-content;
-                min-width: 100%;
+                width: max-content !important;
+                min-width: 100% !important;
             }
             .email-draft-box table th,
             .email-draft-box table td {
                 padding: 3px 5px !important;
-                white-space: nowrap;
+                white-space: nowrap !important;
             }
+            /* Email input */
+            #senderEmailInput {
+                font-size: 14px !important;
+                padding: 10px 12px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            /* Footer: full-width stacked buttons */
             .interest-modal-footer {
                 flex-direction: column !important;
                 gap: 8px !important;
-                margin-top: 14px;
+                margin-top: 14px !important;
+                padding: 0 !important;
             }
             .interest-modal-footer button {
                 width: 100% !important;
-                box-sizing: border-box;
-                padding: 12px !important;
+                box-sizing: border-box !important;
+                padding: 13px !important;
+                font-size: 14px !important;
             }
             .interest-modal-box h2 {
                 font-size: 16px !important;
-                margin: 0;
+                margin: 0 !important;
             }
             .interest-modal-box p.subtitle {
                 font-size: 12px !important;
-                margin: 4px 0 12px;
+                margin: 4px 0 10px !important;
+            }
+            /* Close button – always visible in top-right */
+            .interest-modal-close-btn {
+                position: absolute !important;
+                top: 12px !important;
+                right: 14px !important;
+                font-size: 18px !important;
+                z-index: 3 !important;
             }
         }
 
@@ -1877,7 +1927,9 @@
         // Display name overrides for column headers
         const COL_DISPLAY_NAMES = {
             'Deal #': 'Deal Ref #',
-            'Date-Of-Manufacture': 'Date of Manufacture'
+            'Date-Of-Manufacture': 'Date of Manufacture',
+            'Price \n(USD)': 'Price (USD)',
+            'Price \n(USD)': 'Price (USD)'
         };
         function getColDisplayName(col) {
             return COL_DISPLAY_NAMES[col] || col;
