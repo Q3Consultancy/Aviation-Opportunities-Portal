@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aviation Opportunities Platform</title>
+    <title>Aviation Opportunities Portal</title>
     <style>
         * {
             margin: 0;
@@ -1338,6 +1338,16 @@
         body:not(.admin-mode) .table-container td:nth-child(8) { width: 80px; min-width: 70px; max-width: 90px; }   /* Status */
 
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
+        
+        /* ── Mobile body padding — maximise usable width ──────────────────── */
+        @media (max-width: 520px) {
+            body {
+                padding: 6px 4px !important;
+            }
+            .container {
+                border-radius: 10px !important;
+            }
+        }
         @media (max-width: 520px) {
             /*
              * Mobile layout goals:
@@ -1707,58 +1717,85 @@
         .vm-btn:hover  { background: #475569; color: #f1f5f9; }
         .vm-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
 
-        /* Simulate mobile viewport width when in mobile-preview mode */
+        /* ── Mobile-preview: exact non-admin public view in 390px frame ─── */
+
+        /* Outer phone-frame wrapper */
         body.mobile-preview .table-container {
-            max-width: 390px !important;   /* iPhone 14 Pro width */
-            margin: 0 auto;
-        }
-        /* In mobile-preview apply the same rules as real mobile (≤520px) */
-        body.mobile-preview body:not(.admin-mode),
-        body.mobile-preview.admin-mode .table-container {
-            max-width: 390px !important;
+            max-width: 382px !important;
+            min-width: 0 !important;
+            margin: 0 auto !important;
+            outline: 3px solid #3b82f6 !important;
+            outline-offset: 2px !important;
+            border-radius: 6px !important;
+            padding: 0 !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
         }
 
-        /* Mobile preview: apply mobile column rules to admin table too */
+        /* Table itself: same fixed layout as real mobile */
         body.mobile-preview .table-container table {
             table-layout: fixed !important;
             width: 100% !important;
-            min-width: unset !important;
+            min-width: 290px !important;
         }
+
+        /* Hide cols 5+ (admin extras & Actions col) — exactly as real mobile */
         body.mobile-preview .table-container th:nth-child(n+5),
         body.mobile-preview .table-container td:nth-child(n+5) {
             display: none !important;
         }
-        /* Mobile preview col widths — fixed px so admin can see exact layout */
-        body.mobile-preview .table-container th:nth-child(1),
-        body.mobile-preview .table-container td:nth-child(1) {
-            width: 42px !important; min-width: 42px !important; max-width: 42px !important;
-            white-space: nowrap !important; overflow: hidden !important;
-        }
-        body.mobile-preview .table-container th:nth-child(2),
-        body.mobile-preview .table-container td:nth-child(2) {
-            width: 52px !important; min-width: 52px !important; max-width: 52px !important;
-            white-space: nowrap !important; overflow: hidden !important;
-        }
-        body.mobile-preview .table-container th:nth-child(3),
-        body.mobile-preview .table-container td:nth-child(3) {
-            width: auto !important; min-width: 60px !important;
-            white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
-        }
-        body.mobile-preview .table-container th:nth-child(4),
-        body.mobile-preview .table-container td:nth-child(4) {
-            width: 88px !important; min-width: 88px !important; max-width: 88px !important;
-            white-space: nowrap !important; overflow: hidden !important;
-        }
+
+        /* Hide ALL admin-only elements inside the preview */
+        body.mobile-preview .col-resize-handle        { display: none !important; }
+        body.mobile-preview .table-container .admin-only { display: none !important; }
+        body.mobile-preview #saveBtn,
+        body.mobile-preview #addBtn                   { visibility: hidden !important; }
+
+        /* td: same as real non-admin mobile */
         body.mobile-preview .table-container td {
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            padding: 4px 3px !important;
+            font-size: 10px !important;
         }
+        /* th: same as real non-admin mobile — sort arrows visible */
         body.mobile-preview .table-container th {
             white-space: nowrap !important;
             overflow: visible !important;
             text-overflow: clip !important;
+            padding: 4px 3px !important;
+            font-size: 10px !important;
         }
+
+        /* Col 1 – No  (42px) */
+        body.mobile-preview .table-container th:nth-child(1),
+        body.mobile-preview .table-container td:nth-child(1) {
+            width: 42px !important; min-width: 42px !important; max-width: 42px !important;
+        }
+        /* Col 2 – Files  (52px) */
+        body.mobile-preview .table-container th:nth-child(2),
+        body.mobile-preview .table-container td:nth-child(2) {
+            width: 52px !important; min-width: 52px !important; max-width: 52px !important;
+        }
+        /* Col 3 – Engine/Aircraft/Part  (auto, min 70px) */
+        body.mobile-preview .table-container th:nth-child(3),
+        body.mobile-preview .table-container td:nth-child(3) {
+            width: auto !important; min-width: 70px !important;
+        }
+        /* Col 4 – Price (USD)  (90px, single-line) */
+        body.mobile-preview .table-container th:nth-child(4),
+        body.mobile-preview .table-container td:nth-child(4) {
+            width: 90px !important; min-width: 90px !important; max-width: 90px !important;
+            white-space: nowrap !important;
+        }
+
+        /* ── Desktop-preview: show exact non-admin desktop view ────────────
+           (no phone frame, full width, but hide all admin controls)         */
+        body.desktop-preview .col-resize-handle        { display: none !important; }
+        body.desktop-preview .table-container .admin-only { display: none !important; }
+        body.desktop-preview #saveBtn,
+        body.desktop-preview #addBtn                   { visibility: hidden !important; }
 
         /* Preview label badge */
         .preview-badge {
@@ -1772,7 +1809,16 @@
             letter-spacing: .5px;
             text-transform: uppercase;
         }
-        body.mobile-preview .preview-badge { display: inline-block; }
+        body.mobile-preview .preview-badge  { display: inline-block; }
+        body.desktop-preview .preview-badge {
+            display: inline-block;
+            background: #22c55e;    /* green for desktop public */
+        }
+        /* Highlight active view label */
+        body.mobile-preview  #previewBadge::before { content: '📱 '; }
+        body.desktop-preview #previewBadge::before { content: '🖥️ '; }
+        body.mobile-preview  #previewBadge { content: 'Mobile Preview'; }
+        body.desktop-preview #previewBadge { content: 'Desktop Preview'; }
 
         /* Column-width reset button (admin only) */
         .col-reset-btn {
@@ -1866,7 +1912,7 @@
             <circle cx="50" cy="50" r="2"  fill="#7bb8f0"/>
         </svg>
         <div class="spinner-text">Loading Aviation Data...</div>
-        <div class="spinner-sub">Aviation Opportunities Platform</div>
+        <div class="spinner-sub">Aviation Opportunities Portal</div>
     </div>
 
     <div class="container">
@@ -1878,21 +1924,24 @@
                      onerror="this.style.display='none';">
             </div>
             <div class="header-text">
-                <h1>Aviation Opportunities Platform</h1>
+                <h1>Aviation Opportunities Portal</h1>
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
                 <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:none;">🔐 Admin Login</button>
             </div>
         </header>
-        <!-- Admin View-Mode Bar (Desktop / Mobile preview) -->
+        <!-- Admin View-Mode Bar -->
         <div class="view-mode-bar" id="viewModeBar">
-            <span>Preview:</span>
-            <button class="vm-btn active" id="vmDesktopBtn" onclick="setViewMode('desktop')" title="Desktop layout">
-                🖥️ Desktop
+            <span>View as:</span>
+            <button class="vm-btn" id="vmAdminBtn"   onclick="setViewMode('admin')"   title="Full admin view with edit controls">
+                🔧 Admin
             </button>
-            <button class="vm-btn" id="vmMobileBtn" onclick="setViewMode('mobile')" title="Simulate mobile layout (390px)">
-                📱 Mobile
+            <button class="vm-btn active" id="vmDesktopBtn" onclick="setViewMode('desktop')" title="What external users see on desktop">
+                🖥️ Desktop (Public)
+            </button>
+            <button class="vm-btn" id="vmMobileBtn"  onclick="setViewMode('mobile')"  title="What external users see on mobile (390px)">
+                📱 Mobile (Public)
             </button>
             <span class="preview-badge" id="previewBadge">Mobile Preview</span>
             <button class="col-reset-btn" onclick="resetColumnWidths()" title="Reset all column widths to defaults">
@@ -4392,12 +4441,26 @@ function initFilterToggle() {
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
 function updateAdminUI(isAdminMode) {
             document.body.classList.toggle('admin-mode', isAdminMode);
-            // Reset view mode to desktop when logging out
+            // Manage view-mode buttons on login/logout
             if (!isAdminMode) {
-                document.body.classList.remove('mobile-preview');
+                // Logout: remove all preview classes, hide view bar
+                document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'desktop';
+                const ab = document.getElementById('vmAdminBtn');
                 const db = document.getElementById('vmDesktopBtn');
                 const mb = document.getElementById('vmMobileBtn');
+                if (ab) ab.classList.remove('active');
+                if (db) db.classList.add('active');
+                if (mb) mb.classList.remove('active');
+            } else {
+                // Login: default to Desktop (Public) preview so admin sees public view
+                document.body.classList.remove('mobile-preview');
+                document.body.classList.add('desktop-preview');
+                _currentViewMode = 'desktop';
+                const ab = document.getElementById('vmAdminBtn');
+                const db = document.getElementById('vmDesktopBtn');
+                const mb = document.getElementById('vmMobileBtn');
+                if (ab) ab.classList.remove('active');
                 if (db) db.classList.add('active');
                 if (mb) mb.classList.remove('active');
             }
@@ -4702,16 +4765,24 @@ function updateAdminUI(isAdminMode) {
             const desktopBtn = document.getElementById('vmDesktopBtn');
             const mobileBtn  = document.getElementById('vmMobileBtn');
 
+            // Remove both preview classes first
+            body.classList.remove('mobile-preview', 'desktop-preview');
+
             if (mode === 'mobile') {
                 body.classList.add('mobile-preview');
                 if (desktopBtn) desktopBtn.classList.remove('active');
                 if (mobileBtn)  mobileBtn.classList.add('active');
+            } else if (mode === 'desktop') {
+                // desktop-preview: hides admin controls, shows public col layout
+                body.classList.add('desktop-preview');
+                if (desktopBtn) desktopBtn.classList.add('active');
+                if (mobileBtn)  mobileBtn.classList.remove('active');
             } else {
-                body.classList.remove('mobile-preview');
+                // 'admin' – full admin mode (no preview overlay)
                 if (desktopBtn) desktopBtn.classList.add('active');
                 if (mobileBtn)  mobileBtn.classList.remove('active');
             }
-            // Re-render table so column widths apply correctly
+            // Re-render table so column widths / visibility apply correctly
             if (typeof renderTable === 'function') renderTable();
         }
 
