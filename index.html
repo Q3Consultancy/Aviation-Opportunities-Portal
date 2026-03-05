@@ -1833,6 +1833,241 @@
         }
         .col-reset-btn:hover { background: #334155; color: #f1f5f9; }
 
+        
+        /* ── Mass Upload Button ────────────────────────────────────────────── */
+        .btn-upload {
+            background: #8b5cf6;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-upload:hover { background: #7c3aed; transform: translateY(-1px); }
+
+        /* ── Mass Upload Modal ─────────────────────────────────────────────── */
+        #uploadModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.7);
+            z-index: 12000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        #uploadModal.show { display: flex; }
+
+        .upload-modal-box {
+            background: #fff;
+            border-radius: 14px;
+            width: min(860px, 96vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+            overflow: hidden;
+        }
+
+        .upload-modal-header {
+            background: linear-gradient(135deg,#1e3a5f,#2563eb);
+            color: #fff;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .upload-modal-header h2 { font-size: 17px; margin: 0; }
+        .upload-modal-close {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .upload-modal-close:hover { background: rgba(255,255,255,0.3); }
+
+        .upload-modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        /* Drop zone */
+        .upload-dropzone {
+            border: 2.5px dashed #93c5fd;
+            border-radius: 12px;
+            background: #f0f9ff;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            margin-bottom: 16px;
+        }
+        .upload-dropzone.drag-over {
+            border-color: #3b82f6;
+            background: #dbeafe;
+        }
+        .upload-dropzone svg { opacity: .45; margin-bottom: 10px; }
+        .upload-dropzone p   { margin: 4px 0; font-size: 13px; color: #475569; }
+        .upload-dropzone strong { color: #1e40af; }
+        .upload-dropzone input[type=file] { display: none; }
+
+        /* Sheet selector */
+        .upload-sheet-select {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            color: #334155;
+        }
+        .upload-sheet-select select {
+            padding: 5px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 12px;
+            background: #f8fafc;
+        }
+
+        /* Column mapping table */
+        .upload-mapping-section { margin-bottom: 16px; }
+        .upload-mapping-section h3 {
+            font-size: 13px; font-weight: 700; color: #1e3a5f;
+            margin-bottom: 8px; padding-bottom: 5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .mapping-table {
+            width: 100%; border-collapse: collapse; font-size: 11px;
+        }
+        .mapping-table th {
+            background: #1e3a5f; color: #fff; padding: 6px 8px;
+            text-align: left; font-size: 11px;
+        }
+        .mapping-table td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
+        .mapping-table tr:nth-child(even) td { background: #f8fafc; }
+        .mapping-table select {
+            width: 100%; padding: 3px 6px; border: 1px solid #cbd5e1;
+            border-radius: 4px; font-size: 11px; background: #fff;
+        }
+        .map-matched   { color: #16a34a; font-weight: 600; }
+        .map-unmatched { color: #dc2626; }
+        .map-skip      { color: #94a3b8; font-style: italic; }
+
+        /* Preview table */
+        .upload-preview-section { margin-bottom: 16px; }
+        .upload-preview-section h3 {
+            font-size: 13px; font-weight: 700; color: #1e3a5f;
+            margin-bottom: 8px; padding-bottom: 5px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .preview-stats {
+            font-size: 11px; font-weight: 400; color: #64748b;
+        }
+        .preview-scroll {
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .preview-table {
+            width: max-content; min-width: 100%;
+            border-collapse: collapse; font-size: 10px;
+        }
+        .preview-table th {
+            background: #1e3a5f; color: #fff;
+            padding: 5px 8px; text-align: left;
+            position: sticky; top: 0; z-index: 1;
+            white-space: nowrap;
+        }
+        .preview-table td {
+            padding: 4px 8px; border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap; max-width: 180px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .preview-table tr:nth-child(even) td { background: #f8fafc; }
+        .row-duplicate td { background: #fef3c7 !important; }
+        .row-error     td { background: #fee2e2 !important; }
+        .row-new       td { background: #f0fdf4 !important; }
+
+        /* Status badges in preview */
+        .badge-new   { background:#dcfce7; color:#16a34a; padding:1px 6px; border-radius:10px; font-size:9px; font-weight:700; }
+        .badge-dup   { background:#fef3c7; color:#d97706; padding:1px 6px; border-radius:10px; font-size:9px; font-weight:700; }
+        .badge-err   { background:#fee2e2; color:#dc2626; padding:1px 6px; border-radius:10px; font-size:9px; font-weight:700; }
+        .badge-skip  { background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:10px; font-size:9px; }
+
+        /* Progress bar */
+        .upload-progress { margin: 12px 0; display: none; }
+        .upload-progress-bar {
+            height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;
+        }
+        .upload-progress-fill {
+            height: 100%; background: linear-gradient(90deg,#3b82f6,#8b5cf6);
+            width: 0%; transition: width .3s; border-radius: 4px;
+        }
+        .upload-progress-label {
+            font-size: 11px; color: #475569; margin-top: 5px; text-align: center;
+        }
+
+        /* Upload footer */
+        .upload-modal-footer {
+            padding: 14px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            background: #f8fafc;
+        }
+        .upload-footer-left  { display: flex; gap: 8px; align-items: center; }
+        .upload-footer-right { display: flex; gap: 8px; }
+
+        .btn-upload-commit {
+            background: #16a34a; color: #fff;
+            padding: 9px 20px; border: none; border-radius: 6px;
+            font-weight: 700; font-size: 13px; cursor: pointer;
+            transition: background .2s;
+        }
+        .btn-upload-commit:hover  { background: #15803d; }
+        .btn-upload-commit:disabled {
+            background: #94a3b8; cursor: not-allowed;
+        }
+        .btn-upload-cancel {
+            background: #fff; color: #475569;
+            padding: 9px 18px; border: 1px solid #cbd5e1;
+            border-radius: 6px; font-size: 13px; cursor: pointer;
+        }
+        .btn-upload-cancel:hover { background: #f1f5f9; }
+
+        .upload-options {
+            display: flex; gap: 14px; margin-bottom: 14px;
+            font-size: 12px; color: #475569;
+        }
+        .upload-options label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .upload-options input[type=checkbox] { width: 14px; height: 14px; }
+
+        @media (max-width: 600px) {
+            .upload-modal-box { width: 100vw; max-height: 95vh; border-radius: 14px 14px 0 0; }
+            .upload-modal-body { padding: 14px 16px; }
+            .upload-modal-footer { flex-direction: column; }
+            .upload-footer-right { width: 100%; }
+            .btn-upload-commit, .btn-upload-cancel { flex: 1; }
+        }
+
         </style>
 
     <!-- ═══════════════════════════════════════════════════
@@ -1984,6 +2219,7 @@
                     <button class="btn-export" onclick="exportToCSV()">📥 CSV</button>
                     <button class="btn-save" id="saveBtn" onclick="saveChanges()" style="display:none;">💾 Save</button>
                     <button class="btn-add" id="addBtn" onclick="showAddDealModal()" style="display:none;">➕ Add New Entry</button>
+                    <button class="btn-upload" id="uploadBtn" onclick="openUploadModal()" style="display:none;">📤 Mass Upload</button>
                 </div>
                 <div class="filter-row" id="filterRow">
                     <!-- Column filters will be populated by JavaScript -->
@@ -4464,7 +4700,7 @@ function updateAdminUI(isAdminMode) {
                 if (db) db.classList.add('active');
                 if (mb) mb.classList.remove('active');
             }
-    ['saveBtn','addBtn'].forEach(id => {
+    ['saveBtn','addBtn','uploadBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
     });
@@ -4793,7 +5029,735 @@ function updateAdminUI(isAdminMode) {
             if (typeof renderTable === 'function') renderTable();
         }
 
+        
+        // ════════════════════════════════════════════════════════════════
+        //  MASS UPLOAD — Engine
+        // ════════════════════════════════════════════════════════════════
+
+        let _uploadParsedRows  = [];   // raw rows from file
+        let _uploadMappedRows  = [];   // rows after column mapping
+        let _uploadFileHeaders = [];   // headers from file
+        let _uploadColMapping  = {};   // fileHeader -> portalField (or '__skip__')
+
+        // All portal fields per sheet (flat, for mapping targets)
+        const UPLOAD_FIELD_MAP = {
+            'Engines': [
+                'No','Deal #','Engine','ESN','Cycles Remaining',
+                "Seller's Price \n(USD)",'Team Commission\n(USD)',
+                'Price \n(USD)','LLP Sheet','Last Shop Visit',
+                'Last Shop Visit Report','QEC / Accessory List',
+                'Engine History','NIS','Location','Seller / Broker',
+                "Buyer(s)",'Buyer(s) 2','Buyer(s) 3','Buyer(s) 4','Buyer(s) 5',
+                'Condition','Comments','Status','Date Received'
+            ],
+            'Aircraft Sale': [
+                'No','Deal #','Aircraft','Engine',
+                "Manufacturer's Serial Number",'Manufacturers S/N',
+                'Date-Of-Manufacture','Total Time','Total Cycles',
+                'Configuration',"Seller's Price \n(USD)",
+                'Team Commission\n(USD)','Price \n(USD)',
+                'Location','Seller / Broker',
+                "Buyer(s)",'Buyer(s) 2','Buyer(s) 3','Buyer(s) 4',
+                'Condition','Comments','Status','Date Received'
+            ],
+            'Aircraft Lease': [
+                'No','Deal #','Aircraft','Engine',
+                "Manufacturer's Serial Number",'Manufacturers S/N',
+                'Date-Of-Manufacture','Total Time','Total Cycles',
+                'Configuration',"Seller's Price \n(USD)",
+                'Team Commission\n(USD)','Price \n(USD)',
+                'Location','Seller / Broker',
+                "Buyer(s)",'Buyer(s) 2','Buyer(s) 3','Buyer(s) 4',
+                'Condition','Comments','Status','Date Received'
+            ],
+            'Parts': [
+                'No','Deal #','Part',"Manufacturer's Serial Number",
+                'Manufacturers S/N',"Seller's Price \n(USD)",
+                'Team Commission\n(USD)','Price \n(USD)',
+                'Location','Seller / Broker',
+                "Buyer(s)",'Condition','Comments','Status','Date Received'
+            ]
+        };
+
+        // Fuzzy alias table — maps common file header variants to portal field keys
+        const UPLOAD_ALIASES = {
+            // Serial Numbers
+            's/n':                       'No',
+            'sn':                        'No',
+            'serial no':                 'No',
+            'serial number':             'No',
+            '#':                         'No',
+            'no':                        'No',
+            'number':                    'No',
+            // Deal
+            'deal #':                    'Deal #',
+            'deal no':                   'Deal #',
+            'deal number':               'Deal #',
+            'deal ref':                  'Deal #',
+            'deal ref #':                'Deal #',
+            'reference':                 'Deal #',
+            // Engine
+            'engine':                    'Engine',
+            'engine type':               'Engine',
+            'engine model':              'Engine',
+            'type':                      'Engine',
+            // ESN
+            'esn':                       'ESN',
+            'engine serial number':      'ESN',
+            'engine s/n':                'ESN',
+            // Cycles
+            'cycles remaining':          'Cycles Remaining',
+            'cycles':                    'Cycles Remaining',
+            'remaining cycles':          'Cycles Remaining',
+            'llp cycles':                'Cycles Remaining',
+            // Prices
+            "seller's price (usd)":      "Seller's Price \n(USD)",
+            "sellers price":             "Seller's Price \n(USD)",
+            "seller price":              "Seller's Price \n(USD)",
+            "asking price":              "Seller's Price \n(USD)",
+            "seller's price":            "Seller's Price \n(USD)",
+            'team commission (usd)':     'Team Commission\n(USD)',
+            'team commission':           'Team Commission\n(USD)',
+            'commission (usd)':          'Team Commission\n(USD)',
+            'commission':                'Team Commission\n(USD)',
+            'price (usd)':               'Price \n(USD)',
+            'price':                     'Price \n(USD)',
+            'total price':               'Price \n(USD)',
+            'sale price':                'Price \n(USD)',
+            'usd':                       'Price \n(USD)',
+            // Aircraft
+            'aircraft':                  'Aircraft',
+            'aircraft type':             'Aircraft',
+            'aircraft model':            'Aircraft',
+            // MSN
+            "manufacturer's serial number": "Manufacturer's Serial Number",
+            "manufacturers serial number":  "Manufacturer's Serial Number",
+            "manufacturers s/n":            "Manufacturer's Serial Number",
+            'msn':                          "Manufacturer's Serial Number",
+            'mfr serial':                   "Manufacturer's Serial Number",
+            // Aircraft fields
+            'date of manufacture':       'Date-Of-Manufacture',
+            'dom':                       'Date-Of-Manufacture',
+            'manufacture date':          'Date-Of-Manufacture',
+            'year of manufacture':       'Date-Of-Manufacture',
+            'total time':                'Total Time',
+            'airframe hours':            'Total Time',
+            'hours':                     'Total Time',
+            'tt':                        'Total Time',
+            'total cycles':              'Total Cycles',
+            'tc':                        'Total Cycles',
+            'configuration':             'Configuration',
+            'config':                    'Configuration',
+            // Common
+            'location':                  'Location',
+            'country':                   'Location',
+            'seller / broker':           'Seller / Broker',
+            'seller':                    'Seller / Broker',
+            'broker':                    'Seller / Broker',
+            'seller/broker':             'Seller / Broker',
+            "buyer(s)":                  'Buyer(s)',
+            'buyer':                     'Buyer(s)',
+            'buyers':                    'Buyer(s)',
+            'status':                    'Status',
+            'condition':                 'Condition',
+            'comments':                  'Comments',
+            'notes':                     'Comments',
+            'remarks':                   'Comments',
+            'date received':             'Date Received',
+            'received':                  'Date Received',
+            'date':                      'Date Received',
+            // Docs
+            'llp sheet':                 'LLP Sheet',
+            'llp':                       'LLP Sheet',
+            'last shop visit':           'Last Shop Visit',
+            'shop visit':                'Last Shop Visit',
+            'last shop visit report':    'Last Shop Visit Report',
+            'shop visit report':         'Last Shop Visit Report',
+            'qec / accessory list':      'QEC / Accessory List',
+            'qec':                       'QEC / Accessory List',
+            'accessory list':            'QEC / Accessory List',
+            'engine history':            'Engine History',
+            'history':                   'Engine History',
+            'nis':                       'NIS',
+            'part':                      'Part',
+            'part number':               'Part',
+            'part type':                 'Part',
+        };
+
+        function _uploadNormaliseHeader(h) {
+            return String(h || '').toLowerCase().replace(/[\s\n\r\t]+/g,' ').trim();
+        }
+
+        function _uploadGuessMapping(fileHeaders, sheetName) {
+            const fields   = UPLOAD_FIELD_MAP[sheetName] || UPLOAD_FIELD_MAP['Engines'];
+            const mapping  = {};
+            const usedPortal = new Set();
+
+            fileHeaders.forEach(fh => {
+                const norm = _uploadNormaliseHeader(fh);
+                // 1. Exact alias match
+                if (UPLOAD_ALIASES[norm] && !usedPortal.has(UPLOAD_ALIASES[norm])) {
+                    mapping[fh] = UPLOAD_ALIASES[norm];
+                    usedPortal.add(UPLOAD_ALIASES[norm]);
+                    return;
+                }
+                // 2. Exact portal field match (case-insensitive)
+                const exactField = fields.find(f =>
+                    _uploadNormaliseHeader(f) === norm
+                );
+                if (exactField && !usedPortal.has(exactField)) {
+                    mapping[fh] = exactField;
+                    usedPortal.add(exactField);
+                    return;
+                }
+                // 3. Partial contains match
+                const partialField = fields.find(f => {
+                    const fn = _uploadNormaliseHeader(f);
+                    return (fn.includes(norm) || norm.includes(fn)) && !usedPortal.has(f);
+                });
+                if (partialField) {
+                    mapping[fh] = partialField;
+                    usedPortal.add(partialField);
+                    return;
+                }
+                // 4. No match → skip
+                mapping[fh] = '__skip__';
+            });
+            return mapping;
+        }
+
+        function openUploadModal() {
+            if (!isAdmin) return;
+            // Pre-select the current tab
+            const tabSel = document.getElementById('uploadTargetTab');
+            if (tabSel) {
+                const sn = getSheetName(currentTab);
+                if (sn) tabSel.value = sn;
+            }
+            // Reset state
+            _uploadParsedRows  = [];
+            _uploadMappedRows  = [];
+            _uploadFileHeaders = [];
+            _uploadColMapping  = {};
+            document.getElementById('uploadStep1').style.display = '';
+            document.getElementById('uploadStep2').style.display = 'none';
+            document.getElementById('uploadCommitBtn').disabled = true;
+            document.getElementById('uploadCommitCount').textContent = '0';
+            document.getElementById('uploadStatusMsg').textContent = '';
+            document.getElementById('uploadProgress').style.display = 'none';
+            const fi = document.getElementById('uploadFileInput');
+            if (fi) fi.value = '';
+            document.getElementById('uploadModal').classList.add('show');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('show');
+        }
+
+        function uploadDragOver(e) {
+            e.preventDefault();
+            document.getElementById('uploadDropzone').classList.add('drag-over');
+        }
+        function uploadDragLeave(e) {
+            document.getElementById('uploadDropzone').classList.remove('drag-over');
+        }
+        function uploadDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadDropzone').classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) _uploadProcessFile(file);
+        }
+        function uploadFileSelected(e) {
+            const file = e.target.files[0];
+            if (file) _uploadProcessFile(file);
+        }
+
+        function _uploadProcessFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['xlsx','xls','csv'].includes(ext)) {
+                alert('Unsupported file type. Please use .xlsx, .xls, or .csv');
+                return;
+            }
+            document.getElementById('uploadStatusMsg').textContent = '⏳ Parsing file…';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let rows = [];
+                    if (ext === 'csv') {
+                        // CSV: parse manually
+                        rows = _uploadParseCSV(e.target.result);
+                    } else {
+                        // Excel: use SheetJS
+                        if (typeof XLSX === 'undefined') {
+                            alert('SheetJS library not loaded. Check your internet connection.');
+                            return;
+                        }
+                        const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+                        // Auto-detect sheet: try to match tab name to a worksheet
+                        const sheetName     = document.getElementById('uploadTargetTab').value;
+                        const wbSheetNames  = wb.SheetNames;
+                        let   wsName        = wbSheetNames[0]; // default: first sheet
+
+                        // Try to find a sheet that matches the target tab
+                        const candidates = [
+                            sheetName,
+                            sheetName.toLowerCase(),
+                            sheetName.replace(' ','_'),
+                            sheetName === 'Engines' ? 'Engine' : null,
+                            sheetName === 'Aircraft Sale' ? 'Aircraft' : null,
+                        ].filter(Boolean);
+                        for (const c of candidates) {
+                            const found = wbSheetNames.find(s =>
+                                s.toLowerCase() === c.toLowerCase() ||
+                                s.toLowerCase().includes(c.toLowerCase())
+                            );
+                            if (found) { wsName = found; break; }
+                        }
+
+                        // If workbook has multiple sheets, auto-detect tab from sheet names
+                        if (wbSheetNames.length > 1) {
+                            const tabSel = document.getElementById('uploadTargetTab');
+                            for (const wn of wbSheetNames) {
+                                const wl = wn.toLowerCase();
+                                if (wl.includes('engine') && !wl.includes('aircraft')) {
+                                    tabSel.value = 'Engines'; wsName = wn;
+                                } else if (wl.includes('aircraft') && wl.includes('sale')) {
+                                    tabSel.value = 'Aircraft Sale'; wsName = wn;
+                                } else if (wl.includes('aircraft') && wl.includes('lease')) {
+                                    tabSel.value = 'Aircraft Lease'; wsName = wn;
+                                } else if (wl.includes('part')) {
+                                    tabSel.value = 'Parts'; wsName = wn;
+                                }
+                            }
+                        }
+
+                        const ws = wb.Sheets[wsName];
+                        rows = XLSX.utils.sheet_to_json(ws, {
+                            header: 1, defval: '', blankrows: false
+                        });
+                    }
+
+                    if (!rows || rows.length < 2) {
+                        document.getElementById('uploadStatusMsg').textContent =
+                            '⚠️ No data rows found in file.';
+                        return;
+                    }
+
+                    // First row = headers
+                    _uploadFileHeaders = rows[0].map(h => String(h || '').trim()).filter(h => h);
+                    _uploadParsedRows  = rows.slice(1).filter(r =>
+                        r.some(c => c !== '' && c !== null && c !== undefined)
+                    );
+
+                    const sn = document.getElementById('uploadTargetTab').value;
+                    _uploadColMapping  = _uploadGuessMapping(_uploadFileHeaders, sn);
+
+                    _uploadRenderMappingTable();
+                    _uploadRenderPreview();
+
+                    document.getElementById('uploadStep1').style.display = 'none';
+                    document.getElementById('uploadStep2').style.display = '';
+                    document.getElementById('uploadStatusMsg').textContent =
+                        `✅ Parsed ${_uploadParsedRows.length} rows from "${file.name}"`;
+
+                } catch(err) {
+                    console.error('Upload parse error:', err);
+                    document.getElementById('uploadStatusMsg').textContent =
+                        '❌ Error parsing file: ' + err.message;
+                }
+            };
+            if (ext === 'csv') {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function _uploadParseCSV(text) {
+            const lines = text.split(/\r?\n/);
+            return lines.map(line => {
+                const cols = [];
+                let cur = '', inQ = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (ch === '"') {
+                        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+                        else inQ = !inQ;
+                    } else if (ch === ',' && !inQ) {
+                        cols.push(cur); cur = '';
+                    } else { cur += ch; }
+                }
+                cols.push(cur);
+                return cols;
+            }).filter(r => r.some(c => c.trim()));
+        }
+
+        function _uploadRenderMappingTable() {
+            const sn     = document.getElementById('uploadTargetTab').value;
+            const fields = ['__skip__', ...( UPLOAD_FIELD_MAP[sn] || [] )];
+            const tbody  = document.getElementById('mappingTableBody');
+            let html = '';
+
+            _uploadFileHeaders.forEach((fh, i) => {
+                const mapped  = _uploadColMapping[fh] || '__skip__';
+                const sample  = _uploadParsedRows[0] ? String(_uploadParsedRows[0][i] || '').slice(0,40) : '';
+                const isSkip  = mapped === '__skip__';
+                const statusCls = isSkip ? 'map-skip' : 'map-matched';
+                const statusTxt = isSkip ? '— skip —' : '✓ mapped';
+
+                const opts = fields.map(f => {
+                    const label = f === '__skip__' ? '— skip this column —' : f.replace(/\n/g,' ');
+                    return `<option value="${f.replace(/"/g,'&quot;')}" ${f===mapped?'selected':''}>${label}</option>`;
+                }).join('');
+
+                html += `<tr>
+                    <td><strong>${_esc(fh)}</strong></td>
+                    <td style="color:#64748b;font-style:italic;">${_esc(sample)}</td>
+                    <td><select onchange="uploadUpdateMapping('${_esc(fh)}', this.value)">${opts}</select></td>
+                    <td class="${statusCls}">${statusTxt}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function _esc(s) {
+            return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function uploadUpdateMapping(fileCol, portalField) {
+            _uploadColMapping[fileCol] = portalField;
+            _uploadRenderPreview();
+        }
+
+        function _uploadBuildMappedRow(rawRow) {
+            const row = {};
+            _uploadFileHeaders.forEach((fh, i) => {
+                const pf  = _uploadColMapping[fh];
+                if (!pf || pf === '__skip__') return;
+                let val = rawRow[i];
+                // Normalise: Excel Date objects
+                if (val instanceof Date) {
+                    val = val.toISOString().slice(0,10);
+                } else {
+                    val = (val === null || val === undefined) ? '' : String(val).trim();
+                }
+                row[pf] = val;
+            });
+            return row;
+        }
+
+        function _uploadIsDuplicate(mappedRow, sn) {
+            const existing = data[sn] || [];
+            const dealKey  = mappedRow['Deal #'];
+            const esnKey   = mappedRow['ESN'];
+            return existing.some(r => {
+                if (dealKey && r['Deal #'] && r['Deal #'] === dealKey) return true;
+                if (esnKey  && r['ESN']    && String(r['ESN']) === String(esnKey))  return true;
+                return false;
+            });
+        }
+
+        function _uploadRenderPreview() {
+            const sn           = document.getElementById('uploadTargetTab').value;
+            const skipDups     = document.getElementById('uploadSkipDuplicates').checked;
+            const updateDups   = document.getElementById('uploadUpdateDuplicates').checked;
+
+            // Build mapped rows and classify them
+            const rows  = _uploadParsedRows.map(raw => {
+                const mapped = _uploadBuildMappedRow(raw);
+                const isDup  = _uploadIsDuplicate(mapped, sn);
+                let status;
+                if (isDup && skipDups && !updateDups) status = 'skip';
+                else if (isDup) status = 'dup';
+                else status = 'new';
+
+                // Basic validation: must have at least one key field
+                const sn2 = sn;
+                const keyField = sn2 === 'Engines' ? 'Engine' :
+                                 sn2 === 'Parts'   ? 'Part'   : 'Aircraft';
+                if (!mapped[keyField] && !mapped['Deal #']) status = 'err';
+                return { mapped, status };
+            });
+
+            _uploadMappedRows = rows;
+
+            // Stats
+            const nNew  = rows.filter(r => r.status === 'new').length;
+            const nDup  = rows.filter(r => r.status === 'dup').length;
+            const nSkip = rows.filter(r => r.status === 'skip').length;
+            const nErr  = rows.filter(r => r.status === 'err').length;
+
+            document.getElementById('previewStats').textContent =
+                `${rows.length} rows — ` +
+                `${nNew} new · ${nDup} update · ${nSkip} skip · ${nErr} error`;
+
+            // Commit button
+            const importable = nNew + nDup;
+            document.getElementById('uploadCommitBtn').disabled = importable === 0;
+            document.getElementById('uploadCommitCount').textContent = importable;
+
+            // Determine columns to show (mapped non-skip fields)
+            const shownFields = _uploadFileHeaders
+                .map(fh => _uploadColMapping[fh])
+                .filter(f => f && f !== '__skip__');
+            // Remove dupes while preserving order
+            const cols = [...new Set(shownFields)].slice(0, 14);
+
+            // Header
+            let headHtml = '<tr><th>Row</th><th>Status</th>';
+            cols.forEach(c => { headHtml += `<th>${_esc(c.replace(/\n/g,' '))}</th>`; });
+            headHtml += '</tr>';
+            document.getElementById('previewTableHead').innerHTML = headHtml;
+
+            // Rows
+            let bodyHtml = '';
+            rows.forEach((r, i) => {
+                const cls   = r.status === 'new'  ? 'row-new'  :
+                              r.status === 'dup'  ? 'row-duplicate' :
+                              r.status === 'err'  ? 'row-error' : '';
+                const badge = r.status === 'new'  ? '<span class="badge-new">NEW</span>'  :
+                              r.status === 'dup'  ? '<span class="badge-dup">UPDATE</span>':
+                              r.status === 'err'  ? '<span class="badge-err">ERROR</span>' :
+                              '<span class="badge-skip">SKIP</span>';
+                bodyHtml += `<tr class="${cls}"><td>${i+1}</td><td>${badge}</td>`;
+                cols.forEach(c => {
+                    bodyHtml += `<td title="${_esc(r.mapped[c]||'')}">${_esc(String(r.mapped[c]||'').slice(0,35))}</td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+            document.getElementById('previewTableBody').innerHTML = bodyHtml;
+        }
+
+        async function commitUpload() {
+            if (!isAdmin) return;
+            const sn         = document.getElementById('uploadTargetTab').value;
+            const updateDups = document.getElementById('uploadUpdateDuplicates').checked;
+
+            const toImport = _uploadMappedRows.filter(r =>
+                r.status === 'new' || (r.status === 'dup' && updateDups)
+            );
+            if (toImport.length === 0) {
+                alert('No rows to import.');
+                return;
+            }
+
+            document.getElementById('uploadCommitBtn').disabled = true;
+            const prog      = document.getElementById('uploadProgress');
+            const progFill  = document.getElementById('uploadProgressFill');
+            const progLabel = document.getElementById('uploadProgressLabel');
+            prog.style.display = '';
+
+            const tableName = {
+                'Engines':       'engines',
+                'Aircraft Sale': 'aircraft_sale',
+                'Aircraft Lease':'aircraft_lease',
+                'Parts':         'parts'
+            }[sn] || sn.toLowerCase().replace(/ /g,'_');
+
+            let ok = 0, failed = 0;
+
+            for (let i = 0; i < toImport.length; i++) {
+                const { mapped, status } = toImport[i];
+
+                // Calculate next No
+                const existingNos = (data[sn] || [])
+                    .map(r => parseInt(r['No']||0)).filter(n => !isNaN(n));
+                const nextNo = existingNos.length > 0 ? Math.max(...existingNos) + 1 : 1;
+                if (!mapped['No']) mapped['No'] = nextNo;
+
+                try {
+                    const rowForSave = mapToSupabase({ ...mapped }, sn);
+
+                    if (status === 'dup' && updateDups) {
+                        // Find existing record id
+                        const existing = (data[sn] || []).find(r =>
+                            (mapped['Deal #'] && r['Deal #'] === mapped['Deal #']) ||
+                            (mapped['ESN']    && String(r['ESN']) === String(mapped['ESN']))
+                        );
+                        if (existing && existing._docId) {
+                            rowForSave.id = parseInt(existing._docId);
+                            const { error } = await window._sb
+                                .from(tableName).update(rowForSave).eq('id', rowForSave.id);
+                            if (error) throw error;
+                            // Update in-memory
+                            const idx = (data[sn]||[]).findIndex(r => r._docId === existing._docId);
+                            if (idx !== -1) Object.assign(data[sn][idx], mapped);
+                        }
+                    } else {
+                        // Insert new
+                        delete rowForSave.id;
+                        const { data: inserted, error } = await window._sb
+                            .from(tableName).insert(rowForSave).select();
+                        if (error) throw error;
+                        const newRow = { ...mapped, _docId: String(inserted[0]?.id || '') };
+                        if (!data[sn]) data[sn] = [];
+                        data[sn].push(newRow);
+                    }
+                    ok++;
+                } catch(err) {
+                    console.error('Upload insert error row', i, err);
+                    failed++;
+                }
+
+                const pct = Math.round(((i+1) / toImport.length) * 100);
+                progFill.style.width  = pct + '%';
+                progLabel.textContent = `Saving ${i+1} of ${toImport.length}… (${pct}%)`;
+            }
+
+            progFill.style.width  = '100%';
+            progLabel.textContent = `Done! ${ok} saved, ${failed} failed.`;
+
+            document.getElementById('uploadStatusMsg').textContent =
+                `✅ Import complete: ${ok} rows saved${failed ? ', ' + failed + ' errors' : ''}.`;
+
+            // Refresh table
+            if (typeof renderTable === 'function') renderTable();
+
+            setTimeout(() => {
+                if (failed === 0) closeUploadModal();
+                else document.getElementById('uploadCommitBtn').disabled = false;
+            }, 2000);
+        }
+
         </script>
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         MASS UPLOAD MODAL
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="uploadModal">
+      <div class="upload-modal-box">
+
+        <!-- Header -->
+        <div class="upload-modal-header">
+          <h2>📤 Mass Upload — Import from Excel / CSV</h2>
+          <button class="upload-modal-close" onclick="closeUploadModal()" title="Close">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div class="upload-modal-body" id="uploadModalBody">
+
+          <!-- Step 1: Sheet selector + Drop zone -->
+          <div id="uploadStep1">
+            <div class="upload-sheet-select">
+              <label><strong>Target tab:</strong></label>
+              <select id="uploadTargetTab">
+                <option value="Engines">🔧 Engines</option>
+                <option value="Aircraft Sale">✈️ Aircraft Sale</option>
+                <option value="Aircraft Lease">🛫 Aircraft Lease</option>
+                <option value="Parts">🔩 Parts</option>
+              </select>
+              <span style="font-size:11px;color:#94a3b8;">
+                (auto-detected from file if possible)
+              </span>
+            </div>
+
+            <!-- Drop zone -->
+            <div class="upload-dropzone" id="uploadDropzone"
+                 onclick="document.getElementById('uploadFileInput').click()"
+                 ondragover="uploadDragOver(event)"
+                 ondragleave="uploadDragLeave(event)"
+                 ondrop="uploadDrop(event)">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                   stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p><strong>Drag &amp; drop your file here</strong></p>
+              <p>or click to browse</p>
+              <p style="font-size:11px;color:#94a3b8;margin-top:8px;">
+                Supports: <strong>.xlsx</strong> · <strong>.xls</strong> · <strong>.csv</strong>
+              </p>
+              <input type="file" id="uploadFileInput"
+                     accept=".xlsx,.xls,.csv"
+                     onchange="uploadFileSelected(event)">
+            </div>
+
+            <div class="upload-options">
+              <label>
+                <input type="checkbox" id="uploadSkipDuplicates" checked>
+                Skip rows where Deal # already exists
+              </label>
+              <label>
+                <input type="checkbox" id="uploadUpdateDuplicates">
+                Update existing rows instead of skipping
+              </label>
+            </div>
+
+            <p style="font-size:11px;color:#64748b;">
+              💡 <strong>Tip:</strong> Column headers don't need to match exactly —
+              the portal will intelligently map common variations
+              (e.g. "Serial Number", "S/N", "ESN" → ESN column).
+            </p>
+          </div>
+
+          <!-- Step 2: Column mapping (shown after file parsed) -->
+          <div id="uploadStep2" style="display:none;">
+            <div class="upload-mapping-section">
+              <h3>🗂️ Column Mapping
+                <span style="font-weight:400;font-size:11px;color:#64748b;">
+                  — review and adjust how your file columns map to portal fields
+                </span>
+              </h3>
+              <div style="overflow-x:auto;">
+                <table class="mapping-table">
+                  <thead>
+                    <tr>
+                      <th>Your File Column</th>
+                      <th>Sample Value</th>
+                      <th>Maps to Portal Field</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mappingTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="upload-preview-section">
+              <h3>
+                👁️ Preview
+                <span class="preview-stats" id="previewStats"></span>
+              </h3>
+              <div class="preview-scroll">
+                <table class="preview-table" id="previewTable">
+                  <thead id="previewTableHead"></thead>
+                  <tbody id="previewTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Progress bar (shown during commit) -->
+            <div class="upload-progress" id="uploadProgress">
+              <div class="upload-progress-bar">
+                <div class="upload-progress-fill" id="uploadProgressFill"></div>
+              </div>
+              <div class="upload-progress-label" id="uploadProgressLabel">Preparing…</div>
+            </div>
+          </div>
+
+        </div><!-- /upload-modal-body -->
+
+        <!-- Footer -->
+        <div class="upload-modal-footer">
+          <div class="upload-footer-left">
+            <span id="uploadStatusMsg" style="font-size:12px;color:#475569;"></span>
+          </div>
+          <div class="upload-footer-right">
+            <button class="btn-upload-cancel" onclick="closeUploadModal()">Cancel</button>
+            <button class="btn-upload-commit" id="uploadCommitBtn"
+                    onclick="commitUpload()" disabled>
+              ✅ Import <span id="uploadCommitCount">0</span> rows
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /upload-modal-box -->
+    </div><!-- /uploadModal -->
 
 </body>
 </html>
