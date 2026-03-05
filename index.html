@@ -3095,7 +3095,7 @@
                     const freshData = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
                     const sb = window._sb;
                     for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                        const result = await sb.from(tableName).select('*').order('no', { ascending: true });
+                        const result = await sb.from(tableName).select('*').order('no', { ascending: true }).limit(10000);
                         if (result.error) throw new Error('Supabase ' + tableName + ': ' + result.error.message);
                         freshData[sheetName] = (result.data || []).map(r => {
                             const mapped = mapFromSupabase(r, sheetName);
@@ -3559,7 +3559,7 @@
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
-                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'no' });
+                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'id' });
                     if (error) throw error;
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
                 } catch (err) {
@@ -3885,23 +3885,24 @@
                 existingRow[key] = val;
             });
 
-            // Recalculate price fields
-            recalcRow(existingRow);
+            // Recalculate price fields (using correct sheetName + row index)
+            const _rcIdx = (data[sheetName] || []).indexOf(existingRow);
+            if (_rcIdx >= 0 && typeof recalcRow === 'function') recalcRow(sheetName, _rcIdx);
 
             // Save to Supabase (upsert on 'no')
-            if (window._sbReady && window.supabaseClient) {
+            if (window._sbReady && window._sb) {
                 try {
                     const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
                                  'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
                     if (tbl) {
                         const mapped = mapToSupabase(existingRow, sheetName);
-                        const { error } = await window.supabaseClient.from(tbl)
-                            .upsert(mapped, { onConflict: 'no' });
+                        const { error } = await window._sb.from(tbl)
+                            .upsert(mapped, { onConflict: 'id' });
                         if (error) {
                             console.warn('Supabase update error:', error);
                             showToast('⚠️ Saved locally — sync issue: ' + error.message, '#f59e0b');
                         } else {
-                            showToast('✅ Entry updated!', '#10b981');
+                            showToast('✅ Entry updated & synced!', '#10b981');
                         }
                     }
                 } catch(e) {
@@ -4081,35 +4082,39 @@
         function updateStats() {
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
-            
-            let totalRecords = sheetData.filter(row => !shouldHideRow(row)).length;
+
+            // Active = non-Closed rows (consistent for both admin and public view)
+            const isClosedRow = row => {
+                const st = (row['Status'] || '').toString().toLowerCase().trim();
+                return st === 'closed' || st.includes('sold to another buyer');
+            };
+            const activeRecords = sheetData.filter(row => !isClosedRow(row)).length;
+            const totalRecords  = sheetData.length;
 
             const statsGrid = document.getElementById('statsGrid');
-            
+
             if (!isAdmin) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
-                        <div class="stat-value">${totalRecords}</div>
+                        <div class="stat-value">${activeRecords}</div>
                         <div class="stat-label">Total Active Records as of ${todayFormatted}</div>
                     </div>
                 `;
             } else {
-                const allColumns = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
-                const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
-                const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
-                
+                const closedCount  = totalRecords - activeRecords;
+                const allColumns   = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
                 statsGrid.innerHTML = `
                     <div class="stat-card">
+                        <div class="stat-value">${activeRecords}</div>
+                        <div class="stat-label">Active Records (excl. Closed)</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-value">${totalRecords}</div>
-                        <div class="stat-label">Total Active Records as of ${todayFormatted}</div>
+                        <div class="stat-label">Total Records (incl. ${closedCount} Closed)</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${allColumns.length}</div>
-                        <div class="stat-label">Columns Visible</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">Full</div>
-                        <div class="stat-label">Access Level</div>
+                        <div class="stat-label">Columns</div>
                     </div>
                 `;
             }
