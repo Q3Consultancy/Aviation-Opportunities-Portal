@@ -3376,7 +3376,7 @@
                         } else {
                             // No % set — allow manual entry
                             const colIdx = visibleColumns.indexOf(col);
-                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
+                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
                         }
                         return;
                     }
@@ -3417,33 +3417,33 @@
                     if (col === 'Status' && isAdmin) {
                             const opts = ADMIN_STATUS_OPTIONS;
                             let selOpts = opts.map(o => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`).join('');
-                            html += `<td class="${editableClass} ${statusClass}" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                            html += `<td class="${editableClass} ${statusClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
                                     `<select class="status-select" onchange="saveCell(${index},'Status',this.value);renderTable();" ${isAdmin ? '' : 'disabled'}>` +
                                     `<option value="">— Select —</option>${selOpts}</select></td>`;
                         } else if (col === 'Status' && !isAdmin) {
                             // Non-admin: show colored status badge
                             const dispStatus = normalizeStatus(value) || value;
                             const statusBadgeClass = getStatusClass(dispStatus);
-                            html += `<td class="${statusBadgeClass}" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;">${dispStatus}</span></td>`;
+                            html += `<td class="${statusBadgeClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;">${dispStatus}</span></td>`;
                         } else if (col === KEY_COMMENTS) {
                             // Comments: visible to all, editable only by admin, with tooltip preview
                             const commVal = (value || '').replace(/"/g, '&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                             const rawCommVal = commVal || 'Additional information here';
                             const shortVal = rawCommVal.length > 30 ? rawCommVal.substring(0,30)+'…' : rawCommVal;
                             if (isAdmin) {
-                                html += `<td class="comments-cell" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                                html += `<td class="comments-cell" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
                                         `<textarea class="comments-textarea" spellcheck="true" ` +
                                         `placeholder="Enter comments here" ` +
                                         `onblur="saveCell(${index},KEY_COMMENTS,this.value)" ` +
                                         `title="${commVal || 'Additional information here'}">${commVal || 'Additional information here'}</textarea>` +
                                         `</td>`;
                             } else {
-                                html += `<td class="comments-cell comments-readonly" data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">` +
+                                html += `<td class="comments-cell comments-readonly" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
                                         `<span class="comments-preview" data-full="${commVal}" style="${commVal ? '' : 'color:#94a3b8;font-style:italic;'}">${commVal ? shortVal : 'Additional information here'}</span>` +
                                         `</td>`;
                             }
                         } else {
-                            html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">${value}</td>`;
+                            html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">${value}</td>`;
                         }
                 });
                 if (isAdmin && _currentViewMode === 'admin') {
