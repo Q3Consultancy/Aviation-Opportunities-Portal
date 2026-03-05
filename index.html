@@ -2272,7 +2272,21 @@
             border-right: 2px solid #3b82f6 !important;
         }
 
-        </style>
+        
+        .logout-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+        }
+</style>
 
     <!-- ═══════════════════════════════════════════════════
          SUPABASE CONFIGURATION
@@ -2367,7 +2381,8 @@
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
-                <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:none;">🔐 Admin Login</button>
+                <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:inline-block;">🔐 Admin Login</button>
+                <button class="login-btn logout-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 Logout</button>
             </div>
         </header>
                 <!-- Admin View-Mode Bar -->
@@ -3474,7 +3489,7 @@
             table.innerHTML = html;
             // Apply column freeze after render (needs real DOM widths via setTimeout)
             if (isAdmin && typeof applyFreezeToTable === 'function') {
-                setTimeout(applyFreezeToTable, 80);
+                setTimeout(applyFreezeToTable, 150);
             }
         }
 
@@ -4317,6 +4332,7 @@
             if (!m) return;
             document.getElementById('passwordInput').value = '';
             m.style.removeProperty('display');  // clear any forced display:none
+            m.style.removeProperty('display');  // clear forced none
             m.classList.add('show');
             setTimeout(() => {
                 const inp = document.getElementById('passwordInput');
@@ -4327,11 +4343,11 @@
         }
 
         function hideLoginModal() {
-            const m = document.getElementById('loginModal');
+            var m = document.getElementById('loginModal');
             if (!m) return;
             m.classList.remove('show');
-            m.style.display = 'none';         // belt-and-suspenders: force hidden
-            const pw = document.getElementById('passwordInput');
+            m.style.display = 'none';
+            var pw = document.getElementById('passwordInput');
             if (pw) { pw.value = ''; pw.style.borderColor = ''; pw.placeholder = 'Enter admin password'; }
         }
 
@@ -4347,59 +4363,64 @@
             if (password === ADMIN_PASSWORD) {
                 isAdmin = true;
 
-                // ── Step 1: Close modal immediately (belt+suspenders) ──────
+                // Step 1: Force-close login modal
                 const _modal = document.getElementById('loginModal');
-                if (_modal) { _modal.classList.remove('show'); _modal.style.display = 'none'; }
-                if (pwInput) { pwInput.value = ''; }
+                if (_modal) {
+                    _modal.classList.remove('show');
+                    _modal.style.display = 'none';
+                }
+                if (pwInput) pwInput.value = '';
 
-                // ── Step 2: Apply admin-mode class directly to body ─────────
+                // Step 2: Set body class and view mode
                 document.body.classList.add('admin-mode');
                 document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'admin';
 
-                // ── Step 3: Activate correct view-mode button ───────────────
-                ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(id => {
-                    const b = document.getElementById(id);
+                // Step 3: View-mode buttons
+                ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
+                    var b = document.getElementById(id);
                     if (b) b.classList.remove('active');
                 });
-                const vmAb = document.getElementById('vmAdminBtn');
+                var vmAb = document.getElementById('vmAdminBtn');
                 if (vmAb) vmAb.classList.add('active');
 
-                // ── Step 4: Show admin toolbar buttons ──────────────────────
-                ['saveBtn','addBtn','uploadBtn'].forEach(id => {
-                    const el = document.getElementById(id);
+                // Step 4: Show admin toolbar buttons
+                ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
+                    var el = document.getElementById(id);
                     if (el) { el.style.display = 'inline-block'; el.style.removeProperty('visibility'); }
                 });
 
-                // ── Step 5: Update login/logout buttons ─────────────────────
-                const lb   = document.getElementById('loginBtn');
-                const logb = document.getElementById('logoutBtn');
+                // Step 5: Toggle login/logout buttons
+                var lb   = document.getElementById('loginBtn');
+                var logb = document.getElementById('logoutBtn');
                 if (lb)   lb.style.display   = 'none';
                 if (logb) logb.style.display = 'inline-block';
 
-                // ── Step 6: Update role badge ────────────────────────────────
-                const rb = document.getElementById('roleBadge');
+                // Step 6: Role badge
+                var rb = document.getElementById('roleBadge');
                 if (rb) {
-                    rb.textContent = '🔐 Admin';
-                    rb.className   = 'role-badge admin';
+                    rb.textContent  = '🔐 Admin';
+                    rb.className    = 'role-badge admin';
                     rb.style.display = '';
                 }
 
-                // ── Step 7: Freeze button state ──────────────────────────────
-                const fb = document.getElementById('freezeToggleBtn');
+                // Step 7: Freeze button
+                var fb = document.getElementById('freezeToggleBtn');
                 if (fb) {
                     fb.classList.toggle('freeze-on', _freezeEnabled);
                     fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze';
                 }
-                const fc = document.getElementById('freezeCountSelect');
+                var fc = document.getElementById('freezeCountSelect');
                 if (fc) fc.value = String(_freezeCount);
 
-                // ── Step 8: Refresh table + freeze ───────────────────────────
-                normalizeAllStatuses();
-                renderFilters();
-                renderTable();
-                updateStats();
-                setTimeout(applyFreezeToTable, 100);
+                // Step 8: Refresh table and apply freeze
+                if (typeof normalizeAllStatuses === 'function') normalizeAllStatuses();
+                if (typeof renderFilters       === 'function') renderFilters();
+                if (typeof renderTable         === 'function') renderTable();
+                if (typeof updateStats         === 'function') updateStats();
+                setTimeout(function() {
+                    if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
+                }, 150);
 
             } else {
                 // Wrong password
@@ -4407,7 +4428,7 @@
                     pwInput.style.borderColor = '#dc2626';
                     pwInput.value = '';
                     pwInput.placeholder = 'Wrong password — try again';
-                    setTimeout(() => {
+                    setTimeout(function() {
                         pwInput.style.borderColor = '';
                         pwInput.placeholder = 'Enter admin password';
                         pwInput.focus();
@@ -4418,43 +4439,46 @@
 
         function logout() {
             isAdmin = false;
+
+            // Remove admin body classes
             document.body.classList.remove('admin-mode', 'mobile-preview', 'desktop-preview');
             _currentViewMode = 'desktop';
 
             // Reset view-mode buttons
-            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(id => {
-                const b = document.getElementById(id);
+            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
+                var b = document.getElementById(id);
                 if (b) b.classList.remove('active');
             });
-            const db = document.getElementById('vmDesktopBtn');
+            var db = document.getElementById('vmDesktopBtn');
             if (db) db.classList.add('active');
 
-            // Show login, hide logout
-            const lb   = document.getElementById('loginBtn');
-            const logb = document.getElementById('logoutBtn');
+            // Toggle login/logout buttons
+            var lb   = document.getElementById('loginBtn');
+            var logb = document.getElementById('logoutBtn');
             if (lb)   lb.style.display   = 'inline-block';
             if (logb) logb.style.display = 'none';
 
             // Hide admin toolbar buttons
-            ['saveBtn','addBtn','uploadBtn'].forEach(id => {
-                const el = document.getElementById(id);
+            ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
+                var el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
 
-            // Update role badge
-            const rb = document.getElementById('roleBadge');
+            // Role badge
+            var rb = document.getElementById('roleBadge');
             if (rb) {
-                rb.textContent = 'External Viewer';
-                rb.className   = 'role-badge';
+                rb.textContent   = 'External Viewer';
+                rb.className     = 'role-badge';
                 rb.style.display = 'none';
             }
 
-            // Clear any frozen columns (freeze is admin-only)
+            // Clear frozen columns
             if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
 
-            renderTable();
-            renderFilters();
-            updateStats();
+            // Re-render as public view
+            if (typeof renderFilters === 'function') renderFilters();
+            if (typeof renderTable   === 'function') renderTable();
+            if (typeof updateStats   === 'function') updateStats();
         }
 
         // Initialize
@@ -4679,22 +4703,25 @@
             // Admin access: show login button and open login modal if URL has #admin
             const _p = window.location.pathname;
             const _h = window.location.hash;
+            // Always show login button (admin access via button click)
+            const lb = document.getElementById('loginBtn');
+            if (lb) lb.style.display = 'inline-block';
+            // Auto-open login modal if URL ends with /admin
             if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
-                const lb = document.getElementById('loginBtn');
-                if (lb) lb.style.display = 'inline-block';
-                // Auto-open login modal
                 showLoginModal();
             }
         };
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
-            // ── /admin route: show login button if URL ends with /admin ──
+            // Always show login button so admin can always log in
+            const _loginBtnEl = document.getElementById('loginBtn');
+            if (_loginBtnEl) _loginBtnEl.style.display = 'inline-block';
+
+            // Auto-open modal if on /admin route
             const path = window.location.pathname;
             const hash = window.location.hash;
             if (path.endsWith('/admin') || hash === '#admin') {
-                const btn = document.getElementById('loginBtn');
-                if (btn) btn.style.display = '';
                 showLoginModal();
             }
 
@@ -5086,37 +5113,40 @@ function initFilterToggle() {
 
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
-function updateAdminUI(isAdminMode) {
+        function updateAdminUI(isAdminMode) {
             document.body.classList.toggle('admin-mode', isAdminMode);
-            const ab = document.getElementById('vmAdminBtn');
-            const db = document.getElementById('vmDesktopBtn');
-            const mb = document.getElementById('vmMobileBtn');
-            [ab, db, mb].forEach(b => b && b.classList.remove('active'));
+
+            var ab = document.getElementById('vmAdminBtn');
+            var db = document.getElementById('vmDesktopBtn');
+            var mb = document.getElementById('vmMobileBtn');
+            [ab, db, mb].forEach(function(b) { if (b) b.classList.remove('active'); });
 
             if (!isAdminMode) {
-                // Logout: revert to public desktop view
                 document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'desktop';
                 if (db) db.classList.add('active');
             } else {
-                // Login: admin view (login() already called this path directly,
-                // but keep here for any legacy callers)
                 document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'admin';
                 if (ab) ab.classList.add('active');
-                const fb = document.getElementById('freezeToggleBtn');
+                var fb = document.getElementById('freezeToggleBtn');
                 if (fb) { fb.classList.toggle('freeze-on', _freezeEnabled); fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze'; }
-                const fc = document.getElementById('freezeCountSelect');
+                var fc = document.getElementById('freezeCountSelect');
                 if (fc) fc.value = String(_freezeCount);
             }
-            ['saveBtn','addBtn','uploadBtn'].forEach(id => {
-                const el = document.getElementById(id);
+            ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
+                var el = document.getElementById(id);
                 if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
             });
-            const rb = document.getElementById('roleBadge');
+            var lb   = document.getElementById('loginBtn');
+            var logb = document.getElementById('logoutBtn');
+            if (lb)   lb.style.display   = isAdminMode ? 'none'         : 'inline-block';
+            if (logb) logb.style.display = isAdminMode ? 'inline-block' : 'none';
+            var rb = document.getElementById('roleBadge');
             if (rb) {
                 rb.style.display = isAdminMode ? '' : 'none';
-                rb.className = isAdminMode ? 'role-badge admin' : 'role-badge';
+                rb.className     = isAdminMode ? 'role-badge admin' : 'role-badge';
+                if (isAdminMode) rb.textContent = '🔐 Admin';
             }
         }
 
@@ -5395,38 +5425,32 @@ function updateAdminUI(isAdminMode) {
         let _currentViewMode = 'desktop';
 
         function setViewMode(mode) {
-            if (!isAdmin) return;   // view-mode only available to admin
+            if (!isAdmin) return;
             _currentViewMode = mode;
-            const body = document.body;
 
-            // Clear all preview classes
-            body.classList.remove('mobile-preview', 'desktop-preview');
-
-            // Reset all VM button states
-            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(id => {
-                const b = document.getElementById(id);
+            document.body.classList.remove('mobile-preview', 'desktop-preview');
+            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
+                var b = document.getElementById(id);
                 if (b) b.classList.remove('active');
             });
 
             if (mode === 'mobile') {
-                body.classList.add('mobile-preview');
-                const mb = document.getElementById('vmMobileBtn');
+                document.body.classList.add('mobile-preview');
+                var mb = document.getElementById('vmMobileBtn');
                 if (mb) mb.classList.add('active');
             } else if (mode === 'desktop') {
-                body.classList.add('desktop-preview');
-                const db = document.getElementById('vmDesktopBtn');
+                document.body.classList.add('desktop-preview');
+                var db = document.getElementById('vmDesktopBtn');
                 if (db) db.classList.add('active');
             } else {
-                // admin – full admin view
-                const ab = document.getElementById('vmAdminBtn');
+                var ab = document.getElementById('vmAdminBtn');
                 if (ab) ab.classList.add('active');
             }
 
-            // Re-render for correct column visibility / widths
             if (typeof renderTable === 'function') renderTable();
-
-            // Re-apply freeze (only active in admin mode, checked inside)
-            if (typeof applyFreezeToTable === 'function') setTimeout(applyFreezeToTable, 80);
+            setTimeout(function() {
+                if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
+            }, 150);
         }
 
         function resetColumnWidths() {
@@ -6044,8 +6068,9 @@ function updateAdminUI(isAdminMode) {
         let _freezeCount   = 3;       // freeze first 3 cols (No, Files, Engine)
 
         function toggleFreeze() {
+            if (!isAdmin) return;
             _freezeEnabled = !_freezeEnabled;
-            const btn = document.getElementById('freezeToggleBtn');
+            var btn = document.getElementById('freezeToggleBtn');
             if (btn) {
                 btn.classList.toggle('freeze-on', _freezeEnabled);
                 btn.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze';
@@ -6054,38 +6079,37 @@ function updateAdminUI(isAdminMode) {
         }
 
         function setFreezeCount(n) {
+            if (!isAdmin) return;
             _freezeCount = n;
             applyFreezeToTable();
         }
 
         function applyFreezeToTable() {
-            const table = document.getElementById('dataTable');
+            var table = document.getElementById('dataTable');
             if (!table) return;
 
-            // Remove existing freeze classes / styles
-            table.querySelectorAll('.col-frozen, .col-freeze-last').forEach(el => {
+            // Always clear existing freeze classes first
+            table.querySelectorAll('.col-frozen, .col-freeze-last').forEach(function(el) {
                 el.classList.remove('col-frozen', 'col-freeze-last');
-                el.style.left = '';
-                el.style.zIndex = '';
+                el.style.left    = '';
+                el.style.zIndex  = '';
             });
 
-            // Only freeze in full admin mode (not in preview modes)
+            // Only apply freeze in full admin view (not in preview modes)
             if (!_freezeEnabled || !isAdmin || _currentViewMode !== 'admin') return;
 
-            // Get actual widths from header cells
-            const ths = table.querySelectorAll('thead tr th');
-            const n   = Math.min(_freezeCount, ths.length);
-            let leftOffset = 0;
+            var ths = table.querySelectorAll('thead tr th');
+            var n   = Math.min(_freezeCount, ths.length);
+            var leftOffset = 0;
 
-            for (let ci = 0; ci < n; ci++) {
-                const th = ths[ci];
-                const w  = th.offsetWidth || 48;
+            for (var ci = 0; ci < n; ci++) {
+                var th = ths[ci];
+                var w  = th.offsetWidth || 48;
 
-                // Freeze this column in all rows
-                const colCells = table.querySelectorAll(
-                    `thead tr th:nth-child(${ci+1}), tbody tr td:nth-child(${ci+1})`
+                var colCells = table.querySelectorAll(
+                    'thead tr th:nth-child(' + (ci+1) + '), tbody tr td:nth-child(' + (ci+1) + ')'
                 );
-                colCells.forEach(cell => {
+                colCells.forEach(function(cell) {
                     cell.classList.add('col-frozen');
                     cell.style.left = leftOffset + 'px';
                     if (ci === n - 1) cell.classList.add('col-freeze-last');
