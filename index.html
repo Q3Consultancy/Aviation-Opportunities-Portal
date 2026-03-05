@@ -124,6 +124,19 @@
             background: #10b981;
         }
 
+        .logout-btn {
+            background: rgba(239,68,68,0.85);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .logout-btn:hover { background: #dc2626; }
+
         .btn {
             padding: 6px 16px;
             border: none;
@@ -1824,9 +1837,9 @@
         body.desktop-preview #saveBtn,
         body.desktop-preview #addBtn,
         body.mobile-preview  #saveBtn,
-        body.mobile-preview  #addBtn                   { display: none !important; }
-        body.desktop-preview #uploadBtn,
-        body.mobile-preview  #uploadBtn               { display: none !important; }
+        body.mobile-preview  #addBtn                   { visibility: hidden !important; }
+        body.desktop-preview #massUploadBtn,
+        body.mobile-preview  #massUploadBtn            { display: none !important; }
         /* In full admin mode: always show admin controls */
         body.admin-mode:not(.desktop-preview):not(.mobile-preview) .admin-only { display: inline-flex !important; }
         /* Frozen cells must NOT block click-to-edit in admin mode */
@@ -2272,21 +2285,7 @@
             border-right: 2px solid #3b82f6 !important;
         }
 
-        
-        .logout-btn {
-            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        .logout-btn:hover {
-            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-        }
-</style>
+        </style>
 
     <!-- ═══════════════════════════════════════════════════
          SUPABASE CONFIGURATION
@@ -2381,8 +2380,8 @@
             </div>
             <div class="role-toggle">
                 <span class="role-badge" id="roleBadge" style="display:none;">External Viewer</span>
-                <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:inline-block;">🔐 Admin Login</button>
-                <button class="login-btn logout-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 Logout</button>
+                <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:none;">🔐 Admin Login</button>
+                <button class="logout-btn" id="logoutBtn" onclick="logout()" style="display:none;">🔓 Logout</button>
             </div>
         </header>
                 <!-- Admin View-Mode Bar -->
@@ -2521,7 +2520,7 @@
 </script><script>
         // Configuration
         const ADMIN_PASSWORD = 'admin123';
-        let isAdmin = false;  // admin state – set true by login()
+        let isAdmin = false; if(typeof updateAdminUI==='function') updateAdminUI(false);
         let selectedRows = new Set();
         let selectionMode = false;  // rows only clickable after 'Place my Interest' // tracks row indices for "Place my Interest"
         let currentTab = 'engines';
@@ -2774,10 +2773,7 @@
             ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
                 if (!data[sheet]) return;
                 data[sheet].forEach(row => {
-                    if (!row) return;
                     if (row['Status']) row['Status'] = normalizeStatus(row['Status']);
-                    // Ensure Condition default on all loaded rows
-                    if (!row['Condition'] || row['Condition'] === null) row['Condition'] = 'SV';
                 });
             });
         }
@@ -3137,42 +3133,6 @@
                 return;
             }
 
-            // ── Step 2b: If Supabase wasn't ready yet, register for when it becomes ready ──
-            if (!sbReady) {
-                document.addEventListener('supabaseReady', function _sbDelayLoad() {
-                    document.removeEventListener('supabaseReady', _sbDelayLoad);
-                    // Re-run Supabase fetch now that it's ready
-                    (async () => {
-                        try {
-                            const TABLE_MAP = {
-                                'Engines':'engines','Aircraft Sale':'aircraft_sale',
-                                'Aircraft Lease':'aircraft_lease','Parts':'parts'
-                            };
-                            const freshData = {'Engines':[],'Aircraft Sale':[],'Aircraft Lease':[],'Parts':[]};
-                            for (const [sn, tn] of Object.entries(TABLE_MAP)) {
-                                const r = await window._sb.from(tn).select('*').order('no',{ascending:true});
-                                if (r.error) continue;
-                                freshData[sn] = (r.data||[]).map(row => {
-                                    const m = mapFromSupabase(row, sn);
-                                    m._docId = String(row.id || row.no || '');
-                                    return m;
-                                });
-                            }
-                            const total = Object.values(freshData).reduce((s,a)=>s+a.length,0);
-                            if (total > 0) {
-                                data = freshData;
-                                normalizeAllStatuses();
-                                if (typeof renderFilters==='function') renderFilters();
-                                renderTable();
-                                if (typeof updateStats==='function') updateStats();
-                                if (typeof filterTable==='function') filterTable();
-                                console.log('✅ Supabase delayed load complete');
-                            }
-                        } catch(e) { console.warn('Supabase delayed load failed:', e.message); }
-                    })();
-                });
-            }
-
             // ── Step 3: Try data.json for additional/updated data ──
             try {
                 const r = await fetch('data.json');
@@ -3489,7 +3449,7 @@
             table.innerHTML = html;
             // Apply column freeze after render (needs real DOM widths via setTimeout)
             if (isAdmin && typeof applyFreezeToTable === 'function') {
-                setTimeout(applyFreezeToTable, 150);
+                setTimeout(applyFreezeToTable, 0);
             }
         }
 
@@ -3560,15 +3520,7 @@
         // Save cell value
         async function saveCell(rowIndex, colName, newValue) {
             const sheetName = getSheetName(currentTab);
-            // Strip commas from numeric fields before storing in memory
-            const _numCols = [KEY_SELLER_PRICE, KEY_COMM_USD, KEY_PRICE,
-                              'Cycles Remaining', 'Total Cycles', 'Total Time'];
-            let _storeVal = newValue;
-            if (_numCols.includes(colName) && _storeVal !== '' && _storeVal !== null) {
-                const _stripped = parseFloat(String(_storeVal).replace(/,/g, ''));
-                if (!isNaN(_stripped)) _storeVal = _stripped;
-            }
-            data[sheetName][rowIndex][colName] = _storeVal;
+            data[sheetName][rowIndex][colName] = newValue;
             // If Seller Price or Commission USD changed manually, recalc
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
@@ -3584,7 +3536,7 @@
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
-                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'id' });
+                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'no' });
                     if (error) throw error;
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
                 } catch (err) {
@@ -3615,7 +3567,7 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const { error } = await window._sb.from(tableName).delete().eq('id', parseInt(docId));
+                    const { error } = await window._sb.from(tableName).delete().eq('id', docId);
                     if (error) throw error;
                     console.log('✅ Deal deleted from Supabase:', docId);
                 } catch (err) {
@@ -3910,19 +3862,18 @@
                 existingRow[key] = val;
             });
 
-            // Recalculate price fields (recalcRow needs sheetName + index)
-            const _editIdx = (data[sheetName] || []).indexOf(existingRow);
-            if (_editIdx >= 0) recalcRow(sheetName, _editIdx);
+            // Recalculate price fields
+            recalcRow(existingRow);
 
-            // Save to Supabase (upsert by id)
-            if (window._sbReady && window._sb) {
+            // Save to Supabase (upsert on 'no')
+            if (window._sbReady && window.supabaseClient) {
                 try {
                     const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
                                  'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
                     if (tbl) {
-                        const mapped = mapToSupabase({...existingRow}, sheetName);
-                        const { error } = await window._sb.from(tbl)
-                            .upsert(mapped, { onConflict: 'id' });
+                        const mapped = mapToSupabase(existingRow, sheetName);
+                        const { error } = await window.supabaseClient.from(tbl)
+                            .upsert(mapped, { onConflict: 'no' });
                         if (error) {
                             console.warn('Supabase update error:', error);
                             showToast('⚠️ Saved locally — sync issue: ' + error.message, '#f59e0b');
@@ -3978,8 +3929,6 @@
                 : 1;
             newRow['No'] = String(nextNo);
             newRow['Files'] = '';
-            // Ensure Condition default for new deals
-            if (!newRow['Condition'] || newRow['Condition'] === '') newRow['Condition'] = 'SV';
 
             // Validate required fields
             const tabFields = TAB_FORM_FIELDS[sheetName] || [];
@@ -4330,9 +4279,9 @@
         function showLoginModal() {
             const m = document.getElementById('loginModal');
             if (!m) return;
-            document.getElementById('passwordInput').value = '';
-            m.style.removeProperty('display');  // clear any forced display:none
-            m.style.removeProperty('display');  // clear forced none
+            const pi = document.getElementById('passwordInput');
+            if (pi) pi.value = '';
+            m.style.display = '';  // Clear any inline display:none from hideLoginModal
             m.classList.add('show');
             setTimeout(() => {
                 const inp = document.getElementById('passwordInput');
@@ -4343,12 +4292,11 @@
         }
 
         function hideLoginModal() {
-            var m = document.getElementById('loginModal');
-            if (!m) return;
-            m.classList.remove('show');
-            m.style.display = 'none';
-            var pw = document.getElementById('passwordInput');
-            if (pw) { pw.value = ''; pw.style.borderColor = ''; pw.placeholder = 'Enter admin password'; }
+            const m = document.getElementById('loginModal');
+            if (m) {
+                m.classList.remove('show');
+                m.style.display = 'none';
+            }
         }
 
         function toggleAdmin() {
@@ -4362,73 +4310,38 @@
 
             if (password === ADMIN_PASSWORD) {
                 isAdmin = true;
-
-                // Step 1: Force-close login modal
-                const _modal = document.getElementById('loginModal');
-                if (_modal) {
-                    _modal.classList.remove('show');
-                    _modal.style.display = 'none';
-                }
-                if (pwInput) pwInput.value = '';
-
-                // Step 2: Set body class and view mode
-                document.body.classList.add('admin-mode');
-                document.body.classList.remove('mobile-preview', 'desktop-preview');
-                _currentViewMode = 'admin';
-
-                // Step 3: View-mode buttons
-                ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
-                    var b = document.getElementById(id);
-                    if (b) b.classList.remove('active');
-                });
-                var vmAb = document.getElementById('vmAdminBtn');
-                if (vmAb) vmAb.classList.add('active');
-
-                // Step 4: Show admin toolbar buttons
-                ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
-                    var el = document.getElementById(id);
-                    if (el) { el.style.display = 'inline-block'; el.style.removeProperty('visibility'); }
-                });
-
-                // Step 5: Toggle login/logout buttons
-                var lb   = document.getElementById('loginBtn');
-                var logb = document.getElementById('logoutBtn');
+                // Update UI for admin mode
+                if (typeof updateAdminUI === 'function') updateAdminUI(true);
+                // Show logout button, hide login button
+                const lb = document.getElementById('loginBtn');
+                const logb = document.getElementById('logoutBtn');
                 if (lb)   lb.style.display   = 'none';
                 if (logb) logb.style.display = 'inline-block';
-
-                // Step 6: Role badge
-                var rb = document.getElementById('roleBadge');
+                // Update role badge
+                const rb = document.getElementById('roleBadge');
                 if (rb) {
-                    rb.textContent  = '🔐 Admin';
-                    rb.className    = 'role-badge admin';
+                    rb.textContent = '🔐 Admin';
+                    rb.classList.add('admin');
                     rb.style.display = '';
                 }
-
-                // Step 7: Freeze button
-                var fb = document.getElementById('freezeToggleBtn');
-                if (fb) {
-                    fb.classList.toggle('freeze-on', _freezeEnabled);
-                    fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze';
+                // Close the modal
+                hideLoginModal();
+                // Refresh table, filters, stats
+                normalizeAllStatuses();
+                renderTable();
+                renderFilters();
+                updateStats();
+                // Apply freeze after render
+                if (typeof applyFreezeToTable === 'function') {
+                    setTimeout(applyFreezeToTable, 80);
                 }
-                var fc = document.getElementById('freezeCountSelect');
-                if (fc) fc.value = String(_freezeCount);
-
-                // Step 8: Refresh table and apply freeze
-                if (typeof normalizeAllStatuses === 'function') normalizeAllStatuses();
-                if (typeof renderFilters       === 'function') renderFilters();
-                if (typeof renderTable         === 'function') renderTable();
-                if (typeof updateStats         === 'function') updateStats();
-                setTimeout(function() {
-                    if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
-                }, 150);
-
             } else {
-                // Wrong password
+                // Shake the input on wrong password
                 if (pwInput) {
                     pwInput.style.borderColor = '#dc2626';
                     pwInput.value = '';
                     pwInput.placeholder = 'Wrong password — try again';
-                    setTimeout(function() {
+                    setTimeout(() => {
                         pwInput.style.borderColor = '';
                         pwInput.placeholder = 'Enter admin password';
                         pwInput.focus();
@@ -4439,46 +4352,28 @@
 
         function logout() {
             isAdmin = false;
-
-            // Remove admin body classes
-            document.body.classList.remove('admin-mode', 'mobile-preview', 'desktop-preview');
-            _currentViewMode = 'desktop';
-
-            // Reset view-mode buttons
-            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
-                var b = document.getElementById(id);
-                if (b) b.classList.remove('active');
-            });
-            var db = document.getElementById('vmDesktopBtn');
-            if (db) db.classList.add('active');
-
-            // Toggle login/logout buttons
-            var lb   = document.getElementById('loginBtn');
-            var logb = document.getElementById('logoutBtn');
-            if (lb)   lb.style.display   = 'inline-block';
-            if (logb) logb.style.display = 'none';
-
-            // Hide admin toolbar buttons
-            ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
-                var el = document.getElementById(id);
+            // Always show loginBtn, hide logoutBtn
+            const _lb  = document.getElementById('loginBtn');
+            const _lgb = document.getElementById('logoutBtn');
+            if (_lb)  _lb.style.display  = 'inline-block';
+            if (_lgb) _lgb.style.display = 'none';
+            // Update role badge
+            const _rb = document.getElementById('roleBadge');
+            if (_rb) {
+                _rb.textContent = 'External Viewer';
+                _rb.classList.remove('admin');
+                _rb.style.display = 'none';
+            }
+            // Hide admin-only buttons
+            ['saveBtn','addBtn','uploadBtn'].forEach(id => {
+                const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
-
-            // Role badge
-            var rb = document.getElementById('roleBadge');
-            if (rb) {
-                rb.textContent   = 'External Viewer';
-                rb.className     = 'role-badge';
-                rb.style.display = 'none';
-            }
-
-            // Clear frozen columns
-            if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
-
-            // Re-render as public view
-            if (typeof renderFilters === 'function') renderFilters();
-            if (typeof renderTable   === 'function') renderTable();
-            if (typeof updateStats   === 'function') updateStats();
+            // Reset admin-mode class and view mode
+            if (typeof updateAdminUI === 'function') updateAdminUI(false);
+            renderTable();
+            renderFilters();
+            updateStats();
         }
 
         // Initialize
@@ -4681,47 +4576,25 @@
                 Object.assign(columnWidths, _cwStored);
             } catch(e) {}
             await loadData();
-            // Auto-save to Supabase on tab-hide (prevents data loss if tab closed)
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'hidden' && isAdmin && window._sbReady) {
-                    (async () => {
-                        try {
-                            const TM = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
-                                        'Aircraft Lease':'aircraft_lease','Parts':'parts'};
-                            for (const [sn, tn] of Object.entries(TM)) {
-                                const rows = (data[sn]||[]).filter(r => r._docId && !isNaN(r._docId));
-                                if (!rows.length) continue;
-                                await window._sb.from(tn).upsert(
-                                    rows.map(r => mapToSupabase({...r}, sn)),
-                                    { onConflict: 'id' }
-                                );
-                            }
-                        } catch(e) { /* silent best-effort */ }
-                    })();
-                }
-            });
             // Admin access: show login button and open login modal if URL has #admin
             const _p = window.location.pathname;
             const _h = window.location.hash;
-            // Always show login button (admin access via button click)
-            const lb = document.getElementById('loginBtn');
-            if (lb) lb.style.display = 'inline-block';
-            // Auto-open login modal if URL ends with /admin
             if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
+                const lb = document.getElementById('loginBtn');
+                if (lb) lb.style.display = 'inline-block';
+                // Auto-open login modal
                 showLoginModal();
             }
         };
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
-            // Always show login button so admin can always log in
-            const _loginBtnEl = document.getElementById('loginBtn');
-            if (_loginBtnEl) _loginBtnEl.style.display = 'inline-block';
-
-            // Auto-open modal if on /admin route
+            // ── /admin route: show login button if URL ends with /admin ──
             const path = window.location.pathname;
             const hash = window.location.hash;
             if (path.endsWith('/admin') || hash === '#admin') {
+                const btn = document.getElementById('loginBtn');
+                if (btn) btn.style.display = '';
                 showLoginModal();
             }
 
@@ -4735,8 +4608,7 @@
             document.getElementById('addDealModal').addEventListener('click', function(e) {
                 if (e.target === this) hideAddDealModal();
             });
-            const _lmEl = document.getElementById('loginModal');
-            if (_lmEl) _lmEl.addEventListener('click', function(e) {
+            document.getElementById('loginModal').addEventListener('click', function(e) {
                 if (e.target === this) hideLoginModal();
             });
             // Close add deal modal with Escape key
@@ -5036,21 +4908,9 @@ function toggleRowSelection(rowIndex, trEl) {
 
         function mapToSupabase(row, sheetName) {
             const out = { deal_data: {} };
-            // Columns that should be stored as raw numbers (strip formatting)
-            const numericKeys = [
-                "Seller's Price \n(USD)", "Team Commission\n(USD)", "Price \n(USD)",
-                "Seller's Price\n(USD)", "Team Commission\n(%)", "Cycles Remaining",
-                "Total Cycles", "Total Time"
-            ];
             for (const [k, v] of Object.entries(row)) {
                 if (k === '_docId') continue;
-                // Strip comma-formatting from numeric fields before storing
-                if (numericKeys.includes(k) && v !== '' && v !== null && v !== undefined) {
-                    const stripped = parseFloat(String(v).replace(/,/g, ''));
-                    out.deal_data[k] = isNaN(stripped) ? v : stripped;
-                } else {
-                    out.deal_data[k] = v;
-                }
+                out.deal_data[k] = v;
             }
             // Keep 'no' as a top-level sortable column
             const noVal = row['No'] || row['no'];
@@ -5113,42 +4973,59 @@ function initFilterToggle() {
 
 // ─── Admin UI Controls ───
 const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
-        function updateAdminUI(isAdminMode) {
+function updateAdminUI(isAdminMode) {
             document.body.classList.toggle('admin-mode', isAdminMode);
-
-            var ab = document.getElementById('vmAdminBtn');
-            var db = document.getElementById('vmDesktopBtn');
-            var mb = document.getElementById('vmMobileBtn');
-            [ab, db, mb].forEach(function(b) { if (b) b.classList.remove('active'); });
-
+            // Manage view-mode buttons on login/logout
             if (!isAdminMode) {
+                // Logout: remove all preview classes, hide view bar
                 document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'desktop';
+                const ab = document.getElementById('vmAdminBtn');
+                const db = document.getElementById('vmDesktopBtn');
+                const mb = document.getElementById('vmMobileBtn');
+                if (ab) ab.classList.remove('active');
                 if (db) db.classList.add('active');
+                if (mb) mb.classList.remove('active');
             } else {
+                // Login: default to Admin mode so admin sees all controls
                 document.body.classList.remove('mobile-preview', 'desktop-preview');
                 _currentViewMode = 'admin';
+                const ab = document.getElementById('vmAdminBtn');
+                const db = document.getElementById('vmDesktopBtn');
+                const mb = document.getElementById('vmMobileBtn');
                 if (ab) ab.classList.add('active');
-                var fb = document.getElementById('freezeToggleBtn');
-                if (fb) { fb.classList.toggle('freeze-on', _freezeEnabled); fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze'; }
-                var fc = document.getElementById('freezeCountSelect');
+                if (db) db.classList.remove('active');
+                if (mb) mb.classList.remove('active');
+                // Initialise freeze button state
+                const fb = document.getElementById('freezeToggleBtn');
+                if (fb) {
+                    fb.classList.toggle('freeze-on', _freezeEnabled);
+                    fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze Off';
+                }
+                // Set freeze count selector default
+                const fc = document.getElementById('freezeCountSelect');
                 if (fc) fc.value = String(_freezeCount);
             }
-            ['saveBtn','addBtn','uploadBtn'].forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
-            });
-            var lb   = document.getElementById('loginBtn');
-            var logb = document.getElementById('logoutBtn');
-            if (lb)   lb.style.display   = isAdminMode ? 'none'         : 'inline-block';
-            if (logb) logb.style.display = isAdminMode ? 'inline-block' : 'none';
-            var rb = document.getElementById('roleBadge');
-            if (rb) {
-                rb.style.display = isAdminMode ? '' : 'none';
-                rb.className     = isAdminMode ? 'role-badge admin' : 'role-badge';
-                if (isAdminMode) rb.textContent = '🔐 Admin';
-            }
+    ['saveBtn','addBtn','uploadBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isAdminMode ? 'inline-block' : 'none';
+    });
+    const rb = document.getElementById('roleBadge');
+    if (rb) {
+        rb.style.display = isAdminMode ? '' : 'none';
+        rb.className = 'role-badge' + (isAdminMode ? ' admin' : '');
+        rb.textContent = isAdminMode ? '🔐 Admin' : 'External Viewer';
+    }
+    // Update Add Entry button label for current tab
+    if (isAdminMode) {
+        const addBtnEl = document.getElementById('addBtn');
+        if (addBtnEl) {
+            const tabLabels = {'engines':'Engine','aircraft-sale':'Aircraft Sale','aircraft-lease':'Aircraft Lease','parts':'Part'};
+            const lbl = (typeof currentTab !== 'undefined' && tabLabels[currentTab]) || 'Entry';
+            addBtnEl.textContent = '➕ Add ' + lbl;
         }
+    }
+}
 
 // ─── Column Drag-and-Drop Reordering ───
         let _dragSrcCol = null;
@@ -5425,32 +5302,37 @@ const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
         let _currentViewMode = 'desktop';
 
         function setViewMode(mode) {
-            if (!isAdmin) return;
             _currentViewMode = mode;
+            const body = document.body;
+            const adminBtn   = document.getElementById('vmAdminBtn');
+            const desktopBtn = document.getElementById('vmDesktopBtn');
+            const mobileBtn  = document.getElementById('vmMobileBtn');
 
-            document.body.classList.remove('mobile-preview', 'desktop-preview');
-            ['vmAdminBtn','vmDesktopBtn','vmMobileBtn'].forEach(function(id) {
-                var b = document.getElementById(id);
-                if (b) b.classList.remove('active');
-            });
+            // Remove all preview classes first
+            body.classList.remove('mobile-preview', 'desktop-preview');
+
+            // Reset all button active states
+            [adminBtn, desktopBtn, mobileBtn].forEach(b => b && b.classList.remove('active'));
 
             if (mode === 'mobile') {
-                document.body.classList.add('mobile-preview');
-                var mb = document.getElementById('vmMobileBtn');
-                if (mb) mb.classList.add('active');
+                // Mobile (Public): show what external users see on mobile
+                body.classList.add('mobile-preview');
+                if (mobileBtn)  mobileBtn.classList.add('active');
             } else if (mode === 'desktop') {
-                document.body.classList.add('desktop-preview');
-                var db = document.getElementById('vmDesktopBtn');
-                if (db) db.classList.add('active');
+                // Desktop (Public): show what external users see on desktop
+                body.classList.add('desktop-preview');
+                if (desktopBtn) desktopBtn.classList.add('active');
             } else {
-                var ab = document.getElementById('vmAdminBtn');
-                if (ab) ab.classList.add('active');
+                // 'admin' – full admin mode: all edit controls visible, no preview overlay
+                // body.admin-mode is already set; no preview class needed
+                if (adminBtn) adminBtn.classList.add('active');
             }
-
+            // Re-render table so column widths / visibility apply correctly
             if (typeof renderTable === 'function') renderTable();
-            setTimeout(function() {
-                if (typeof applyFreezeToTable === 'function') applyFreezeToTable();
-            }, 150);
+            // Re-apply freeze after re-render
+            if (typeof applyFreezeToTable === 'function') {
+                setTimeout(applyFreezeToTable, 60);
+            }
         }
 
         function resetColumnWidths() {
@@ -5961,7 +5843,7 @@ const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
             document.getElementById('previewTableBody').innerHTML = bodyHtml;
         }
 
-        async async function commitUpload() {
+        async function commitUpload() {
             if (!isAdmin) return;
             const sn         = document.getElementById('uploadTargetTab').value;
             const updateDups = document.getElementById('uploadUpdateDuplicates').checked;
@@ -5999,8 +5881,6 @@ const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
                 if (!mapped['No']) mapped['No'] = nextNo;
 
                 try {
-                    // Ensure Condition default for uploaded rows
-                    if (!mapped['Condition'] || mapped['Condition'] === '') mapped['Condition'] = 'SV';
                     const rowForSave = mapToSupabase({ ...mapped }, sn);
 
                     if (status === 'dup' && updateDups) {
@@ -6068,48 +5948,47 @@ const _origToggleAdmin = typeof toggleAdmin === 'function' ? toggleAdmin : null;
         let _freezeCount   = 3;       // freeze first 3 cols (No, Files, Engine)
 
         function toggleFreeze() {
-            if (!isAdmin) return;
             _freezeEnabled = !_freezeEnabled;
-            var btn = document.getElementById('freezeToggleBtn');
+            const btn = document.getElementById('freezeToggleBtn');
             if (btn) {
                 btn.classList.toggle('freeze-on', _freezeEnabled);
-                btn.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze';
+                btn.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze Off';
             }
             applyFreezeToTable();
         }
 
         function setFreezeCount(n) {
-            if (!isAdmin) return;
             _freezeCount = n;
             applyFreezeToTable();
         }
 
         function applyFreezeToTable() {
-            var table = document.getElementById('dataTable');
+            const table = document.getElementById('dataTable');
             if (!table) return;
 
-            // Always clear existing freeze classes first
-            table.querySelectorAll('.col-frozen, .col-freeze-last').forEach(function(el) {
+            // Remove existing freeze classes / styles
+            table.querySelectorAll('.col-frozen, .col-freeze-last').forEach(el => {
                 el.classList.remove('col-frozen', 'col-freeze-last');
-                el.style.left    = '';
-                el.style.zIndex  = '';
+                el.style.left = '';
+                el.style.zIndex = '';
             });
 
-            // Only apply freeze in full admin view (not in preview modes)
-            if (!_freezeEnabled || !isAdmin || _currentViewMode !== 'admin') return;
+            if (!_freezeEnabled || !isAdmin) return;
 
-            var ths = table.querySelectorAll('thead tr th');
-            var n   = Math.min(_freezeCount, ths.length);
-            var leftOffset = 0;
+            // Get actual widths from header cells
+            const ths = table.querySelectorAll('thead tr th');
+            const n   = Math.min(_freezeCount, ths.length);
+            let leftOffset = 0;
 
-            for (var ci = 0; ci < n; ci++) {
-                var th = ths[ci];
-                var w  = th.offsetWidth || 48;
+            for (let ci = 0; ci < n; ci++) {
+                const th = ths[ci];
+                const w  = th.offsetWidth || 48;
 
-                var colCells = table.querySelectorAll(
-                    'thead tr th:nth-child(' + (ci+1) + '), tbody tr td:nth-child(' + (ci+1) + ')'
+                // Freeze this column in all rows
+                const colCells = table.querySelectorAll(
+                    `thead tr th:nth-child(${ci+1}), tbody tr td:nth-child(${ci+1})`
                 );
-                colCells.forEach(function(cell) {
+                colCells.forEach(cell => {
                     cell.classList.add('col-frozen');
                     cell.style.left = leftOffset + 'px';
                     if (ci === n - 1) cell.classList.add('col-freeze-last');
