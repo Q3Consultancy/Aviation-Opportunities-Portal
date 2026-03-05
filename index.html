@@ -1342,10 +1342,15 @@
         /* ── Mobile body padding — maximise usable width ──────────────────── */
         @media (max-width: 520px) {
             body {
-                padding: 6px 4px !important;
+                padding: 0 !important;
+                background: #fff !important;
             }
             .container {
-                border-radius: 10px !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
             }
         }
         @media (max-width: 520px) {
@@ -1376,6 +1381,12 @@
             /* Hide cols 5+ */
             body:not(.admin-mode) .table-container th:nth-child(n+5),
             body:not(.admin-mode) .table-container td:nth-child(n+5) { display: none !important; }
+
+            /* Hide Location filter chip group on mobile */
+            .filter-chip-group[data-col="Location"],
+            #filterRow .filter-chip-group:has([onclick*="Location"]) { display: none !important; }
+            /* Fallback: hide by label text – JS will add data-col attr */
+            .filter-chip-group.filter-col-Location { display: none !important; }
 
             /* td: clip long values with ellipsis — NO overlap */
             body:not(.admin-mode) .table-container td {
@@ -1792,10 +1803,23 @@
 
         /* ── Desktop-preview: show exact non-admin desktop view ────────────
            (no phone frame, full width, but hide all admin controls)         */
-        body.desktop-preview .col-resize-handle        { display: none !important; }
-        body.desktop-preview .table-container .admin-only { display: none !important; }
+        /* Desktop/Mobile preview: hide admin-only controls (public view) */
+        body.desktop-preview .col-resize-handle,
+        body.mobile-preview  .col-resize-handle        { display: none !important; }
+        body.desktop-preview .table-container .admin-only,
+        body.mobile-preview  .table-container .admin-only { display: none !important; }
         body.desktop-preview #saveBtn,
-        body.desktop-preview #addBtn                   { visibility: hidden !important; }
+        body.desktop-preview #addBtn,
+        body.mobile-preview  #saveBtn,
+        body.mobile-preview  #addBtn                   { visibility: hidden !important; }
+        body.desktop-preview #massUploadBtn,
+        body.mobile-preview  #massUploadBtn            { display: none !important; }
+        /* In full admin mode: always show admin controls */
+        body.admin-mode:not(.desktop-preview):not(.mobile-preview) .admin-only { display: inline-flex !important; }
+        /* Frozen cells must NOT block click-to-edit in admin mode */
+        body.admin-mode:not(.desktop-preview):not(.mobile-preview) .col-frozen {
+            pointer-events: auto !important;
+        }
 
         /* Preview label badge */
         .preview-badge {
@@ -2277,23 +2301,32 @@
                 <button class="login-btn" id="loginBtn" onclick="toggleAdmin()" style="display:none;">🔐 Admin Login</button>
             </div>
         </header>
-        <!-- Admin View-Mode Bar -->
+                <!-- Admin View-Mode Bar -->
         <div class="view-mode-bar" id="viewModeBar">
-            <span>View as:</span>
-            <button class="vm-btn" id="vmAdminBtn"   onclick="setViewMode('admin')"   title="Full admin view with edit controls">
+            <span style="font-weight:600;color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.5px;">View&nbsp;Mode:</span>
+            <button class="vm-btn active" id="vmAdminBtn" onclick="setViewMode('admin')" title="Full admin view — edit cells, clone, delete">
                 🔧 Admin
             </button>
-            <button class="vm-btn active" id="vmDesktopBtn" onclick="setViewMode('desktop')" title="What external users see on desktop">
-                🖥️ Desktop (Public)
+            <div style="width:1px;background:#334155;align-self:stretch;margin:0 2px;"></div>
+            <button class="vm-btn" id="vmDesktopBtn" onclick="setViewMode('desktop')" title="Preview: what external users see on desktop">
+                🖥️ Desktop
             </button>
-            <button class="vm-btn" id="vmMobileBtn"  onclick="setViewMode('mobile')"  title="What external users see on mobile (390px)">
-                📱 Mobile (Public)
+            <button class="vm-btn" id="vmMobileBtn" onclick="setViewMode('mobile')" title="Preview: what external users see on mobile (390px)">
+                📱 Mobile
             </button>
-            <span class="preview-badge" id="previewBadge">Mobile Preview</span>
-            <button class="col-reset-btn" onclick="resetColumnWidths()" title="Reset all column widths to defaults">
-                ↺ Reset Column Widths
-            </button>
-            <div style="width:1px;background:#475569;align-self:stretch;margin:0 4px;"></div>
+            <span class="preview-badge" id="previewBadge">Preview</span>
+            <div style="flex:1;"></div>
+            <button class="col-reset-btn" onclick="resetColumnWidths()" title="Reset all column widths to defaults">↺ Reset Widths</button>
+            <div style="width:1px;background:#334155;align-self:stretch;margin:0 4px;"></div>
+            <button class="freeze-toggle-btn" id="freezeToggleBtn" onclick="toggleFreeze()" title="Freeze first N columns so they stay visible when scrolling">🧊 Freeze</button>
+            <select class="freeze-count-select" id="freezeCountSelect" onchange="setFreezeCount(parseInt(this.value))" title="Number of columns to freeze">
+                <option value="1">1 col</option>
+                <option value="2">2 cols</option>
+                <option value="3" selected>3 cols</option>
+                <option value="4">4 cols</option>
+                <option value="5">5 cols</option>
+            </select>
+        </div>
             <button class="freeze-toggle-btn" id="freezeToggleBtn"
                     onclick="toggleFreeze()" title="Freeze first N columns so they stay visible when scrolling">
                 🧊 Freeze Cols
@@ -2871,7 +2904,7 @@
 
                     const hasActive = activeArr.length > 0;
                     // Label chip (acts as clear)
-                    let chipHtml = `<div class="filter-chip-group" title="Click values to toggle filter — multiple selections allowed">`;
+                    let chipHtml = `<div class="filter-chip-group filter-col-${col.replace(/[^a-zA-Z0-9]/g,'-')}" data-col="${col}" title="Click values to toggle filter — multiple selections allowed">`;
                     chipHtml += `<span class="filter-chip-label ${hasActive ? 'chip-label-active' : ''}"
                         onclick="clearSingleFilter('${escapedCol}')"
                         title="${hasActive ? 'Clear '+displayName+' filter' : displayName+' filter'}"
@@ -3132,7 +3165,7 @@
                     html += `<th class="sortable ${sortClass}" onclick="sortTable('${safeCol}')">${getColDisplayName(col)}</th>`;
                 }
             });
-            if (isAdmin) {
+            if (isAdmin && _currentViewMode === 'admin') {
                 html += '<th>Actions</th>';
             }
             html += '</tr></thead><tbody>';
@@ -3326,11 +3359,11 @@
                             html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">${value}</td>`;
                         }
                 });
-                if (isAdmin) {
+                if (isAdmin && _currentViewMode === 'admin') {
                     html += `<td style="white-space:nowrap;">` +
-                        `<button class="edit-btn admin-only"  onclick="editRow(${index})"   title="Edit this row">✏️ Edit</button>` +
-                        `<button class="clone-btn admin-only" onclick="cloneRow(${index})"  title="Clone this row">🔁 Clone</button>` +
-                        `<button class="delete-btn admin-only" onclick="deleteDeal(${index})">🗑️ Delete</button>` +
+                        `<button class="edit-btn"   onclick="editRow(${index})"   title="Edit this row">✏️ Edit</button>` +
+                        `<button class="clone-btn"  onclick="cloneRow(${index})"  title="Clone this row">🔁 Clone</button>` +
+                        `<button class="delete-btn" onclick="deleteDeal(${index})">🗑️ Delete</button>` +
                         `</td>`;
                 }
                 html += '</tr>';
@@ -3378,15 +3411,15 @@
             const sheetName = getSheetName(currentTab);
             const cell = document.querySelector(`td[data-row="${rowIndex}"][data-col-idx="${colIdx}"]`);
             if (!cell) return;
-            
-            const sheetData = data[sheetName] || [];
-            const allColumns = Object.keys(sheetData[0] || {});
-            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+
+            // Use the same column order that renderTable used — stored in window._visibleCols
+            const visibleColumns = window._visibleCols || [];
             const colName = visibleColumns[colIdx];
             if (!colName) return;
-            
-            const currentValue = data[sheetName][rowIndex][colName];
+
+            const currentValue = (data[sheetName] || [])[rowIndex]
+                ? (data[sheetName][rowIndex][colName] !== undefined ? data[sheetName][rowIndex][colName] : '')
+                : '';
 
             const input = document.createElement('input');
             input.type = 'text';
@@ -4859,15 +4892,14 @@ function updateAdminUI(isAdminMode) {
                 if (db) db.classList.add('active');
                 if (mb) mb.classList.remove('active');
             } else {
-                // Login: default to Desktop (Public) preview so admin sees public view
-                document.body.classList.remove('mobile-preview');
-                document.body.classList.add('desktop-preview');
-                _currentViewMode = 'desktop';
+                // Login: default to Admin mode so admin sees all controls
+                document.body.classList.remove('mobile-preview', 'desktop-preview');
+                _currentViewMode = 'admin';
                 const ab = document.getElementById('vmAdminBtn');
                 const db = document.getElementById('vmDesktopBtn');
                 const mb = document.getElementById('vmMobileBtn');
-                if (ab) ab.classList.remove('active');
-                if (db) db.classList.add('active');
+                if (ab) ab.classList.add('active');
+                if (db) db.classList.remove('active');
                 if (mb) mb.classList.remove('active');
                 // Initialise freeze button state
                 const fb = document.getElementById('freezeToggleBtn');
@@ -5177,28 +5209,35 @@ function updateAdminUI(isAdminMode) {
         function setViewMode(mode) {
             _currentViewMode = mode;
             const body = document.body;
+            const adminBtn   = document.getElementById('vmAdminBtn');
             const desktopBtn = document.getElementById('vmDesktopBtn');
             const mobileBtn  = document.getElementById('vmMobileBtn');
 
-            // Remove both preview classes first
+            // Remove all preview classes first
             body.classList.remove('mobile-preview', 'desktop-preview');
 
+            // Reset all button active states
+            [adminBtn, desktopBtn, mobileBtn].forEach(b => b && b.classList.remove('active'));
+
             if (mode === 'mobile') {
+                // Mobile (Public): show what external users see on mobile
                 body.classList.add('mobile-preview');
-                if (desktopBtn) desktopBtn.classList.remove('active');
                 if (mobileBtn)  mobileBtn.classList.add('active');
             } else if (mode === 'desktop') {
-                // desktop-preview: hides admin controls, shows public col layout
+                // Desktop (Public): show what external users see on desktop
                 body.classList.add('desktop-preview');
                 if (desktopBtn) desktopBtn.classList.add('active');
-                if (mobileBtn)  mobileBtn.classList.remove('active');
             } else {
-                // 'admin' – full admin mode (no preview overlay)
-                if (desktopBtn) desktopBtn.classList.add('active');
-                if (mobileBtn)  mobileBtn.classList.remove('active');
+                // 'admin' – full admin mode: all edit controls visible, no preview overlay
+                // body.admin-mode is already set; no preview class needed
+                if (adminBtn) adminBtn.classList.add('active');
             }
             // Re-render table so column widths / visibility apply correctly
             if (typeof renderTable === 'function') renderTable();
+            // Re-apply freeze after re-render
+            if (typeof applyFreezeToTable === 'function') {
+                setTimeout(applyFreezeToTable, 60);
+            }
         }
 
         function resetColumnWidths() {
