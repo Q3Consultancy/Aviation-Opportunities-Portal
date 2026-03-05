@@ -2759,7 +2759,10 @@
             ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
                 if (!data[sheet]) return;
                 data[sheet].forEach(row => {
+                    if (!row) return;
                     if (row['Status']) row['Status'] = normalizeStatus(row['Status']);
+                    // Ensure Condition default on all loaded rows
+                    if (!row['Condition'] || row['Condition'] === null) row['Condition'] = 'SV';
                 });
             });
         }
@@ -2853,6 +2856,10 @@
                         // Inject Team Commission (%) if not present
                         if (!(KEY_COMM_PCT in obj)) {
                             obj[KEY_COMM_PCT] = '';
+                        }
+                        // Inject Condition default 'SV' if column missing from data
+                        if (!('Condition' in obj) || obj['Condition'] === null || obj['Condition'] === undefined || obj['Condition'] === '') {
+                            obj['Condition'] = 'SV';
                         }
                         return obj;
                     });
@@ -3113,6 +3120,42 @@
                     console.warn('⚠️ Supabase fetch failed (using inline data):', e.message);
                 }
                 return;
+            }
+
+            // ── Step 2b: If Supabase wasn't ready yet, register for when it becomes ready ──
+            if (!sbReady) {
+                document.addEventListener('supabaseReady', function _sbDelayLoad() {
+                    document.removeEventListener('supabaseReady', _sbDelayLoad);
+                    // Re-run Supabase fetch now that it's ready
+                    (async () => {
+                        try {
+                            const TABLE_MAP = {
+                                'Engines':'engines','Aircraft Sale':'aircraft_sale',
+                                'Aircraft Lease':'aircraft_lease','Parts':'parts'
+                            };
+                            const freshData = {'Engines':[],'Aircraft Sale':[],'Aircraft Lease':[],'Parts':[]};
+                            for (const [sn, tn] of Object.entries(TABLE_MAP)) {
+                                const r = await window._sb.from(tn).select('*').order('no',{ascending:true});
+                                if (r.error) continue;
+                                freshData[sn] = (r.data||[]).map(row => {
+                                    const m = mapFromSupabase(row, sn);
+                                    m._docId = String(row.id || row.no || '');
+                                    return m;
+                                });
+                            }
+                            const total = Object.values(freshData).reduce((s,a)=>s+a.length,0);
+                            if (total > 0) {
+                                data = freshData;
+                                normalizeAllStatuses();
+                                if (typeof renderFilters==='function') renderFilters();
+                                renderTable();
+                                if (typeof updateStats==='function') updateStats();
+                                if (typeof filterTable==='function') filterTable();
+                                console.log('✅ Supabase delayed load complete');
+                            }
+                        } catch(e) { console.warn('Supabase delayed load failed:', e.message); }
+                    })();
+                });
             }
 
             // ── Step 3: Try data.json for additional/updated data ──
@@ -3502,7 +3545,15 @@
         // Save cell value
         async function saveCell(rowIndex, colName, newValue) {
             const sheetName = getSheetName(currentTab);
-            data[sheetName][rowIndex][colName] = newValue;
+            // Strip commas from numeric fields before storing in memory
+            const _numCols = [KEY_SELLER_PRICE, KEY_COMM_USD, KEY_PRICE,
+                              'Cycles Remaining', 'Total Cycles', 'Total Time'];
+            let _storeVal = newValue;
+            if (_numCols.includes(colName) && _storeVal !== '' && _storeVal !== null) {
+                const _stripped = parseFloat(String(_storeVal).replace(/,/g, ''));
+                if (!isNaN(_stripped)) _storeVal = _stripped;
+            }
+            data[sheetName][rowIndex][colName] = _storeVal;
             // If Seller Price or Commission USD changed manually, recalc
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
@@ -3518,7 +3569,7 @@
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
-                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'no' });
+                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'id' });
                     if (error) throw error;
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
                 } catch (err) {
@@ -3549,7 +3600,7 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const { error } = await window._sb.from(tableName).delete().eq('id', docId);
+                    const { error } = await window._sb.from(tableName).delete().eq('id', parseInt(docId));
                     if (error) throw error;
                     console.log('✅ Deal deleted from Supabase:', docId);
                 } catch (err) {
@@ -3844,18 +3895,19 @@
                 existingRow[key] = val;
             });
 
-            // Recalculate price fields
-            recalcRow(existingRow);
+            // Recalculate price fields (recalcRow needs sheetName + index)
+            const _editIdx = (data[sheetName] || []).indexOf(existingRow);
+            if (_editIdx >= 0) recalcRow(sheetName, _editIdx);
 
-            // Save to Supabase (upsert on 'no')
-            if (window._sbReady && window.supabaseClient) {
+            // Save to Supabase (upsert by id)
+            if (window._sbReady && window._sb) {
                 try {
                     const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
                                  'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
                     if (tbl) {
-                        const mapped = mapToSupabase(existingRow, sheetName);
-                        const { error } = await window.supabaseClient.from(tbl)
-                            .upsert(mapped, { onConflict: 'no' });
+                        const mapped = mapToSupabase({...existingRow}, sheetName);
+                        const { error } = await window._sb.from(tbl)
+                            .upsert(mapped, { onConflict: 'id' });
                         if (error) {
                             console.warn('Supabase update error:', error);
                             showToast('⚠️ Saved locally — sync issue: ' + error.message, '#f59e0b');
@@ -3911,6 +3963,8 @@
                 : 1;
             newRow['No'] = String(nextNo);
             newRow['Files'] = '';
+            // Ensure Condition default for new deals
+            if (!newRow['Condition'] || newRow['Condition'] === '') newRow['Condition'] = 'SV';
 
             // Validate required fields
             const tabFields = TAB_FORM_FIELDS[sheetName] || [];
@@ -4544,6 +4598,25 @@
                 Object.assign(columnWidths, _cwStored);
             } catch(e) {}
             await loadData();
+            // Auto-save to Supabase on tab-hide (prevents data loss if tab closed)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden' && isAdmin && window._sbReady) {
+                    (async () => {
+                        try {
+                            const TM = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
+                                        'Aircraft Lease':'aircraft_lease','Parts':'parts'};
+                            for (const [sn, tn] of Object.entries(TM)) {
+                                const rows = (data[sn]||[]).filter(r => r._docId && !isNaN(r._docId));
+                                if (!rows.length) continue;
+                                await window._sb.from(tn).upsert(
+                                    rows.map(r => mapToSupabase({...r}, sn)),
+                                    { onConflict: 'id' }
+                                );
+                            }
+                        } catch(e) { /* silent best-effort */ }
+                    })();
+                }
+            });
             // Admin access: show login button and open login modal if URL has #admin
             const _p = window.location.pathname;
             const _h = window.location.hash;
@@ -4876,9 +4949,21 @@ function toggleRowSelection(rowIndex, trEl) {
 
         function mapToSupabase(row, sheetName) {
             const out = { deal_data: {} };
+            // Columns that should be stored as raw numbers (strip formatting)
+            const numericKeys = [
+                "Seller's Price \n(USD)", "Team Commission\n(USD)", "Price \n(USD)",
+                "Seller's Price\n(USD)", "Team Commission\n(%)", "Cycles Remaining",
+                "Total Cycles", "Total Time"
+            ];
             for (const [k, v] of Object.entries(row)) {
                 if (k === '_docId') continue;
-                out.deal_data[k] = v;
+                // Strip comma-formatting from numeric fields before storing
+                if (numericKeys.includes(k) && v !== '' && v !== null && v !== undefined) {
+                    const stripped = parseFloat(String(v).replace(/,/g, ''));
+                    out.deal_data[k] = isNaN(stripped) ? v : stripped;
+                } else {
+                    out.deal_data[k] = v;
+                }
             }
             // Keep 'no' as a top-level sortable column
             const noVal = row['No'] || row['no'];
@@ -4894,6 +4979,10 @@ function toggleRowSelection(rowIndex, trEl) {
             const result   = { ...dealData };
             // Ensure No is set
             if (!result['No'] && row.no) result['No'] = String(row.no);
+            // Inject Condition default 'SV' if missing from stored data
+            if (!('Condition' in result) || result['Condition'] === null || result['Condition'] === undefined || result['Condition'] === '') {
+                result['Condition'] = 'SV';
+            }
             return result;
         }
 
@@ -5807,7 +5896,7 @@ function updateAdminUI(isAdminMode) {
             document.getElementById('previewTableBody').innerHTML = bodyHtml;
         }
 
-        async function commitUpload() {
+        async async function commitUpload() {
             if (!isAdmin) return;
             const sn         = document.getElementById('uploadTargetTab').value;
             const updateDups = document.getElementById('uploadUpdateDuplicates').checked;
@@ -5845,6 +5934,8 @@ function updateAdminUI(isAdminMode) {
                 if (!mapped['No']) mapped['No'] = nextNo;
 
                 try {
+                    // Ensure Condition default for uploaded rows
+                    if (!mapped['Condition'] || mapped['Condition'] === '') mapped['Condition'] = 'SV';
                     const rowForSave = mapToSupabase({ ...mapped }, sn);
 
                     if (status === 'dup' && updateDups) {
