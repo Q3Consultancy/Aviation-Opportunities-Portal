@@ -2068,6 +2068,117 @@
             .btn-upload-commit, .btn-upload-cancel { flex: 1; }
         }
 
+        
+        /* ── Multi-select filter chips ─────────────────────────────────────── */
+        .filter-chip-group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 3px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 3px 6px;
+            max-width: 340px;
+        }
+        .filter-chip-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            padding: 2px 5px;
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+            border-radius: 4px;
+        }
+        .filter-chip-label.chip-label-active {
+            color: #dc2626;
+            background: #fee2e2;
+        }
+        .filter-chip-label:hover { background: #f1f5f9; }
+        .filter-chip {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #475569;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .15s;
+            font-weight: 500;
+        }
+        .filter-chip:hover { background: #e0f2fe; border-color: #38bdf8; color: #0369a1; }
+        .filter-chip.chip-active {
+            background: #1e40af;
+            color: #fff;
+            border-color: #1e40af;
+            font-weight: 700;
+        }
+        .filter-chip.chip-active:hover { background: #1e3a8a; }
+
+        /* Active filter indicator in filter row label */
+        .filter-row .filter-chip-group + .filter-chip-group { margin-left: 4px; }
+
+        
+        /* ── Frozen / Sticky columns ───────────────────────────────────────── */
+        .table-container { position: relative; }
+
+        /* Frozen header cells */
+        #dataTable thead th.col-frozen {
+            position: sticky;
+            z-index: 5;
+            background: #1e3a5f;   /* match header bg */
+        }
+        /* Frozen body cells */
+        #dataTable tbody td.col-frozen {
+            position: sticky;
+            z-index: 3;
+            background: #fff;
+        }
+        #dataTable tbody tr:nth-child(even) td.col-frozen { background: #f8fafc; }
+        #dataTable tbody tr.row-selected td.col-frozen     { background: #dbeafe; }
+
+        /* Right-edge shadow on last frozen column */
+        #dataTable th.col-freeze-last,
+        #dataTable td.col-freeze-last {
+            box-shadow: 4px 0 8px -2px rgba(0,0,0,0.15);
+            border-right: 2px solid #3b82f6 !important;
+        }
+
+        /* Freeze toggle button */
+        .freeze-toggle-btn {
+            background: #334155;
+            color: #cbd5e1;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            padding: 4px 11px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .freeze-toggle-btn:hover { background: #475569; color: #f1f5f9; }
+        .freeze-toggle-btn.freeze-on {
+            background: #0369a1;
+            color: #fff;
+            border-color: #0284c7;
+        }
+
+        /* Freeze count selector */
+        .freeze-count-select {
+            background: #1e293b;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            border-radius: 5px;
+            padding: 3px 7px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
         </style>
 
     <!-- ═══════════════════════════════════════════════════
@@ -2182,6 +2293,20 @@
             <button class="col-reset-btn" onclick="resetColumnWidths()" title="Reset all column widths to defaults">
                 ↺ Reset Column Widths
             </button>
+            <div style="width:1px;background:#475569;align-self:stretch;margin:0 4px;"></div>
+            <button class="freeze-toggle-btn" id="freezeToggleBtn"
+                    onclick="toggleFreeze()" title="Freeze first N columns so they stay visible when scrolling">
+                🧊 Freeze Cols
+            </button>
+            <select class="freeze-count-select" id="freezeCountSelect"
+                    onchange="setFreezeCount(parseInt(this.value))"
+                    title="Number of columns to freeze">
+                <option value="1">1 col</option>
+                <option value="2">2 cols</option>
+                <option value="3" selected>3 cols</option>
+                <option value="4">4 cols</option>
+                <option value="5">5 cols</option>
+            </select>
         </div>
 
         <!-- Page subtitle band — not in header -->
@@ -2727,29 +2852,40 @@
                 const escapedCol  = col.replace(/'/g, "\'").replace(/\n/g, "\n");
 
                 if (DROPDOWN_FILTER_COLS.includes(col)) {
-                    // Build sorted unique values from current (non-hidden) rows
+                    // Build sorted unique values
                     const uniqueVals = [...new Set(
                         sheetData
                             .filter(row => !shouldHideRow(row))
                             .map(row => {
                                 let v = (row[col] || '').toString().trim();
-                                // Strip country-code brackets e.g. [USA] → USA
                                 if (col === 'Location') v = v.replace(/^\[|\]$/g, '').replace(/\[([^\]]+)\]/g, '$1').trim();
                                 return v;
                             })
                             .filter(v => v && v !== 'null' && v !== 'undefined' && v !== '')
                     )].sort();
 
-                    let opts = `<option value="">All ${displayName.endsWith('s') ? displayName : displayName + 's'}</option>`;
+                    // Active selections (array)
+                    const activeArr = Array.isArray(columnFilters[col])
+                        ? columnFilters[col]
+                        : (columnFilters[col] ? [columnFilters[col]] : []);
+
+                    const hasActive = activeArr.length > 0;
+                    // Label chip (acts as clear)
+                    let chipHtml = `<div class="filter-chip-group" title="Click values to toggle filter — multiple selections allowed">`;
+                    chipHtml += `<span class="filter-chip-label ${hasActive ? 'chip-label-active' : ''}"
+                        onclick="clearSingleFilter('${escapedCol}')"
+                        title="${hasActive ? 'Clear '+displayName+' filter' : displayName+' filter'}"
+                    >${displayName}${hasActive ? ' ✕' : ''}</span>`;
+
                     uniqueVals.forEach(v => {
-                        const sel = filterValue === v.toLowerCase() ? 'selected' : '';
-                        opts += `<option value="${v.toLowerCase()}" ${sel}>${v}</option>`;
+                        const isActive = activeArr.includes(v.toLowerCase());
+                        chipHtml += `<button class="filter-chip ${isActive ? 'chip-active' : ''}"
+                            onclick="toggleDropdownFilter('${escapedCol}', '${v.replace(/'/g,"\'")}')"
+                            title="${isActive ? 'Remove' : 'Add'} filter: ${v}"
+                        >${v}</button>`;
                     });
-                    html += `<select class="filter-input" id="${filterId}"
-                        style="min-width:140px;cursor:pointer;padding:6px 8px;height:34px;"
-                        onchange="updateColumnFilter('${escapedCol}', this.value)">
-                        ${opts}
-                    </select>`;
+                    chipHtml += `</div>`;
+                    html += chipHtml;
                 } else {
                     html += `<input type="text"
                         class="filter-input"
@@ -2778,9 +2914,29 @@
 
         // Update column filter
         function updateColumnFilter(column, value) {
-            // Normalize \n escape sequences back to real newlines (from HTML attribute escaping)
             const normalizedCol = column.replace(/\\n/g, '\n');
-            columnFilters[normalizedCol] = value.toLowerCase();
+            if (value === '' || value === null || value === undefined) {
+                delete columnFilters[normalizedCol];
+            } else {
+                columnFilters[normalizedCol] = value.toLowerCase();
+            }
+            filterTable();
+        }
+
+        // Toggle a single value in a multi-select filter (chip-style)
+        function toggleDropdownFilter(column, value) {
+            const normalizedCol = column.replace(/\\n/g, '\n');
+            if (!Array.isArray(columnFilters[normalizedCol])) {
+                columnFilters[normalizedCol] = [];
+            }
+            const arr = columnFilters[normalizedCol];
+            const lv  = value.toLowerCase();
+            const idx = arr.indexOf(lv);
+            if (idx === -1) arr.push(lv);
+            else arr.splice(idx, 1);
+            if (arr.length === 0) delete columnFilters[normalizedCol];
+            // Re-render filters to update chip state
+            renderFilters();
             filterTable();
         }
 
@@ -3167,7 +3323,7 @@
                                         `</td>`;
                             }
                         } else {
-                            html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${colIdx}">${value}</td>`;
+                            html += `<td class="${editableClass} ${statusClass}" ${onclick} data-row="${index}" data-col-idx="${colIdx}" data-col="${col}">${value}</td>`;
                         }
                 });
                 if (isAdmin) {
@@ -3181,6 +3337,10 @@
             });
             html += '</tbody>';
             table.innerHTML = html;
+            // Apply column freeze after render (needs real DOM widths via setTimeout)
+            if (isAdmin && typeof applyFreezeToTable === 'function') {
+                setTimeout(applyFreezeToTable, 0);
+            }
         }
 
         // File upload functions
@@ -3824,38 +3984,48 @@
 
         // Filter table
         function filterTable() {
-            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
-            const rows = document.querySelectorAll('#dataTable tbody tr');
-            
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                let showRow = true;
+            const searchTerm = (document.getElementById('searchBox').value || '').toLowerCase().trim();
+            const sheetName  = getSheetName(currentTab);
+            const sheetData  = data[sheetName] || [];
+            const domRows    = document.querySelectorAll('#dataTable tbody tr');
 
-                // Global search
+            domRows.forEach(domRow => {
+                // Get the data-row index this <tr> corresponds to
+                const firstCell = domRow.querySelector('td[data-row]');
+                if (!firstCell) { domRow.style.display = ''; return; }
+                const rowIdx = parseInt(firstCell.getAttribute('data-row'));
+                const row    = sheetData[rowIdx];
+                if (!row) { domRow.style.display = 'none'; return; }
+
+                // ── 1. Global search (across all field values) ──────────────
+                let showRow = true;
                 if (searchTerm) {
-                    const text = row.textContent.toLowerCase();
-                    if (!text.includes(searchTerm)) {
-                        showRow = false;
+                    const rowText = Object.values(row)
+                        .map(v => String(v || '').toLowerCase()).join(' ');
+                    if (!rowText.includes(searchTerm)) showRow = false;
+                }
+
+                // ── 2. Column filters (data-driven, not DOM-driven) ─────────
+                if (showRow) {
+                    for (const [col, filterVal] of Object.entries(columnFilters)) {
+                        if (!filterVal || (Array.isArray(filterVal) && filterVal.length === 0)) continue;
+
+                        const rawVal = String(row[col] || '').toLowerCase().trim();
+
+                        if (Array.isArray(filterVal)) {
+                            // Multi-select: row must match ONE of the selected values
+                            const matched = filterVal.some(fv => rawVal.includes(fv.toLowerCase()));
+                            if (!matched) { showRow = false; break; }
+                        } else {
+                            // Single text filter: substring match
+                            if (!rawVal.includes(filterVal.toLowerCase())) {
+                                showRow = false; break;
+                            }
+                        }
                     }
                 }
 
-                // Column filters - use data-col-idx to look up column name
-                if (showRow && window._visibleCols) {
-                    cells.forEach(cell => {
-                        const colIdxStr = cell.getAttribute('data-col-idx');
-                        if (colIdxStr === null) return;
-                        const colIdx = parseInt(colIdxStr);
-                        const col = window._visibleCols[colIdx];
-                        if (col && columnFilters[col]) {
-                            const cellText = cell.textContent.toLowerCase();
-                            if (!cellText.includes(columnFilters[col])) {
-                                showRow = false;
-                            }
-                        }
-                    });
-                }
-
-                row.style.display = showRow ? '' : 'none';
+                domRow.style.display = showRow ? '' : 'none';
             });
         }
 
@@ -4699,6 +4869,15 @@ function updateAdminUI(isAdminMode) {
                 if (ab) ab.classList.remove('active');
                 if (db) db.classList.add('active');
                 if (mb) mb.classList.remove('active');
+                // Initialise freeze button state
+                const fb = document.getElementById('freezeToggleBtn');
+                if (fb) {
+                    fb.classList.toggle('freeze-on', _freezeEnabled);
+                    fb.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze Off';
+                }
+                // Set freeze count selector default
+                const fc = document.getElementById('freezeCountSelect');
+                if (fc) fc.value = String(_freezeCount);
             }
     ['saveBtn','addBtn','uploadBtn'].forEach(id => {
         const el = document.getElementById(id);
@@ -5620,6 +5799,73 @@ function updateAdminUI(isAdminMode) {
                 else document.getElementById('uploadCommitBtn').disabled = false;
             }, 2000);
         }
+
+        
+        function clearSingleFilter(column) {
+            const normalizedCol = column.replace(/\\n/g, '\n');
+            delete columnFilters[normalizedCol];
+            renderFilters();
+            filterTable();
+        }
+
+        
+        // ── Frozen columns ────────────────────────────────────────────────
+        let _freezeEnabled = true;    // on by default for admin
+        let _freezeCount   = 3;       // freeze first 3 cols (No, Files, Engine)
+
+        function toggleFreeze() {
+            _freezeEnabled = !_freezeEnabled;
+            const btn = document.getElementById('freezeToggleBtn');
+            if (btn) {
+                btn.classList.toggle('freeze-on', _freezeEnabled);
+                btn.textContent = _freezeEnabled ? '🧊 Freeze On' : '🧊 Freeze Off';
+            }
+            applyFreezeToTable();
+        }
+
+        function setFreezeCount(n) {
+            _freezeCount = n;
+            applyFreezeToTable();
+        }
+
+        function applyFreezeToTable() {
+            const table = document.getElementById('dataTable');
+            if (!table) return;
+
+            // Remove existing freeze classes / styles
+            table.querySelectorAll('.col-frozen, .col-freeze-last').forEach(el => {
+                el.classList.remove('col-frozen', 'col-freeze-last');
+                el.style.left = '';
+                el.style.zIndex = '';
+            });
+
+            if (!_freezeEnabled || !isAdmin) return;
+
+            // Get actual widths from header cells
+            const ths = table.querySelectorAll('thead tr th');
+            const n   = Math.min(_freezeCount, ths.length);
+            let leftOffset = 0;
+
+            for (let ci = 0; ci < n; ci++) {
+                const th = ths[ci];
+                const w  = th.offsetWidth || 48;
+
+                // Freeze this column in all rows
+                const colCells = table.querySelectorAll(
+                    `thead tr th:nth-child(${ci+1}), tbody tr td:nth-child(${ci+1})`
+                );
+                colCells.forEach(cell => {
+                    cell.classList.add('col-frozen');
+                    cell.style.left = leftOffset + 'px';
+                    if (ci === n - 1) cell.classList.add('col-freeze-last');
+                });
+
+                leftOffset += w;
+            }
+        }
+
+        // Re-apply freeze after every renderTable()
+        const _origRenderTable = typeof renderTable !== 'undefined' ? renderTable : null;
 
         </script>
 
