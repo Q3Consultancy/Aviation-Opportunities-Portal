@@ -2966,6 +2966,8 @@
                             .map(row => {
                                 let v = (row[col] || '').toString().trim();
                                 if (col === 'Location') v = v.replace(/^\[|\]$/g, '').replace(/\[([^\]]+)\]/g, '$1').trim();
+                                // Normalize Status values so legacy data maps to canonical names
+                                if (col === 'Status' && typeof normalizeStatus === 'function') v = normalizeStatus(v) || v;
                                 return v;
                             })
                             .filter(v => v && v !== 'null' && v !== 'undefined' && v !== '')
@@ -3194,6 +3196,11 @@
 
         // Render table
         function renderTable() {
+            // Preserve scroll position so editing doesn't jump to top
+            const _tc = document.querySelector('.table-container');
+            const _scrollTop  = _tc ? _tc.scrollTop  : 0;
+            const _scrollLeft = _tc ? _tc.scrollLeft : 0;
+
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             const table = document.getElementById('dataTable');
@@ -3205,12 +3212,15 @@
 
             const allColumns = getOrderedColumns(sheetData);
             // Admin: show all. Non-admin: only PUBLIC_COLUMNS
+            // In mobile/desktop preview, always use PUBLIC_COLUMNS (even if admin)
+            // so the preview accurately reflects what public users see.
             let visibleColumns;
-            if (isAdmin) {
+            const _previewMode = (typeof _currentViewMode !== 'undefined') &&
+                                  (_currentViewMode === 'mobile' || _currentViewMode === 'desktop');
+            if (isAdmin && !_previewMode) {
                 visibleColumns = allColumns;
             } else {
-                // Use PUBLIC_COLUMNS directly — don't filter by allColumns so
-                // new columns like 'Condition' show even before any rows have that key
+                // Public view OR admin in preview mode: use PUBLIC_COLUMNS
                 visibleColumns = PUBLIC_COLUMNS[sheetName] || [];
             }
 
@@ -3450,6 +3460,19 @@
             // Apply column freeze after render (needs real DOM widths via setTimeout)
             if (isAdmin && typeof applyFreezeToTable === 'function') {
                 setTimeout(applyFreezeToTable, 0);
+            }
+
+            // Restore scroll position after table rebuild (prevents jump-to-top on cell edit)
+            if (_tc) {
+                requestAnimationFrame(() => {
+                    _tc.scrollTop  = _scrollTop;
+                    _tc.scrollLeft = _scrollLeft;
+                });
+            }
+
+            // Re-apply active column filters after table rebuild
+            if (typeof filterTable === 'function') {
+                filterTable();
             }
         }
 
@@ -4194,28 +4217,46 @@
         // Save function (Admin only)
         async function saveChanges() {
             if (!isAdmin) return;
-            const toast = document.getElementById('saveToast');
+            const toast   = document.getElementById('saveToast');
+            const saveBtn = document.getElementById('saveBtn');
 
             // Count all in-memory records
             let savedCount = 0;
             Object.values(data).forEach(arr => { savedCount += (arr || []).length; });
 
-            // ── Always show success immediately (data is live in-page memory) ──
+            // ── Show button progress state ──
+            if (saveBtn) {
+                saveBtn.textContent = '💾 Saving…';
+                saveBtn.disabled = true;
+                saveBtn.style.opacity = '0.7';
+            }
+
+            // ── Always show immediate feedback (data is live in-page memory) ──
             if (toast) {
-                toast.textContent = '✅ Changes saved (' + savedCount + ' records)';
+                toast.textContent = '💾 Saving ' + savedCount + ' records…';
+                toast.style.background = '#f59e0b';
                 toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3500);
             }
 
             // ── Best-effort background sync to Supabase (never blocks/errors UI) ──
-            if (!window._sbReady && toast) {
+            if (!window._sbReady) {
                 // No DB connection — update the toast to warn
-                setTimeout(() => {
-                    if (toast.classList.contains('show')) {
-                        toast.textContent = '💾 Saved in memory — no database connection';
+                if (toast) {
+                    setTimeout(() => {
+                        toast.textContent = '💾 Saved locally — no database connection';
                         toast.style.background = '#f59e0b';
-                    }
-                }, 400);
+                        toast.classList.add('show');
+                        setTimeout(() => toast.classList.remove('show'), 4000);
+                    }, 500);
+                }
+                // Restore button
+                if (saveBtn) {
+                    setTimeout(() => {
+                        saveBtn.textContent = '💾 Save';
+                        saveBtn.disabled = false;
+                        saveBtn.style.opacity = '';
+                    }, 600);
+                }
             }
             if (window._sbReady) {
                 (async () => {
@@ -4267,9 +4308,39 @@
                         if (insertedCount || updatedCount) {
                             console.log('✅ Supabase sync: ' + insertedCount + ' inserted, ' + updatedCount + ' updated');
                         }
+                        // Show success toast + restore button
+                        const _savedCount2 = savedCount;
+                        const _toast2 = document.getElementById('saveToast');
+                        const _btn2   = document.getElementById('saveBtn');
+                        if (_toast2) {
+                            _toast2.textContent = insertedCount || updatedCount
+                                ? '✅ Synced: ' + (insertedCount + updatedCount) + ' records saved to database'
+                                : '✅ All ' + _savedCount2 + ' records saved';
+                            _toast2.style.background = '#10b981';
+                            _toast2.classList.add('show');
+                            setTimeout(() => _toast2.classList.remove('show'), 5000);
+                        }
+                        if (_btn2) {
+                            _btn2.textContent = '💾 Save';
+                            _btn2.disabled = false;
+                            _btn2.style.opacity = '';
+                        }
                     } catch (err) {
-                        // Network / CORS / RLS error – silent in UI, visible in console
+                        // Network / CORS / RLS error
                         console.warn('Supabase background sync error:', err.message || err);
+                        const _toastErr = document.getElementById('saveToast');
+                        const _btnErr   = document.getElementById('saveBtn');
+                        if (_toastErr) {
+                            _toastErr.textContent = '⚠️ Saved locally — sync error: ' + (err.message || 'unknown');
+                            _toastErr.style.background = '#f59e0b';
+                            _toastErr.classList.add('show');
+                            setTimeout(() => _toastErr.classList.remove('show'), 5000);
+                        }
+                        if (_btnErr) {
+                            _btnErr.textContent = '💾 Save';
+                            _btnErr.disabled = false;
+                            _btnErr.style.opacity = '';
+                        }
                     }
                 })();
             }
