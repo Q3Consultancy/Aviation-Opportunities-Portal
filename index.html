@@ -2528,6 +2528,7 @@
         let rawData = {};
         let data = {};
         let sortColumn = null;
+        let _cellEditing = false;  // true while a cell input editor is open
         let columnOrder = {};   // per-sheet custom column order after drag
         let columnWidths = {};  // per-sheet per-column pixel widths (admin resize)
         let sortDirection = 'asc';
@@ -3079,7 +3080,14 @@
                     normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
-                    if (typeof updateStats === 'function') updateStats();
+                    // Show '…' placeholder for non-admin until Supabase confirms
+                    if (typeof updateStats === 'function') {
+                        if (!isAdmin) {
+                            const _sg = document.getElementById('statsGrid');
+                            const _sn = getSheetName(currentTab);
+                            if (_sg) _sg.innerHTML = '<div class="stat-card"><div class="stat-value" style="font-size:1.4rem;color:#94a3b8;">&#8230;</div><div class="stat-label">Live ' + _sn + ' Opportunities</div></div>';
+                        } else { updateStats(); }
+                    }
                     if (typeof filterTable === 'function') filterTable();
                     console.log('✅ Inline data loaded:', 
                         Object.entries(data).map(([k,v]) => k+':'+v.length).join(', '));
@@ -3203,6 +3211,7 @@
 
         // Render table
         function renderTable() {
+            if (_cellEditing) return; // skip while a cell editor is active
             // Preserve scroll position so editing doesn't jump to top
             const _tc = document.querySelector('.table-container');
             const _scrollTop  = _tc ? _tc.scrollTop  : 0;
@@ -3383,7 +3392,7 @@
                         } else {
                             // No % set — allow manual entry
                             const colIdx = visibleColumns.indexOf(col);
-                            html += `<td class="editable" onclick="editCell(${index}, ${colIdx})" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
+                            html += `<td class="editable" onclick="editCell(${sdIdx}, ${colIdx})" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${colIdx}" title="Click to edit (or set Commission % for auto-calc)">${commDisplay}</td>`;
                         }
                         return;
                     }
@@ -3400,7 +3409,7 @@
                             const _cFull = value ? getConditionDisplay(value).full + ': ' + getConditionDisplay(value).desc : 'Select condition';
                             html += '<td data-row="' + index + '" data-col-idx="' + visibleColumns.indexOf(col) + '" data-col="Condition">' +
                                 '<select class="status-select condition-select" style="min-width:62px;font-size:11px;" ' +
-                                'onchange="saveCell(' + index + ',\'Condition\',this.value);renderTable();" ' +
+                                'onchange="saveCell(' + sdIdx + ',\'Condition\',this.value);" ' +
                                 'title="' + _cFull + '">' +
                                 '<option value="">—</option>' + _copts + '</select></td>';
                         } else {
@@ -3414,7 +3423,7 @@
                     // All columns editable in admin except Files
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
                     const colIdx = visibleColumns.indexOf(col);
-                    const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${index}, ${colIdx})"` : '';
+                    const onclick = isAdmin && col !== 'Files' ? `onclick="editCell(${sdIdx}, ${colIdx})"` : '';
                     
                     let statusClass = '';
                     if (col === 'Status') {
@@ -3425,7 +3434,7 @@
                             const opts = ADMIN_STATUS_OPTIONS;
                             let selOpts = opts.map(o => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`).join('');
                             html += `<td class="${editableClass} ${statusClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
-                                    `<select class="status-select" onchange="saveCell(${index},'Status',this.value);renderTable();" ${isAdmin ? '' : 'disabled'}>` +
+                                    `<select class="status-select" onchange="saveCell(${sdIdx},'Status',this.value);" ${isAdmin ? '' : 'disabled'}>` +
                                     `<option value="">— Select —</option>${selOpts}</select></td>`;
                         } else if (col === 'Status' && !isAdmin) {
                             // Non-admin: show colored status badge
@@ -3441,7 +3450,7 @@
                                 html += `<td class="comments-cell" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
                                         `<textarea class="comments-textarea" spellcheck="true" ` +
                                         `placeholder="Enter comments here" ` +
-                                        `onblur="saveCell(${index},KEY_COMMENTS,this.value)" ` +
+                                        `onblur="saveCell(${sdIdx},KEY_COMMENTS,this.value)" ` +
                                         `title="${commVal || 'Additional information here'}">${commVal || 'Additional information here'}</textarea>` +
                                         `</td>`;
                             } else {
@@ -3525,39 +3534,69 @@
             if (!colName) return;
 
             const currentValue = (data[sheetName] || [])[rowIndex]
-                ? (data[sheetName][rowIndex][colName] !== undefined ? data[sheetName][rowIndex][colName] : '')
+                ? (data[sheetName][rowIndex][colName] !== undefined ? String(data[sheetName][rowIndex][colName]) : '')
                 : '';
+
+            // Block renderTable from firing while the editor is open
+            _cellEditing = true;
 
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'edit-input';
-            // Show raw value (without comma formatting) for editing
-            input.value = currentValue !== null && currentValue !== undefined ? currentValue : '';
-            input.onblur = function() {
-                saveCell(rowIndex, colName, input.value);
-            };
-            input.onkeypress = function(e) {
-                if (e.key === 'Enter') {
-                    saveCell(rowIndex, colName, input.value);
-                }
+            input.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;padding:2px 4px;border:2px solid #6366f1;border-radius:4px;outline:none;background:#fff;color:#1e293b;';
+            input.value = currentValue;
+
+            let _saved = false;
+            function commitEdit() {
+                if (_saved) return;
+                _saved = true;
+                _cellEditing = false;
+                const newVal = input.value;
+                // Restore display value first to avoid blank flash
+                cell.textContent = newVal || currentValue;
+                saveCell(rowIndex, colName, newVal);
+            }
+            function cancelEdit() {
+                if (_saved) return;
+                _saved = true;
+                _cellEditing = false;
+                // Restore original display
+                cell.textContent = currentValue;
+                renderTable(); // full refresh to put back proper HTML
+            }
+
+            input.onblur  = commitEdit;
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+                if (e.key === 'Escape') { e.preventDefault(); input.removeEventListener('blur', commitEdit); input.onblur = null; cancelEdit(); }
             };
 
             cell.innerHTML = '';
             cell.appendChild(input);
+            // Select-all so user can immediately retype or use cursor
             input.focus();
+            input.select();
         }
 
         // Save cell value
         async function saveCell(rowIndex, colName, newValue) {
             const sheetName = getSheetName(currentTab);
-            data[sheetName][rowIndex][colName] = newValue;
+            const sheetData = data[sheetName];
+            if (!sheetData || !sheetData[rowIndex]) {
+                console.warn('saveCell: row', rowIndex, 'not found in', sheetName);
+                return;
+            }
+            // 1. Update in-memory (always immediate)
+            sheetData[rowIndex][colName] = newValue;
             // If Seller Price or Commission USD changed manually, recalc
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
             }
-            renderTable();
+            // 2. Re-render table ONLY after editor is closed (_cellEditing cleared by editCell)
+            //    For dropdowns (Status/Condition) _cellEditing is false so this runs immediately.
+            if (!_cellEditing) renderTable();
 
-            // Persist to Supabase
+            // 3. Persist to Supabase
             if (window._sbReady) {
                 try {
                     const TABLE_MAP = {
@@ -3565,13 +3604,33 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const row       = mapToSupabase({ ...data[sheetName][rowIndex] }, sheetName);
-                    const { error } = await window._sb.from(tableName).upsert(row, { onConflict: 'id' });
-                    if (error) throw error;
-                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue);
+                    const rowSnap   = mapToSupabase({ ...sheetData[rowIndex] }, sheetName);
+                    let   sbResult;
+                    if (rowSnap.id) {
+                        // Existing record — UPDATE by id
+                        sbResult = await window._sb
+                            .from(tableName)
+                            .update({ deal_data: rowSnap.deal_data, no: rowSnap.no })
+                            .eq('id', rowSnap.id);
+                    } else {
+                        // No id yet — INSERT and capture the new id
+                        sbResult = await window._sb
+                            .from(tableName)
+                            .insert(rowSnap)
+                            .select();
+                        if (!sbResult.error && sbResult.data && sbResult.data[0]) {
+                            sheetData[rowIndex]._docId = String(sbResult.data[0].id || '');
+                        }
+                    }
+                    if (sbResult.error) throw sbResult.error;
+                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row id:', rowSnap.id || 'new', ')');
+                    showToast('✅ Saved: ' + colName);
                 } catch (err) {
                     console.warn('Supabase save error (cell):', err.message);
+                    showToast('⚠️ Save error — check console');
                 }
+            } else {
+                console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
             }
         }
 
