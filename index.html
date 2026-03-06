@@ -1335,7 +1335,7 @@
         body:not(.admin-mode) .table-container th:nth-child(3),
         body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
         body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; white-space: nowrap; }   /* Price */
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; }   /* Condition */
         /* Desktop-only extra columns (cols 5-8) */
         body:not(.admin-mode) .table-container th:nth-child(5),
         body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px; min-width: 80px; max-width: 100px; }  /* Condition */
@@ -1445,11 +1445,11 @@
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-            /* Col 4 – Price (USD): wide enough for "$13,900,000" & header label  */
+            /* Col 4 – Condition (Price now hidden for public)  */
             body:not(.admin-mode) .table-container th:nth-child(4),
             body:not(.admin-mode) .table-container td:nth-child(4) {
-                width: 108px !important;
-                min-width: 108px !important;
+                width: 82px !important;
+                min-width: 72px !important;
                 max-width: 108px !important;
                 white-space: nowrap !important;
                 overflow: visible !important;   /* never clip price value */
@@ -1819,10 +1819,10 @@
         body.mobile-preview .table-container td:nth-child(3) {
             width: auto !important; min-width: 70px !important;
         }
-        /* Col 4 – Price (USD)  (108px, fully visible) */
+        /* Col 4 – Condition (82px, replaces Price)  */
         body.mobile-preview .table-container th:nth-child(4),
         body.mobile-preview .table-container td:nth-child(4) {
-            width: 108px !important; min-width: 108px !important; max-width: 108px !important;
+            width: 82px !important; min-width: 72px !important; max-width: 108px !important;
             white-space: nowrap !important;
             overflow: visible !important;
         }
@@ -2683,11 +2683,11 @@
         // row detail card (hover/tap). Condition is shown in the card always.
         // Non-admin TABLE columns (must fit on phone without scrolling)
         const PUBLIC_COLUMNS = {
-            // Web desktop: 8 cols — mobile CSS hides cols 5-8 (≤520 px)
-            'Engines':        ['No','Files','Engine',   'Price \n(USD)','Condition','Cycles Remaining','Location','Status'],
-            'Aircraft Sale':  ['No','Files','Aircraft', 'Price \n(USD)','Condition','Total Cycles',    'Location','Status'],
-            'Aircraft Lease': ['No','Files','Aircraft', 'Price \n(USD)','Condition','Total Cycles',    'Location','Status'],
-            'Parts':          ['No','Files','Part',     'Price \n(USD)','Condition','Location',        'Status']
+            // 7 cols — Price hidden from public; mobile CSS hides cols 5-7
+            'Engines':        ['No','Files','Engine',   'Condition','Cycles Remaining','Location','Status'],
+            'Aircraft Sale':  ['No','Files','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
+            'Aircraft Lease': ['No','Files','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
+            'Parts':          ['No','Files','Part',     'Condition','Location',        'Status']
         };
 
         // Fields shown inside the row detail card (non-admin hover/tap)
@@ -2719,7 +2719,7 @@
             'Parts':         ['No', 'Part', 'Condition', 'Status']
         };
         // Columns that use a dropdown filter (populated from unique data values)
-        const DROPDOWN_FILTER_COLS = ['Location', 'Status'];
+        const DROPDOWN_FILTER_COLS = ['Condition', 'Location', 'Status'];
 
         // ── Status dropdown options ──────────────────────────────────────────
         const STATUS_OPTIONS = [
@@ -2994,10 +2994,14 @@
 
                     uniqueVals.forEach(v => {
                         const isActive = activeArr.includes(v.toLowerCase());
+                        // Condition: show 'SV – Serviceable' style labels
+                        const chipLabel = (col === 'Condition' &&
+                            typeof CONDITION_MAP !== 'undefined' && CONDITION_MAP[v])
+                            ? v + ' – ' + CONDITION_MAP[v].label : v;
                         chipHtml += `<button class="filter-chip ${isActive ? 'chip-active' : ''}"
-                            onclick="toggleDropdownFilter('${escapedCol}', '${v.replace(/'/g,"\'")}')"
-                            title="${isActive ? 'Remove' : 'Add'} filter: ${v}"
-                        >${v}</button>`;
+                            onclick="toggleDropdownFilter('${escapedCol}', '${v.replace(/'/g,"\\'")}')"
+                            title="${isActive ? 'Remove' : 'Add'} filter: ${chipLabel}"
+                        >${chipLabel}</button>`;
                     });
                     chipHtml += `</div>`;
                     html += chipHtml;
@@ -3020,13 +3024,8 @@
                         onmousemove="(function(e){var t=document.getElementById('interestTip');if(t)positionTooltip(e,t);})(event)"
                         onmouseleave="(function(){var t=document.getElementById('interestTip');if(t)t.style.display='none';})()"
                     >🏷️ Place my Interest</button>`;
-            const _mailActive = selectedRows.size > 0 ? 'active' : '';
-            const _mailTitle  = selectedRows.size > 0
-                ? 'Send interest for ' + selectedRows.size + ' selected row(s)'
-                : 'Select one or more rows first';
-            html += `<button id="btnMailSend" class="btn-mail-send ${_mailActive}"
-                        title="${_mailTitle}"
-                        onclick="if(selectedRows.size>0){ openInterestModal(); }">&#x2709;&#xFE0F;</button>`;
+            // Envelope btn removed – btnInterest handles both phases
+            html += '<button id="btnMailSend" style="display:none;" aria-hidden="true"></button>';
             filterRow.innerHTML = html;
         }
 
@@ -4104,7 +4103,7 @@
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-value">${activeRecords}</div>
-                        <div class="stat-label">Total Active Records as of ${todayFormatted}</div>
+                        <div class="stat-label">Total Active ${sheetName} Opportunities</div>
                     </div>
                 `;
             } else {
