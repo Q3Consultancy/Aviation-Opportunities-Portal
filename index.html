@@ -1387,9 +1387,9 @@
                 min-width: 290px !important;
             }
 
-            /* Hide cols 5+ */
-            body:not(.admin-mode) .table-container th:nth-child(n+5),
-            body:not(.admin-mode) .table-container td:nth-child(n+5) { display: none !important; }
+            /* Hide cols 4+ on mobile (shows No, Engine/Aircraft/Part, Files only) */
+            body:not(.admin-mode) .table-container th:nth-child(n+4),
+            body:not(.admin-mode) .table-container td:nth-child(n+4) { display: none !important; }
 
             /* Hide these filter boxes on mobile */
             .filter-chip-group.filter-col-Location,
@@ -1428,24 +1428,24 @@
                 min-width: 42px !important;
                 max-width: 42px !important;
             }
-            /* Col 2 – Files  (52px — fits icon + number) */
+            /* Col 2 – Engine/Aircraft/Part — takes remaining space, text truncated */
             body:not(.admin-mode) .table-container th:nth-child(2),
             body:not(.admin-mode) .table-container td:nth-child(2) {
-                width: 52px !important;
-                min-width: 52px !important;
-                max-width: 52px !important;
-            }
-            /* Col 3 – Engine/Aircraft/Part — takes remaining space, text truncated */
-            body:not(.admin-mode) .table-container th:nth-child(3),
-            body:not(.admin-mode) .table-container td:nth-child(3) {
                 width: auto !important;
                 min-width: 55px !important;
-                max-width: 120px !important;
+                max-width: 160px !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-            /* Col 4 – Condition (Price now hidden for public)  */
+            /* Col 3 – Files (52px — fits icon + number) */
+            body:not(.admin-mode) .table-container th:nth-child(3),
+            body:not(.admin-mode) .table-container td:nth-child(3) {
+                width: 52px !important;
+                min-width: 52px !important;
+                max-width: 52px !important;
+            }
+            /* Col 4 – Condition (hidden on mobile; shown on desktop) */
             body:not(.admin-mode) .table-container th:nth-child(4),
             body:not(.admin-mode) .table-container td:nth-child(4) {
                 width: 82px !important;
@@ -1776,8 +1776,8 @@
         }
 
         /* Hide cols 5+ (admin extras & Actions col) — exactly as real mobile */
-        body.mobile-preview .table-container th:nth-child(n+5),
-        body.mobile-preview .table-container td:nth-child(n+5) {
+        body.mobile-preview .table-container th:nth-child(n+4),
+        body.mobile-preview .table-container td:nth-child(n+4) {
             display: none !important;
         }
 
@@ -1810,14 +1810,15 @@
             width: 42px !important; min-width: 42px !important; max-width: 42px !important;
         }
         /* Col 2 – Files  (52px) */
+        /* Col 2 – Engine/Aircraft/Part (auto, min 70px) */
         body.mobile-preview .table-container th:nth-child(2),
         body.mobile-preview .table-container td:nth-child(2) {
-            width: 52px !important; min-width: 52px !important; max-width: 52px !important;
+            width: auto !important; min-width: 70px !important; max-width: 160px !important;
         }
-        /* Col 3 – Engine/Aircraft/Part  (auto, min 70px) */
+        /* Col 3 – Files (52px) */
         body.mobile-preview .table-container th:nth-child(3),
         body.mobile-preview .table-container td:nth-child(3) {
-            width: auto !important; min-width: 70px !important;
+            width: 52px !important; min-width: 52px !important; max-width: 52px !important;
         }
         /* Col 4 – Condition (82px, replaces Price)  */
         body.mobile-preview .table-container th:nth-child(4),
@@ -2683,11 +2684,11 @@
         // row detail card (hover/tap). Condition is shown in the card always.
         // Non-admin TABLE columns (must fit on phone without scrolling)
         const PUBLIC_COLUMNS = {
-            // 7 cols — Price hidden from public; mobile CSS hides cols 5-7
-            'Engines':        ['No','Files','Engine',   'Condition','Cycles Remaining','Location','Status'],
-            'Aircraft Sale':  ['No','Files','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
-            'Aircraft Lease': ['No','Files','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
-            'Parts':          ['No','Files','Part',     'Condition','Location',        'Status']
+            // 7 cols — Price hidden from public; mobile CSS hides cols 4+ (shows No, Engine, Files)
+            'Engines':        ['No','Engine',   'Files','Condition','Cycles Remaining','Location','Status'],
+            'Aircraft Sale':  ['No','Aircraft', 'Files','Condition','Total Cycles',    'Location','Status'],
+            'Aircraft Lease': ['No','Aircraft', 'Files','Condition','Total Cycles',    'Location','Status'],
+            'Parts':          ['No','Part',     'Files','Condition','Location',        'Status']
         };
 
         // Fields shown inside the row detail card (non-admin hover/tap)
@@ -4103,7 +4104,7 @@
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-value">${activeRecords}</div>
-                        <div class="stat-label">Total Active ${sheetName} Opportunities</div>
+                        <div class="stat-label">Live ${sheetName} Opportunities</div>
                     </div>
                 `;
             } else {
@@ -4181,6 +4182,14 @@
         }
 
         // Export to CSV
+        
+        // ── CSV export column sets (no Price, no Files) ─────────────────
+        const CSV_EXPORT_COLUMNS = {
+            'Engines':        ['No','Engine',   'Condition','Cycles Remaining','Location','Status'],
+            'Aircraft Sale':  ['No','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
+            'Aircraft Lease': ['No','Aircraft', 'Condition','Total Cycles',    'Location','Status'],
+            'Parts':          ['No','Part',     'Condition','Location',        'Status']
+        };
         function exportToCSV() {
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
@@ -4190,15 +4199,18 @@
                 return;
             }
 
-            const allColumns = getOrderedColumns(sheetData);
-            const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
-            const visibleColumns = allColumns.filter(col => !hiddenCols.includes(col));
+            // Use defined CSV columns (no Price, no Files) for all users
+            const csvCols = CSV_EXPORT_COLUMNS[sheetName] || (() => {
+                const allColumns = getOrderedColumns(sheetData);
+                const hiddenCols = isAdmin ? [] : (HIDDEN_COLUMNS[sheetName] || []);
+                return allColumns.filter(col => !hiddenCols.includes(col));
+            })();
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
 
-            let csv = visibleColumns.join(',') + '\n';
+            let csv = csvCols.join(',') + '\n';
             filteredData.forEach(row => {
-                const values = visibleColumns.map(col => {
+                const values = csvCols.map(col => {
                     const value = row[col] !== null && row[col] !== undefined ? row[col] : '';
                     return `"${value.toString().replace(/"/g, '""')}"`;
                 });
