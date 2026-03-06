@@ -2766,6 +2766,12 @@
             const validStatuses = ['Buyer Request','Seller Request','Lessor Request','Lessee Request',
                                    'Buyer Evaluation','Negotiation','Financial Closing','Closed'];
             if (validStatuses.includes(v)) return v;
+            // Catch-all: any remaining 'buyer *' → Buyer Request,
+            //            any remaining 'seller *' → Seller Request
+            if (vl.startsWith('buyer')) return 'Buyer Request';
+            if (vl.startsWith('seller')) return 'Seller Request';
+            if (vl.startsWith('lessor')) return 'Lessor Request';
+            if (vl.startsWith('lessee')) return 'Lessee Request';
             return v;
         }
 
@@ -3110,6 +3116,7 @@
                             sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
                         }
                         data = freshData;
+                        normalizeAllStatuses();
                         if (typeof renderFilters === 'function') renderFilters();
                         renderTable();
                         if (typeof updateStats === 'function') updateStats();
@@ -4151,8 +4158,15 @@
                         const rawVal = String(row[col] || '').toLowerCase().trim();
 
                         if (Array.isArray(filterVal)) {
-                            // Multi-select: row must match ONE of the selected values
-                            const matched = filterVal.some(fv => rawVal.includes(fv.toLowerCase()));
+                            // Multi-select: use exact match for dropdown/enum columns (Status, Location)
+                            // Use substring match for free-text columns
+                            const isDropdownCol = (typeof DROPDOWN_FILTER_COLS !== 'undefined') && DROPDOWN_FILTER_COLS.includes(col);
+                            const matched = filterVal.some(fv => {
+                                const fvl = fv.toLowerCase();
+                                return isDropdownCol
+                                    ? rawVal === fvl          // exact match for enum columns
+                                    : rawVal.includes(fvl);   // substring for free-text
+                            });
                             if (!matched) { showRow = false; break; }
                         } else {
                             // Single text filter: substring match
