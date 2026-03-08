@@ -1320,42 +1320,47 @@
         /* Non-admin desktop: sensible max width so 4 cols look proportional */
         /* ── Non-admin table layout ─────────────────────────────────── */
         body:not(.admin-mode) .table-container {
-            max-width: 1040px;   /* wider so Engine column breathes */
+            max-width: 1100px;   /* wider: Engine + Cycles Remaining both get room */
         }
         body:not(.admin-mode) .table-container table {
             table-layout: fixed;
             width: 100%;
             min-width: unset;
         }
-        /* Ensure TH headers are always fully visible */
+        /* Ensure ALL TH headers are always fully visible — this rule uses !important
+           to guarantee overflow:visible wins over any nth-child inherited overflow */
         body:not(.admin-mode) .table-container th {
-            white-space: nowrap;
-            overflow: visible;
+            white-space: nowrap !important;
+            overflow: visible !important;
         }
-        /* Desktop 7-col order: No | Engine/Asset | Condition | Cycles | Location | Files | Status */
-        /* Col 1 — No: fixed narrow */
-        body:not(.admin-mode) .table-container th:nth-child(1),
-        body:not(.admin-mode) .table-container td:nth-child(1) { width: 40px;  min-width: 36px;  max-width: 46px;  white-space: nowrap; overflow: hidden; }
+        /* Desktop column order: No(1) | Engine/Asset(2) | Condition(3) | Cycles(4) | Location(5) | Files(6) | Status(7) */
+        /* IMPORTANT: TH rules always use overflow:visible so header text is never clipped.
+           TD rules use overflow:hidden + ellipsis to truncate long cell values. */
 
-        /* Col 2 — Engine / Aircraft / Part: WIDEST column, absorbs all spare space */
-        body:not(.admin-mode) .table-container th:nth-child(2) { width: auto; min-width: 140px; overflow: visible; white-space: nowrap; }
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: auto; min-width: 140px; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Col 1 — No */
+        body:not(.admin-mode) .table-container th:nth-child(1) { width: 40px;  min-width: 36px;  max-width: 46px;  white-space: nowrap; overflow: visible; }
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 40px;  min-width: 36px;  max-width: 46px;  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Col 2 — Engine / Aircraft / Part: WIDEST column */
+        body:not(.admin-mode) .table-container th:nth-child(2) { width: auto;  min-width: 140px; overflow: visible; white-space: nowrap; }
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: auto;  min-width: 140px; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Col 3 — Condition */
-        body:not(.admin-mode) .table-container th:nth-child(3),
-        body:not(.admin-mode) .table-container td:nth-child(3) { width: 80px;  min-width: 70px;  max-width: 96px;  white-space: nowrap; overflow: hidden; }
+        body:not(.admin-mode) .table-container th:nth-child(3) { width: 88px;  min-width: 80px;  overflow: visible; white-space: nowrap; }
+        body:not(.admin-mode) .table-container td:nth-child(3) { width: 88px;  min-width: 80px;  max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* Col 4 — Cycles Remaining / Total Cycles */
-        body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 88px;  min-width: 76px;  max-width: 104px; white-space: nowrap; overflow: hidden; }
+        /* Col 4 — Cycles Remaining / Total Cycles
+           Header "Cycles Remaining" needs ~120px to show without clipping */
+        body:not(.admin-mode) .table-container th:nth-child(4) { width: 120px; min-width: 120px; overflow: visible; white-space: nowrap; }
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 120px; min-width: 100px; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Col 5 — Location */
-        body:not(.admin-mode) .table-container th:nth-child(5),
-        body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px;  min-width: 78px;  max-width: 110px; white-space: nowrap; overflow: hidden; }
+        body:not(.admin-mode) .table-container th:nth-child(5) { width: 92px;  min-width: 82px;  overflow: visible; white-space: nowrap; }
+        body:not(.admin-mode) .table-container td:nth-child(5) { width: 92px;  min-width: 82px;  max-width: 112px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* Col 6 — Files: narrow icon+count column */
-        body:not(.admin-mode) .table-container th:nth-child(6),
-        body:not(.admin-mode) .table-container td:nth-child(6) { width: 40px;  min-width: 36px;  max-width: 48px;  white-space: nowrap; overflow: hidden; text-align: center; }
+        /* Col 6 — Files: "Files" header + sort arrow needs ~54px */
+        body:not(.admin-mode) .table-container th:nth-child(6) { width: 54px;  min-width: 54px;  overflow: visible; white-space: nowrap; text-align: center; }
+        body:not(.admin-mode) .table-container td:nth-child(6) { width: 54px;  min-width: 50px;  max-width: 64px;  overflow: hidden; text-align: center; }
 
         /* Status column — ALWAYS the LAST column in PUBLIC_COLUMNS for all tabs.
            Engines/Aircraft have 7 cols (Status=col7); Parts has 6 cols (Status=col6).
@@ -1384,34 +1389,7 @@
             }
         }
         @media (max-width: 767px) {
-            /*
-             * Mobile layout goals:
-             *  Col 1  No        — short number, fully visible, never clipped
-             *  Col 2  Files     — icon + count, fully visible
-             *  Col 3  Engine/Aircraft/Part — remaining space, scrollable if needed
-             *  Col 4  Price USD — "Price (USD)" on ONE line, value on next
-             *  Cols 5+ hidden on mobile
-             *  No text overlap — overflow:hidden + ellipsis on td
-             *  Horizontal scroll on the container if content is wider than screen
-             */
-
-            /* Scrollable container — no clipping */
-            body:not(.admin-mode) .table-container {
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch !important;
-            }
-
-            body:not(.admin-mode) .table-container table {
-                table-layout: fixed !important;
-                /* Total = 42 + 52 + auto + 90 ≈ 290px minimum on any phone */
-                width: 100% !important;
-                min-width: 290px !important;
-            }
-
-            /* Mobile cols: JS renders only MOBILE_PUBLIC_COLUMNS (3 cols) so no CSS hide needed */
-            /* The nth-child rules below ensure correct sizing for those 3 cols */
-
-            /* ── Mobile filter row: stack Condition + Status vertically, left-aligned ── */
+            /* ── Mobile filter row: stack Condition + Status vertically ── */
             #filterRow {
                 flex-direction: column !important;
                 flex-wrap: wrap !important;
@@ -1419,11 +1397,9 @@
                 overflow-x: visible !important;
                 gap: 4px !important;
             }
-
-            /* Hide ALL text-input filter boxes on mobile (No, Engine/Part/Aircraft, ESN) */
+            /* Hide ALL text-input filter boxes (No, Engine, ESN text inputs) */
             #filterRow .filter-input-wrap { display: none !important; }
-
-            /* Hide unwanted chip groups on mobile */
+            /* Hide chip groups not needed on mobile */
             .filter-chip-group.filter-col-Location,
             .filter-chip-group.filter-col-Date-Of-Manufacture,
             .filter-chip-group.filter-col-Date-of-Manufacture,
@@ -1437,78 +1413,81 @@
             .filter-chip-group.filter-col-ESN,
             .filter-col-Price--n-USD-,
             .filter-col-Price--USD-,
-            #filterRow input.filter-input[id*="filter-Price"],
-            #filterRow input.filter-input[id*="filter-Date"],
-            #filterRow input.filter-input[id*="filter-Total-Cycles"],
             #filterRow .filter-input-wrap.filter-col-Location,
             #filterRow .filter-input-wrap.filter-col-Date-Of-Manufacture,
             #filterRow .filter-input-wrap.filter-col-Total-Cycles,
             #filterRow .filter-input-wrap.filter-col-Date-Received { display: none !important; }
-
-            /* Keep Condition + Status chip groups visible and aligned */
+            /* Keep Condition + Status visible and left-aligned */
             .filter-chip-group.filter-col-Condition,
             .filter-chip-group.filter-col-Status {
                 display: inline-flex !important;
                 width: auto !important;
                 max-width: 100% !important;
                 margin-left: 0 !important;
-                box-sizing: border-box !important;
             }
 
-            /* td: clip long values with ellipsis — NO overlap */
-            body:not(.admin-mode) .table-container td {
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
+            /* ── Table: no horizontal scroll, 3-col fixed layout ── */
+            body:not(.admin-mode) .table-container {
+                overflow-x: hidden !important;
+                -webkit-overflow-scrolling: touch !important;
             }
-            /* th: sort arrows always visible */
+            body:not(.admin-mode) .table-container table {
+                table-layout: fixed !important;
+                width: 100% !important;
+                min-width: unset !important;
+            }
+
+            /* ── ALL TH headers always visible ── */
             body:not(.admin-mode) .table-container th {
                 white-space: nowrap !important;
                 overflow: visible !important;
                 text-overflow: clip !important;
             }
-
-            /* Col 1 – No  (42px — fits "88" with sort arrow) */
-            body:not(.admin-mode) .table-container th:nth-child(1),
-            body:not(.admin-mode) .table-container td:nth-child(1) {
-                width: 42px !important;
-                min-width: 42px !important;
-                max-width: 42px !important;
-            }
-            /* Col 2 – Engine/Aircraft/Part — takes remaining space, text truncated */
-            body:not(.admin-mode) .table-container th:nth-child(2),
-            body:not(.admin-mode) .table-container td:nth-child(2) {
-                width: auto !important;
-                min-width: 55px !important;
-                max-width: 160px !important;
+            /* TD cells clip with ellipsis */
+            body:not(.admin-mode) .table-container td {
+                white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
+            }
+
+            /* ── 3-column widths: No | Engine | Files ── */
+            /* Col 1 — No */
+            body:not(.admin-mode) .table-container th:nth-child(1),
+            body:not(.admin-mode) .table-container td:nth-child(1) {
+                width: 40px !important; min-width: 40px !important; max-width: 42px !important;
+            }
+            /* Col 2 — Engine/Aircraft/Part: absorbs remaining width */
+            body:not(.admin-mode) .table-container th:nth-child(2) {
+                width: auto !important; min-width: 80px !important;
+                overflow: visible !important; white-space: nowrap !important;
+            }
+            body:not(.admin-mode) .table-container td:nth-child(2) {
+                width: auto !important; min-width: 80px !important;
+                overflow: hidden !important; text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-            /* Col 3 – Files (52px — fits icon + number) */
+            /* Col 3 — Files: fixed 52px */
             body:not(.admin-mode) .table-container th:nth-child(3),
             body:not(.admin-mode) .table-container td:nth-child(3) {
-                width: 52px !important;
-                min-width: 52px !important;
-                max-width: 52px !important;
+                width: 52px !important; min-width: 52px !important; max-width: 56px !important;
+                text-align: center !important; overflow: visible !important;
             }
-            /* Col 4+ — hidden on mobile (backup CSS; JS renders 3 cols via MOBILE_PUBLIC_COLUMNS) */
+            /* Hide col 4 and beyond (backup; JS renders only 3 cols on mobile) */
             body:not(.admin-mode) .table-container th:nth-child(n+4),
             body:not(.admin-mode) .table-container td:nth-child(n+4) {
                 display: none !important;
             }
 
-            /* ── Bulletproof column hiding by data-col name ─────────────────
-               Hides Condition/Cycles/Location/Status cells by name, regardless
-               of their nth-child position. Catches any JS detection edge-cases. */
-            body:not(.admin-mode) .table-container [data-col="Condition"],
-            body:not(.admin-mode) .table-container [data-col="Cycles Remaining"],
-            body:not(.admin-mode) .table-container [data-col="Total Cycles"],
-            body:not(.admin-mode) .table-container [data-col="Location"],
-            body:not(.admin-mode) .table-container [data-col="Status"] {
+            /* ── BULLETPROOF: hide by data-col attribute name ──────────────
+               Works even if JS uses PUBLIC_COLUMNS instead of MOBILE_PUBLIC_COLUMNS.
+               These override any nth-child width or display rules above. */
+            body:not(.admin-mode) .table-container td[data-col="Condition"],
+            body:not(.admin-mode) .table-container td[data-col="Cycles Remaining"],
+            body:not(.admin-mode) .table-container td[data-col="Total Cycles"],
+            body:not(.admin-mode) .table-container td[data-col="Location"],
+            body:not(.admin-mode) .table-container td[data-col="Status"] {
                 display: none !important;
             }
-            /* TH equivalents (headers use data-col-key) */
             body:not(.admin-mode) .table-container th[data-col-key="Condition"],
             body:not(.admin-mode) .table-container th[data-col-key="Cycles Remaining"],
             body:not(.admin-mode) .table-container th[data-col-key="Total Cycles"],
@@ -1516,48 +1495,34 @@
             body:not(.admin-mode) .table-container th[data-col-key="Status"] {
                 display: none !important;
             }
-
-            /* ── Force Files column (col 3 in mobile) to always show ────────── */
-            body:not(.admin-mode) .table-container [data-col="Files"] {
-                display: table-cell !important;
-            }
+            /* Always show Files column regardless of its nth-child position */
+            body:not(.admin-mode) .table-container td[data-col="Files"],
             body:not(.admin-mode) .table-container th[data-col-key="Files"] {
                 display: table-cell !important;
+                width: 52px !important; min-width: 52px !important;
+                text-align: center !important;
             }
-
-            /* ── No horizontal scroll — 3-col layout fits any phone screen ── */
-            body:not(.admin-mode) .table-container {
-                overflow-x: hidden !important;
-            }
-            body:not(.admin-mode) .table-container table {
-                min-width: unset !important;
-                width: 100% !important;
-            }
-
-            /* ── Column widths for 3-col mobile view ──────────────────────── */
-            /* Col 1 — No: fixed 40px */
-            body:not(.admin-mode) .table-container th:nth-child(1),
-            body:not(.admin-mode) .table-container td:nth-child(1) {
-                width: 40px !important; min-width: 40px !important; max-width: 40px !important;
-            }
-            /* Col 2 — Engine/Aircraft/Part: takes all remaining space */
-            body:not(.admin-mode) .table-container th:nth-child(2),
-            body:not(.admin-mode) .table-container td:nth-child(2) {
-                width: auto !important; min-width: 80px !important;
-                overflow: hidden !important; text-overflow: ellipsis !important;
-                white-space: nowrap !important;
-            }
-            /* Col 3 — Files: fixed 52px (icon + count) */
-            body:not(.admin-mode) .table-container th:nth-child(3),
-            body:not(.admin-mode) .table-container td:nth-child(3) {
-                width: 52px !important; min-width: 52px !important; max-width: 52px !important;
-                text-align: center !important; overflow: visible !important;
-            }
-            /* TH overflow always visible so header text never clips */
-            body:not(.admin-mode) .table-container th {
-                overflow: visible !important;
-                white-space: nowrap !important;
-            }
+        }
+        /* ── Admin "Mobile Preview" mode: same column hiding as real mobile ──
+           When admin clicks the Mobile Preview button, body.mobile-preview is added.
+           Apply the same 3-col layout so admin sees exactly what non-admin sees. */
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Condition"],
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Cycles Remaining"],
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Total Cycles"],
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Location"],
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Status"] {
+            display: none !important;
+        }
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Condition"],
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Cycles Remaining"],
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Total Cycles"],
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Location"],
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Status"] {
+            display: none !important;
+        }
+        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Files"],
+        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Files"] {
+            display: table-cell !important;
         }
         /* Status column desktop fallback — covers both col-6 (Parts) and col-7 (other tabs) */
         body:not(.admin-mode) .table-container td:nth-child(6):last-child,
@@ -2391,7 +2356,36 @@
             border-right: 2px solid #3b82f6 !important;
         }
 
-        </style>
+        
+        /* ── Last Updated Bar ─────────────────────────────────────────── */
+        .last-updated-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            margin-top: 6px;
+            background: #f0f4fa;
+            border: 1px solid #d0daea;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #5a6a80;
+        }
+        .last-updated-label {
+            font-weight: 600;
+            color: #3a5080;
+            white-space: nowrap;
+        }
+        .last-updated-time {
+            color: #2d74c4;
+            font-family: monospace;
+        }
+        @media (max-width: 767px) {
+            .last-updated-bar {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+        }
+</style>
 
     <!-- ═══════════════════════════════════════════════════
          SUPABASE CONFIGURATION
@@ -2564,6 +2558,11 @@
                 <table id="dataTable">
                     <!-- Table will be populated by JavaScript -->
                 </table>
+            </div>
+
+            <div class="last-updated-bar" id="lastUpdatedBar">
+                <span class="last-updated-label">🕐 Last Updated:</span>
+                <span class="last-updated-time" id="lastUpdatedTime">Loading…</span>
             </div>
         </div>
 
@@ -3226,6 +3225,7 @@
                         } else { updateStats(); }
                     }
                     if (typeof filterTable === 'function') filterTable();
+                    updateLastUpdated();
                     console.log('✅ Inline data loaded:', 
                         Object.entries(data).map(([k,v]) => k+':'+v.length).join(', '));
                 } catch(e) {
@@ -3266,6 +3266,7 @@
                         renderTable();
                         if (typeof updateStats === 'function') updateStats();
                         if (typeof filterTable === 'function') filterTable();
+                        updateLastUpdated();
                         console.log('✅ Supabase live data loaded');
                         if (typeof showToast === 'function') showToast('✅ Live data loaded from Supabase');
                     } else {
@@ -3302,6 +3303,7 @@
                     renderTable();
                     if (typeof updateStats === 'function') updateStats();
                     if (typeof filterTable === 'function') filterTable();
+                    updateLastUpdated();
                     console.log('✅ data.json loaded:', totalRows, 'rows');
                 }
             } catch(e) {
@@ -3347,6 +3349,21 @@
         }
 
         // Render table
+        
+        // ── Last Updated Timestamp ─────────────────────────────────────────
+        function updateLastUpdated() {
+            const el = document.getElementById('lastUpdatedTime');
+            if (!el) return;
+            const now = new Date();
+            // Format: "08 Mar 2026, 14:32:05"
+            const opts = {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
+            };
+            el.textContent = now.toLocaleString('en-GB', opts);
+        }
+
         function renderTable() {
             if (_cellEditing) return; // skip while a cell editor is active
             // Preserve scroll position so editing doesn't jump to top
@@ -4300,6 +4317,8 @@
                 const _lbl = _tabLabels[tab] || 'Entry';
                 _addBtn.textContent = '➕ Add ' + _lbl;
             }
+    
+            updateLastUpdated();
         }
 
         // Update statistics
