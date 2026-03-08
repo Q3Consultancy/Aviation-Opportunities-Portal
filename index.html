@@ -1370,7 +1370,7 @@
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
         
         /* ── Mobile body padding — maximise usable width ──────────────────── */
-        @media (max-width: 520px) {
+        @media (max-width: 767px) {
             body {
                 padding: 0 !important;
                 background: #fff !important;
@@ -1383,7 +1383,7 @@
                 width: 100% !important;
             }
         }
-        @media (max-width: 520px) {
+        @media (max-width: 767px) {
             /*
              * Mobile layout goals:
              *  Col 1  No        — short number, fully visible, never clipped
@@ -1492,11 +1492,71 @@
                 min-width: 52px !important;
                 max-width: 52px !important;
             }
-            /* Col 4+ — hidden on mobile (JS renders only 3 cols via MOBILE_PUBLIC_COLUMNS,
-               but CSS ensures any stray col-4+ is not visible) */
+            /* Col 4+ — hidden on mobile (backup CSS; JS renders 3 cols via MOBILE_PUBLIC_COLUMNS) */
             body:not(.admin-mode) .table-container th:nth-child(n+4),
             body:not(.admin-mode) .table-container td:nth-child(n+4) {
                 display: none !important;
+            }
+
+            /* ── Bulletproof column hiding by data-col name ─────────────────
+               Hides Condition/Cycles/Location/Status cells by name, regardless
+               of their nth-child position. Catches any JS detection edge-cases. */
+            body:not(.admin-mode) .table-container [data-col="Condition"],
+            body:not(.admin-mode) .table-container [data-col="Cycles Remaining"],
+            body:not(.admin-mode) .table-container [data-col="Total Cycles"],
+            body:not(.admin-mode) .table-container [data-col="Location"],
+            body:not(.admin-mode) .table-container [data-col="Status"] {
+                display: none !important;
+            }
+            /* TH equivalents (headers use data-col-key) */
+            body:not(.admin-mode) .table-container th[data-col-key="Condition"],
+            body:not(.admin-mode) .table-container th[data-col-key="Cycles Remaining"],
+            body:not(.admin-mode) .table-container th[data-col-key="Total Cycles"],
+            body:not(.admin-mode) .table-container th[data-col-key="Location"],
+            body:not(.admin-mode) .table-container th[data-col-key="Status"] {
+                display: none !important;
+            }
+
+            /* ── Force Files column (col 3 in mobile) to always show ────────── */
+            body:not(.admin-mode) .table-container [data-col="Files"] {
+                display: table-cell !important;
+            }
+            body:not(.admin-mode) .table-container th[data-col-key="Files"] {
+                display: table-cell !important;
+            }
+
+            /* ── No horizontal scroll — 3-col layout fits any phone screen ── */
+            body:not(.admin-mode) .table-container {
+                overflow-x: hidden !important;
+            }
+            body:not(.admin-mode) .table-container table {
+                min-width: unset !important;
+                width: 100% !important;
+            }
+
+            /* ── Column widths for 3-col mobile view ──────────────────────── */
+            /* Col 1 — No: fixed 40px */
+            body:not(.admin-mode) .table-container th:nth-child(1),
+            body:not(.admin-mode) .table-container td:nth-child(1) {
+                width: 40px !important; min-width: 40px !important; max-width: 40px !important;
+            }
+            /* Col 2 — Engine/Aircraft/Part: takes all remaining space */
+            body:not(.admin-mode) .table-container th:nth-child(2),
+            body:not(.admin-mode) .table-container td:nth-child(2) {
+                width: auto !important; min-width: 80px !important;
+                overflow: hidden !important; text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
+            /* Col 3 — Files: fixed 52px (icon + count) */
+            body:not(.admin-mode) .table-container th:nth-child(3),
+            body:not(.admin-mode) .table-container td:nth-child(3) {
+                width: 52px !important; min-width: 52px !important; max-width: 52px !important;
+                text-align: center !important; overflow: visible !important;
+            }
+            /* TH overflow always visible so header text never clips */
+            body:not(.admin-mode) .table-container th {
+                overflow: visible !important;
+                white-space: nowrap !important;
             }
         }
         /* Status column desktop fallback — covers both col-6 (Parts) and col-7 (other tabs) */
@@ -1700,7 +1760,7 @@
             pointer-events: auto;
         }
         /* Mobile: centred floating card, wide, not cut off */
-        @media (max-width: 520px) {
+        @media (max-width: 767px) {
             #rowDetailCard {
                 min-width: 0;
                 max-width: calc(100vw - 32px) !important;
@@ -3315,8 +3375,13 @@
             } else {
                 // Public view OR admin in preview mode: use PUBLIC_COLUMNS
                 // On narrow screens (mobile), use only 3-col slice
+                // Robust mobile detection: prefer matchMedia (CSS-consistent),
+                // fall back to innerWidth. Threshold 768px covers all phones & phablets.
+                const _mq = (typeof window.matchMedia === 'function')
+                    ? window.matchMedia('(max-width: 767px)').matches
+                    : (window.innerWidth <= 767);
                 const _isMobileView = (_currentViewMode === 'mobile') ||
-                    (!_previewMode && typeof window !== 'undefined' && window.innerWidth <= 520);
+                    (!_previewMode && _mq);
                 visibleColumns = (_isMobileView
                     ? (MOBILE_PUBLIC_COLUMNS[sheetName] || [])
                     : (PUBLIC_COLUMNS[sheetName] || []));
@@ -4880,6 +4945,18 @@
                     closeInterestModal();
                 }
             });
+
+            // ── Re-render on resize / rotate so mobile columns update correctly ──
+            let _resizeTimer = null;
+            function _onResize() {
+                clearTimeout(_resizeTimer);
+                _resizeTimer = setTimeout(function() {
+                    if (typeof renderTable  === 'function') renderTable();
+                    if (typeof renderFilters === 'function') renderFilters();
+                }, 120);
+            }
+            window.addEventListener('resize',            _onResize);
+            window.addEventListener('orientationchange', _onResize);
         });
             // ── Row selection helpers ───────────────────────────────────
                 
