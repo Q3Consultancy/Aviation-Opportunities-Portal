@@ -243,10 +243,13 @@
 
         .filter-row {
             display: flex;
-            gap: 5px;
+            gap: 6px;
             margin-bottom: 8px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;       /* keep filter groups on one line */
             align-items: center;
+            overflow-x: auto;        /* horizontal scroll if needed */
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;     /* room for scrollbar */
         }
 
         .filter-input {
@@ -1320,31 +1323,46 @@
         }
         /* ── Non-admin table layout ─────────────────────────────────── */
         body:not(.admin-mode) .table-container {
-            max-width: 900px;
+            max-width: 1040px;   /* wider so Engine column breathes */
         }
         body:not(.admin-mode) .table-container table {
             table-layout: fixed;
             width: 100%;
             min-width: unset;
         }
-        /* Desktop columns (visible at all widths) */
+        /* Ensure TH headers are always fully visible */
+        body:not(.admin-mode) .table-container th {
+            white-space: nowrap;
+            overflow: visible;
+        }
+        /* Desktop 7-col order: No | Engine | Condition | Cycles | Location | Files | Status */
+        /* Col 1 — No: fixed narrow */
         body:not(.admin-mode) .table-container th:nth-child(1),
-        body:not(.admin-mode) .table-container td:nth-child(1) { width: 48px; min-width: 44px; max-width: 52px; white-space: nowrap; }   /* No — fully visible */
+        body:not(.admin-mode) .table-container td:nth-child(1) { width: 40px;  min-width: 36px;  max-width: 46px;  white-space: nowrap; overflow: hidden; }
+
+        /* Col 2 — Engine / Aircraft / Part: absorbs all spare width */
         body:not(.admin-mode) .table-container th:nth-child(2),
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: 56px; min-width: 52px; max-width: 62px; white-space: nowrap; }   /* Files — fully visible */
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: auto;  min-width: 120px; max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Col 3 — Condition */
         body:not(.admin-mode) .table-container th:nth-child(3),
-        body:not(.admin-mode) .table-container td:nth-child(3) { width: auto; min-width: 80px; }                    /* Engine/Aircraft/Part */
+        body:not(.admin-mode) .table-container td:nth-child(3) { width: 82px;  min-width: 72px;  max-width: 96px;  white-space: nowrap; overflow: hidden; }
+
+        /* Col 4 — Cycles Remaining / Total Cycles */
         body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 90px; min-width: 82px; max-width: 100px; }   /* Condition */
-        /* Desktop-only extra columns (cols 5-8) */
+        body:not(.admin-mode) .table-container td:nth-child(4) { width: 88px;  min-width: 76px;  max-width: 104px; white-space: nowrap; overflow: hidden; }
+
+        /* Col 5 — Location */
         body:not(.admin-mode) .table-container th:nth-child(5),
-        body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px; min-width: 80px; max-width: 100px; }  /* Condition */
+        body:not(.admin-mode) .table-container td:nth-child(5) { width: 92px;  min-width: 80px;  max-width: 112px; white-space: nowrap; overflow: hidden; }
+
+        /* Col 6 — Files: narrow icon column */
         body:not(.admin-mode) .table-container th:nth-child(6),
-        body:not(.admin-mode) .table-container td:nth-child(6) { width: 80px; min-width: 70px; max-width: 100px; }  /* Cycles Remaining / Total Cycles */
-        body:not(.admin-mode) .table-container th:nth-child(7),
-        body:not(.admin-mode) .table-container td:nth-child(7) { width: 90px; min-width: 80px; max-width: 110px; }  /* Location */
-        body:not(.admin-mode) .table-container th:nth-child(8),
-        body:not(.admin-mode) .table-container td:nth-child(8) { width: 80px; min-width: 70px; max-width: 90px; }   /* Status */
+        body:not(.admin-mode) .table-container td:nth-child(6) { width: 42px;  min-width: 38px;  max-width: 50px;  white-space: nowrap; overflow: hidden; }
+
+        /* Col 7 — Status: FULL text, no clipping, allow wrap on narrow screens */
+        body:not(.admin-mode) .table-container th:nth-child(7)  { width: 126px; min-width: 110px; max-width: 150px; white-space: nowrap; overflow: visible; }
+        body:not(.admin-mode) .table-container td:nth-child(7)  { width: 126px; min-width: 110px; max-width: 150px; white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
 
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
         
@@ -1387,9 +1405,8 @@
                 min-width: 290px !important;
             }
 
-            /* Hide cols 4+ on mobile (shows No, Engine/Aircraft/Part, Files only) */
-            body:not(.admin-mode) .table-container th:nth-child(n+4),
-            body:not(.admin-mode) .table-container td:nth-child(n+4) { display: none !important; }
+            /* Mobile cols: JS renders only MOBILE_PUBLIC_COLUMNS (3 cols) so no CSS hide needed */
+            /* The nth-child rules below ensure correct sizing for those 3 cols */
 
             /* Hide these filter boxes on mobile */
             .filter-chip-group.filter-col-Location,
@@ -1456,9 +1473,8 @@
                 text-overflow: clip !important;
             }
         }
-        /* Desktop override for Price col (outside media query) */
-        body:not(.admin-mode) .table-container th:nth-child(4),
-        body:not(.admin-mode) .table-container td:nth-child(4) { width: 110px; min-width: 100px; max-width: 130px; white-space: nowrap; }  /* Price */
+        /* Col 7 desktop fallback (Status — full text) */
+        body:not(.admin-mode) .table-container td:nth-child(7) { white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
 
         
         /* ── Interest / Email modal – v44 complete responsive redesign ── */
@@ -2127,14 +2143,15 @@
         /* ── Multi-select filter chips ─────────────────────────────────────── */
         .filter-chip-group {
             display: inline-flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;       /* keep all chips on one line */
             align-items: center;
-            gap: 3px;
+            gap: 4px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            padding: 3px 6px;
-            max-width: 340px;
+            padding: 3px 8px;
+            max-width: none;         /* no width cap — expand to fit all chips */
+            overflow-x: auto;        /* scroll if screen is too narrow */
         }
         .filter-chip-label {
             font-size: 10px;
@@ -2685,11 +2702,19 @@
         // row detail card (hover/tap). Condition is shown in the card always.
         // Non-admin TABLE columns (must fit on phone without scrolling)
         const PUBLIC_COLUMNS = {
-            // 7 cols — Price hidden from public; mobile CSS hides cols 4+ (shows No, Engine, Files)
-            'Engines':        ['No','Engine',   'Files','Condition','Cycles Remaining','Location','Status'],
-            'Aircraft Sale':  ['No','Aircraft', 'Files','Condition','Total Cycles',    'Location','Status'],
-            'Aircraft Lease': ['No','Aircraft', 'Files','Condition','Total Cycles',    'Location','Status'],
-            'Parts':          ['No','Part',     'Files','Condition','Location',        'Status']
+            // 7 cols — Price hidden from public; desktop order: No, Asset, Condition, Cycles, Location, Files, Status
+            'Engines':        ['No','Engine',   'Condition','Cycles Remaining','Location','Files','Status'],
+            'Aircraft Sale':  ['No','Aircraft', 'Condition','Total Cycles',    'Location','Files','Status'],
+            'Aircraft Lease': ['No','Aircraft', 'Condition','Total Cycles',    'Location','Files','Status'],
+            'Parts':          ['No','Part',     'Condition','Location',        'Files',   'Status']
+        };
+
+        // Mobile-only column slice (3 cols) — overrides PUBLIC_COLUMNS on narrow screens
+        const MOBILE_PUBLIC_COLUMNS = {
+            'Engines':        ['No','Engine',   'Files'],
+            'Aircraft Sale':  ['No','Aircraft', 'Files'],
+            'Aircraft Lease': ['No','Aircraft', 'Files'],
+            'Parts':          ['No','Part',     'Files']
         };
 
         // Fields shown inside the row detail card (non-admin hover/tap)
@@ -2979,7 +3004,31 @@
                                 return v;
                             })
                             .filter(v => v && v !== 'null' && v !== 'undefined' && v !== '')
-                    )].sort();
+                    )];
+
+                    // For Status column: enforce preferred display order
+                    if (col === 'Status') {
+                        const _statusOrder = [
+                            'Buyer Request',
+                            'Seller Request',
+                            'Buyer Evaluation',
+                            'Lessor Request',
+                            'Lessee Request',
+                            'Negotiation',
+                            'Financial Closing',
+                            'Closed'
+                        ];
+                        uniqueVals.sort((a, b) => {
+                            const ai = _statusOrder.indexOf(a);
+                            const bi = _statusOrder.indexOf(b);
+                            if (ai === -1 && bi === -1) return a.localeCompare(b);
+                            if (ai === -1) return 1;
+                            if (bi === -1) return -1;
+                            return ai - bi;
+                        });
+                    } else {
+                        uniqueVals.sort();
+                    }
 
                     // Active selections (array)
                     const activeArr = Array.isArray(columnFilters[col])
@@ -3085,7 +3134,7 @@
                         if (!isAdmin) {
                             const _sg = document.getElementById('statsGrid');
                             const _sn = getSheetName(currentTab);
-                            if (_sg) _sg.innerHTML = '<div class="stat-card"><div class="stat-value" style="font-size:1.4rem;color:#94a3b8;">&#8230;</div><div class="stat-label">Live ' + _sn + ' Opportunities</div></div>';
+                            if (_sg) _sg.innerHTML = '<div class="stat-card"><div class="stat-value" style="font-size:1.4rem;color:#94a3b8;">&#8230;</div><div class="stat-label">Live ' + getStatLabel(_sn) + ' Opportunities</div></div>';
                         } else { updateStats(); }
                     }
                     if (typeof filterTable === 'function') filterTable();
@@ -3237,7 +3286,12 @@
                 visibleColumns = allColumns;
             } else {
                 // Public view OR admin in preview mode: use PUBLIC_COLUMNS
-                visibleColumns = PUBLIC_COLUMNS[sheetName] || [];
+                // On narrow screens (mobile), use only 3-col slice
+                const _isMobileView = (_currentViewMode === 'mobile') ||
+                    (!_previewMode && typeof window !== 'undefined' && window.innerWidth <= 520);
+                visibleColumns = (_isMobileView
+                    ? (MOBILE_PUBLIC_COLUMNS[sheetName] || [])
+                    : (PUBLIC_COLUMNS[sheetName] || []));
             }
 
             let filteredData = sheetData.filter(row => !shouldHideRow(row));
@@ -3440,7 +3494,7 @@
                             // Non-admin: show colored status badge
                             const dispStatus = normalizeStatus(value) || value;
                             const statusBadgeClass = getStatusClass(dispStatus);
-                            html += `<td class="${statusBadgeClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;">${dispStatus}</span></td>`;
+                            html += `<td class="${statusBadgeClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;white-space:normal;display:inline-block;line-height:1.3;">${dispStatus}</span></td>`;
                         } else if (col === KEY_COMMENTS) {
                             // Comments: visible to all, editable only by admin, with tooltip preview
                             const commVal = (value || '').replace(/"/g, '&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4116,6 +4170,17 @@
             return mapping[tab];
         }
 
+        // Stat display label — singular where appropriate (e.g. "Engine" not "Engines")
+        function getStatLabel(sheetName) {
+            const statLabels = {
+                'Engines':        'Engine',
+                'Aircraft Sale':  'Aircraft Sale',
+                'Aircraft Lease': 'Aircraft Lease',
+                'Parts':          'Part'
+            };
+            return statLabels[sheetName] || sheetName;
+        }
+
         // Switch tabs
         function switchTab(tab) {
             // Exit selection mode and clear row selection when changing tabs
@@ -4163,7 +4228,7 @@
                 statsGrid.innerHTML = `
                     <div class="stat-card">
                         <div class="stat-value">${activeRecords}</div>
-                        <div class="stat-label">Live ${sheetName} Opportunities</div>
+                        <div class="stat-label">Live ${getStatLabel(sheetName)} Opportunities</div>
                     </div>
                 `;
             } else {
