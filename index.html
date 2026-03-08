@@ -1318,9 +1318,6 @@
 
         /* Non-admin: 4-column fixed layout that fits any phone width */
         /* Non-admin desktop: sensible max width so 4 cols look proportional */
-        body:not(.admin-mode) .table-container {
-            max-width: 700px;
-        }
         /* ── Non-admin table layout ─────────────────────────────────── */
         body:not(.admin-mode) .table-container {
             max-width: 1040px;   /* wider so Engine column breathes */
@@ -1335,18 +1332,18 @@
             white-space: nowrap;
             overflow: visible;
         }
-        /* Desktop 7-col order: No | Engine | Condition | Cycles | Location | Files | Status */
+        /* Desktop 7-col order: No | Engine/Asset | Condition | Cycles | Location | Files | Status */
         /* Col 1 — No: fixed narrow */
         body:not(.admin-mode) .table-container th:nth-child(1),
         body:not(.admin-mode) .table-container td:nth-child(1) { width: 40px;  min-width: 36px;  max-width: 46px;  white-space: nowrap; overflow: hidden; }
 
-        /* Col 2 — Engine / Aircraft / Part: absorbs all spare width */
-        body:not(.admin-mode) .table-container th:nth-child(2),
-        body:not(.admin-mode) .table-container td:nth-child(2) { width: auto;  min-width: 120px; max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Col 2 — Engine / Aircraft / Part: WIDEST column, absorbs all spare space */
+        body:not(.admin-mode) .table-container th:nth-child(2) { width: auto; min-width: 140px; overflow: visible; white-space: nowrap; }
+        body:not(.admin-mode) .table-container td:nth-child(2) { width: auto; min-width: 140px; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Col 3 — Condition */
         body:not(.admin-mode) .table-container th:nth-child(3),
-        body:not(.admin-mode) .table-container td:nth-child(3) { width: 82px;  min-width: 72px;  max-width: 96px;  white-space: nowrap; overflow: hidden; }
+        body:not(.admin-mode) .table-container td:nth-child(3) { width: 80px;  min-width: 70px;  max-width: 96px;  white-space: nowrap; overflow: hidden; }
 
         /* Col 4 — Cycles Remaining / Total Cycles */
         body:not(.admin-mode) .table-container th:nth-child(4),
@@ -1354,15 +1351,15 @@
 
         /* Col 5 — Location */
         body:not(.admin-mode) .table-container th:nth-child(5),
-        body:not(.admin-mode) .table-container td:nth-child(5) { width: 92px;  min-width: 80px;  max-width: 112px; white-space: nowrap; overflow: hidden; }
+        body:not(.admin-mode) .table-container td:nth-child(5) { width: 90px;  min-width: 78px;  max-width: 110px; white-space: nowrap; overflow: hidden; }
 
-        /* Col 6 — Files: narrow icon column */
+        /* Col 6 — Files: narrow icon+count column */
         body:not(.admin-mode) .table-container th:nth-child(6),
-        body:not(.admin-mode) .table-container td:nth-child(6) { width: 42px;  min-width: 38px;  max-width: 50px;  white-space: nowrap; overflow: hidden; }
+        body:not(.admin-mode) .table-container td:nth-child(6) { width: 40px;  min-width: 36px;  max-width: 48px;  white-space: nowrap; overflow: hidden; text-align: center; }
 
-        /* Col 7 — Status: FULL text, no clipping, allow wrap on narrow screens */
-        body:not(.admin-mode) .table-container th:nth-child(7)  { width: 126px; min-width: 110px; max-width: 150px; white-space: nowrap; overflow: visible; }
-        body:not(.admin-mode) .table-container td:nth-child(7)  { width: 126px; min-width: 110px; max-width: 150px; white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
+        /* Col 7 — Status: FULL text displayed, no ellipsis, allow wrap */
+        body:not(.admin-mode) .table-container th:nth-child(7)  { width: 130px; min-width: 115px; max-width: 155px; white-space: nowrap; overflow: visible; }
+        body:not(.admin-mode) .table-container td:nth-child(7)  { width: 130px; min-width: 115px; max-width: 155px; white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
 
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
         
@@ -4502,6 +4499,8 @@
 
         // Login functions
         function showLoginModal() {
+            // Safety guard: never show login modal if already authenticated
+            if (isAdmin) return;
             const m = document.getElementById('loginModal');
             if (!m) return;
             const pi = document.getElementById('passwordInput');
@@ -4802,25 +4801,31 @@
             } catch(e) {}
             await loadData();
             // Admin access: show login button and open login modal if URL has #admin
-            const _p = window.location.pathname;
-            const _h = window.location.hash;
-            if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
-                const lb = document.getElementById('loginBtn');
-                if (lb) lb.style.display = 'inline-block';
-                // Auto-open login modal
-                showLoginModal();
+            // Guard: skip if already logged in (prevents modal re-appearing after login)
+            if (!isAdmin) {
+                const _p = window.location.pathname;
+                const _h = window.location.hash;
+                if (_p.endsWith('/admin') || _p.endsWith('/admin.html') || _h === '#admin' || _h === '#admin/') {
+                    const lb = document.getElementById('loginBtn');
+                    if (lb) lb.style.display = 'inline-block';
+                    // Auto-open login modal only if not yet authenticated
+                    showLoginModal();
+                }
             }
         };
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
             // ── /admin route: show login button if URL ends with /admin ──
-            const path = window.location.pathname;
-            const hash = window.location.hash;
-            if (path.endsWith('/admin') || hash === '#admin') {
-                const btn = document.getElementById('loginBtn');
-                if (btn) btn.style.display = '';
-                showLoginModal();
+            // Guard: only show if not already authenticated
+            if (!isAdmin) {
+                const path = window.location.pathname;
+                const hash = window.location.hash;
+                if (path.endsWith('/admin') || hash === '#admin') {
+                    const btn = document.getElementById('loginBtn');
+                    if (btn) btn.style.display = '';
+                    showLoginModal();
+                }
             }
 
             const passwordInput = document.getElementById('passwordInput');
