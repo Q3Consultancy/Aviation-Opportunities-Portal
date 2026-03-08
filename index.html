@@ -1479,50 +1479,57 @@
             }
 
             /* ── BULLETPROOF: hide by data-col attribute name ──────────────
-               Works even if JS uses PUBLIC_COLUMNS instead of MOBILE_PUBLIC_COLUMNS.
-               These override any nth-child width or display rules above. */
-            body:not(.admin-mode) .table-container td[data-col="Condition"],
-            body:not(.admin-mode) .table-container td[data-col="Cycles Remaining"],
-            body:not(.admin-mode) .table-container td[data-col="Total Cycles"],
-            body:not(.admin-mode) .table-container td[data-col="Location"],
-            body:not(.admin-mode) .table-container td[data-col="Status"] {
+               Applied to ALL users on real mobile screens (no body:not(.admin-mode) guard).
+               This is the last-resort fallback if JS uses PUBLIC_COLUMNS instead of MOBILE. */
+            .table-container td[data-col="Condition"],
+            .table-container td[data-col="Cycles Remaining"],
+            .table-container td[data-col="Total Cycles"],
+            .table-container td[data-col="Location"],
+            .table-container td[data-col="Status"] {
                 display: none !important;
             }
-            body:not(.admin-mode) .table-container th[data-col-key="Condition"],
-            body:not(.admin-mode) .table-container th[data-col-key="Cycles Remaining"],
-            body:not(.admin-mode) .table-container th[data-col-key="Total Cycles"],
-            body:not(.admin-mode) .table-container th[data-col-key="Location"],
-            body:not(.admin-mode) .table-container th[data-col-key="Status"] {
+            .table-container th[data-col-key="Condition"],
+            .table-container th[data-col-key="Cycles Remaining"],
+            .table-container th[data-col-key="Total Cycles"],
+            .table-container th[data-col-key="Location"],
+            .table-container th[data-col-key="Status"] {
                 display: none !important;
             }
-            /* Always show Files column regardless of its nth-child position */
-            body:not(.admin-mode) .table-container td[data-col="Files"],
-            body:not(.admin-mode) .table-container th[data-col-key="Files"] {
+            /* Always show Files column — full text, no clipping */
+            .table-container td[data-col="Files"],
+            .table-container th[data-col-key="Files"] {
                 display: table-cell !important;
-                width: 52px !important; min-width: 52px !important;
+                width: 54px !important; min-width: 54px !important;
                 text-align: center !important;
+                overflow: visible !important;
+                white-space: nowrap !important;
             }
         }
         /* ── Admin "Mobile Preview" mode: same column hiding as real mobile ──
            When admin clicks the Mobile Preview button, body.mobile-preview is added.
            Apply the same 3-col layout so admin sees exactly what non-admin sees. */
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Condition"],
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Cycles Remaining"],
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Total Cycles"],
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Location"],
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Status"] {
+        /* Admin mobile preview: hide unwanted cols, show Files — no :not(.admin-mode) guard */
+        body.mobile-preview .table-container td[data-col="Condition"],
+        body.mobile-preview .table-container td[data-col="Cycles Remaining"],
+        body.mobile-preview .table-container td[data-col="Total Cycles"],
+        body.mobile-preview .table-container td[data-col="Location"],
+        body.mobile-preview .table-container td[data-col="Status"] {
             display: none !important;
         }
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Condition"],
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Cycles Remaining"],
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Total Cycles"],
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Location"],
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Status"] {
+        body.mobile-preview .table-container th[data-col-key="Condition"],
+        body.mobile-preview .table-container th[data-col-key="Cycles Remaining"],
+        body.mobile-preview .table-container th[data-col-key="Total Cycles"],
+        body.mobile-preview .table-container th[data-col-key="Location"],
+        body.mobile-preview .table-container th[data-col-key="Status"] {
             display: none !important;
         }
-        body.mobile-preview:not(.admin-mode) .table-container td[data-col="Files"],
-        body.mobile-preview:not(.admin-mode) .table-container th[data-col-key="Files"] {
+        body.mobile-preview .table-container td[data-col="Files"],
+        body.mobile-preview .table-container th[data-col-key="Files"] {
             display: table-cell !important;
+            width: 54px !important; min-width: 54px !important;
+            overflow: visible !important;
+            white-space: nowrap !important;
+            text-align: center !important;
         }
         /* Status column desktop fallback — covers both col-6 (Parts) and col-7 (other tabs) */
         body:not(.admin-mode) .table-container td:nth-child(6):last-child,
@@ -2384,6 +2391,15 @@
                 padding: 6px 10px;
                 font-size: 11px;
             }
+        }
+
+        /* ── Files column header: always fully visible ───────────────── */
+        .table-container th[data-col-key="Files"] {
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            min-width: 54px !important;
+            text-align: center !important;
         }
 </style>
 
@@ -3397,8 +3413,12 @@
                 const _mq = (typeof window.matchMedia === 'function')
                     ? window.matchMedia('(max-width: 767px)').matches
                     : (window.innerWidth <= 767);
+                // Non-admin on real phone: ignore _previewMode (it defaults to true on 'desktop' viewMode)
+                // Admin mobile-preview: _currentViewMode === 'mobile' covers it
+                // Admin on real phone without preview: use _mq directly
                 const _isMobileView = (_currentViewMode === 'mobile') ||
-                    (!_previewMode && _mq);
+                    (!isAdmin && _mq) ||
+                    (isAdmin && !_previewMode && _mq);
                 visibleColumns = (_isMobileView
                     ? (MOBILE_PUBLIC_COLUMNS[sheetName] || [])
                     : (PUBLIC_COLUMNS[sheetName] || []));
