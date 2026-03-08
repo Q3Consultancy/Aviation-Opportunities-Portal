@@ -2401,6 +2401,19 @@
             min-width: 54px !important;
             text-align: center !important;
         }
+
+        /* ── Small toast variant for background/system notifications ─── */
+        .toast.toast-sm {
+            padding: 6px 12px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            border-radius: 5px !important;
+            bottom: 16px !important;
+            right: 16px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            opacity: 0.88 !important;
+            background: #059669 !important;
+        }
 </style>
 
     <!-- ═══════════════════════════════════════════════════
@@ -3284,7 +3297,7 @@
                         if (typeof filterTable === 'function') filterTable();
                         updateLastUpdated();
                         console.log('✅ Supabase live data loaded');
-                        if (typeof showToast === 'function') showToast('✅ Live data loaded from Supabase');
+                        if (typeof showToast === 'function') showToast('✅ Live Data', null, 'toast-sm');
                     } else {
                         console.warn('⚠️ Supabase returned 0 rows — keeping inline data. If you added entries, check Supabase RLS SELECT policy for the anon role.');
                         // Show admin a soft warning if logged in
@@ -5489,11 +5502,13 @@ function updateAdminUI(isAdminMode) {
         function colDrop(e, col)      { /* superseded by _colDrop */ }
 
 
-        function showToast(msg, duration) {
+        function showToast(msg, duration, extraClass) {
             duration = duration || 3000;
             const t = document.getElementById('saveToast');
             if (t) {
                 const orig = t.textContent;
+                // Apply optional extra class (e.g. 'toast-sm') then remove after
+                if (extraClass) t.classList.add(extraClass);
                 t.textContent = msg;
                 t.style.display = 'block';
                 t.style.opacity = '1';
@@ -5502,6 +5517,7 @@ function updateAdminUI(isAdminMode) {
                     setTimeout(function() {
                         t.style.display = 'none';
                         t.textContent = orig;
+                        if (extraClass) t.classList.remove(extraClass);
                     }, 400);
                 }, duration);
             }
