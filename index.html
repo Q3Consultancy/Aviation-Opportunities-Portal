@@ -1357,9 +1357,15 @@
         body:not(.admin-mode) .table-container th:nth-child(6),
         body:not(.admin-mode) .table-container td:nth-child(6) { width: 40px;  min-width: 36px;  max-width: 48px;  white-space: nowrap; overflow: hidden; text-align: center; }
 
-        /* Col 7 — Status: FULL text displayed, no ellipsis, allow wrap */
-        body:not(.admin-mode) .table-container th:nth-child(7)  { width: 130px; min-width: 115px; max-width: 155px; white-space: nowrap; overflow: visible; }
+        /* Status column — ALWAYS the LAST column in PUBLIC_COLUMNS for all tabs.
+           Engines/Aircraft have 7 cols (Status=col7); Parts has 6 cols (Status=col6).
+           Use :last-child to target it universally, plus explicit nth-child(6) for Parts. */
+        /* 7-col tabs (Engines, Aircraft Sale, Aircraft Lease): Status = col 7 */
+        body:not(.admin-mode) .table-container th:nth-child(7)  { width: 130px; min-width: 115px; max-width: 155px; white-space: nowrap !important; overflow: visible !important; }
         body:not(.admin-mode) .table-container td:nth-child(7)  { width: 130px; min-width: 115px; max-width: 155px; white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
+        /* 6-col tabs (Parts): Status = col 6 — override the Files-column rule */
+        body:not(.admin-mode) .table-container th:last-child     { width: 130px; min-width: 115px; max-width: 155px; white-space: nowrap !important; overflow: visible !important; }
+        body:not(.admin-mode) .table-container td:last-child     { width: 130px; min-width: 115px; max-width: 155px; white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
 
         /* Mobile (≤520 px): hide cols 5-8; scale all 4 cols with vw units */
         
@@ -1405,15 +1411,32 @@
             /* Mobile cols: JS renders only MOBILE_PUBLIC_COLUMNS (3 cols) so no CSS hide needed */
             /* The nth-child rules below ensure correct sizing for those 3 cols */
 
-            /* Hide these filter boxes on mobile */
+            /* ── Mobile filter row: stack Condition + Status vertically, left-aligned ── */
+            #filterRow {
+                flex-direction: column !important;
+                flex-wrap: wrap !important;
+                align-items: flex-start !important;
+                overflow-x: visible !important;
+                gap: 4px !important;
+            }
+
+            /* Hide ALL text-input filter boxes on mobile (No, Engine/Part/Aircraft, ESN) */
+            #filterRow .filter-input-wrap { display: none !important; }
+
+            /* Hide unwanted chip groups on mobile */
             .filter-chip-group.filter-col-Location,
             .filter-chip-group.filter-col-Date-Of-Manufacture,
             .filter-chip-group.filter-col-Date-of-Manufacture,
             .filter-chip-group.filter-col-Total-Cycles,
+            .filter-chip-group.filter-col-Cycles-Remaining,
             .filter-chip-group.filter-col-Date-Received,
+            .filter-chip-group.filter-col-No,
+            .filter-chip-group.filter-col-Engine,
+            .filter-chip-group.filter-col-Aircraft,
+            .filter-chip-group.filter-col-Part,
+            .filter-chip-group.filter-col-ESN,
             .filter-col-Price--n-USD-,
             .filter-col-Price--USD-,
-            .filter-col-Price--n-USD-,
             #filterRow input.filter-input[id*="filter-Price"],
             #filterRow input.filter-input[id*="filter-Date"],
             #filterRow input.filter-input[id*="filter-Total-Cycles"],
@@ -1421,6 +1444,16 @@
             #filterRow .filter-input-wrap.filter-col-Date-Of-Manufacture,
             #filterRow .filter-input-wrap.filter-col-Total-Cycles,
             #filterRow .filter-input-wrap.filter-col-Date-Received { display: none !important; }
+
+            /* Keep Condition + Status chip groups visible and aligned */
+            .filter-chip-group.filter-col-Condition,
+            .filter-chip-group.filter-col-Status {
+                display: inline-flex !important;
+                width: auto !important;
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                box-sizing: border-box !important;
+            }
 
             /* td: clip long values with ellipsis — NO overlap */
             body:not(.admin-mode) .table-container td {
@@ -1459,19 +1492,17 @@
                 min-width: 52px !important;
                 max-width: 52px !important;
             }
-            /* Col 4 – Condition (hidden on mobile; shown on desktop) */
-            body:not(.admin-mode) .table-container th:nth-child(4),
-            body:not(.admin-mode) .table-container td:nth-child(4) {
-                width: 82px !important;
-                min-width: 72px !important;
-                max-width: 108px !important;
-                white-space: nowrap !important;
-                overflow: visible !important;   /* never clip price value */
-                text-overflow: clip !important;
+            /* Col 4+ — hidden on mobile (JS renders only 3 cols via MOBILE_PUBLIC_COLUMNS,
+               but CSS ensures any stray col-4+ is not visible) */
+            body:not(.admin-mode) .table-container th:nth-child(n+4),
+            body:not(.admin-mode) .table-container td:nth-child(n+4) {
+                display: none !important;
             }
         }
-        /* Col 7 desktop fallback (Status — full text) */
-        body:not(.admin-mode) .table-container td:nth-child(7) { white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
+        /* Status column desktop fallback — covers both col-6 (Parts) and col-7 (other tabs) */
+        body:not(.admin-mode) .table-container td:nth-child(6):last-child,
+        body:not(.admin-mode) .table-container td:nth-child(7),
+        body:not(.admin-mode) .table-container td:last-child { white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
 
         
         /* ── Interest / Email modal – v44 complete responsive redesign ── */
