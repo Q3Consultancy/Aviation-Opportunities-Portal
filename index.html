@@ -2952,6 +2952,16 @@
 
 
 
+        
+        // ── Status descriptions for card (mobile) and hover tooltip (web) ─────────
+        const STATUS_DESCRIPTIONS = {
+            'Buyer Request':    'Buyer has requested this asset and is looking for a Seller',
+            'Seller Request':   "Seller's asset is available and is looking for a Buyer",
+            'Buyer Evaluation': 'LOI has been placed and asset is under review',
+            'Lessee Request':   'Lessee has requested this asset for lease',
+            'Lessor Request':   "Lessor's asset is available for lease"
+        };
+
         // ── Normalize legacy status values to new display names ───────────────
         function normalizeStatus(val) {
             if (!val) return val;
@@ -3814,14 +3824,16 @@
                     if (col === 'Status' && isAdmin) {
                             const opts = ADMIN_STATUS_OPTIONS;
                             let selOpts = opts.map(o => `<option value="${o}" ${value === o ? 'selected' : ''}>${o}</option>`).join('');
-                            html += `<td class="${editableClass} ${statusClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}">` +
+                            const _adTip = STATUS_DESCRIPTIONS[value] ? ' title="' + STATUS_DESCRIPTIONS[value] + '"' : '';
+                            html += `<td class="${editableClass} ${statusClass}"${_adTip} data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}" style="${_adTip ? 'cursor:help;' : ''}">` +
                                     `<select class="status-select" onchange="saveCell(${sdIdx},'Status',this.value);" ${isAdmin ? '' : 'disabled'}>` +
                                     `<option value="">— Select —</option>${selOpts}</select></td>`;
                         } else if (col === 'Status' && !isAdmin) {
                             // Non-admin: show colored status badge
                             const dispStatus = normalizeStatus(value) || value;
                             const statusBadgeClass = getStatusClass(dispStatus);
-                            html += `<td class="${statusBadgeClass}" data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}"><span style="font-weight:600;white-space:normal;display:inline-block;line-height:1.3;">${dispStatus}</span></td>`;
+                            const _stTip = STATUS_DESCRIPTIONS[dispStatus] ? ' title="' + STATUS_DESCRIPTIONS[dispStatus] + '"' : '';
+                            html += `<td class="${statusBadgeClass}"${_stTip} data-row="${sdIdx}" data-col-idx="${colIdx}" data-col="${col}" style="cursor:help;"><span style="font-weight:600;white-space:normal;display:inline-block;line-height:1.3;">${dispStatus}</span></td>`;
                         } else if (col === KEY_COMMENTS) {
                             // Comments: visible to all, editable only by admin, with tooltip preview
                             const commVal = (value || '').replace(/"/g, '&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4994,7 +5006,11 @@
                     cardTip    = _cd.desc ? ' title="' + _cd.desc + '"' : '';
                 }
                 if (col === 'Location' && !isEmpty) displayVal = addFlagToLocation(displayVal);
-                if (col === 'Status'   && !isEmpty) displayVal = normalizeStatus(displayVal) || displayVal;
+                if (col === 'Status' && !isEmpty) {
+                    displayVal = normalizeStatus(displayVal) || displayVal;
+                    const _stDesc = STATUS_DESCRIPTIONS[displayVal];
+                    if (_stDesc) displayVal = displayVal + '<br><span style="font-size:10px;font-weight:400;opacity:0.82;font-style:italic;">' + _stDesc + '</span>';
+                }
                 const dimStyle = isEmpty ? 'color:#475569;font-style:italic;' : '';
                 rows += `<div class="rdc-row">` +
                         `<span class="rdc-label">${displayLabel}</span>` +
