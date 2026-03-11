@@ -3342,6 +3342,32 @@
                             sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
                         }
                         data = freshData;
+                        // ── Re-apply Hidden baseline from inline data ──────────────
+                        // Supabase rows pre-dating the Hidden feature won't have the
+                        // field set. Re-apply from __INLINE_DATA__ for rows whose
+                        // inline record has Hidden='1', unless Supabase has explicitly
+                        // cleared it (Hidden='' from a real admin uncheck).
+                        if (window.__INLINE_DATA__) {
+                            try {
+                                const _ilc = convertData(window.__INLINE_DATA__);
+                                ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
+                                    if (!data[sheet] || !_ilc[sheet]) return;
+                                    const _hidMap = {};
+                                    _ilc[sheet].forEach(r => {
+                                        if ((r['Hidden'] || '') === '1')
+                                            _hidMap[String(r['No'] || '')] = '1';
+                                    });
+                                    data[sheet].forEach(row => {
+                                        const _noKey = String(row['No'] || '');
+                                        // Only apply if Supabase didn't send an explicit value
+                                        if (row['Hidden'] === undefined || row['Hidden'] === null)
+                                            row['Hidden'] = _hidMap[_noKey] || '';
+                                        else if (row['Hidden'] === '' && _hidMap[_noKey])
+                                            row['Hidden'] = '1'; // inline says hidden, Supabase has blank
+                                    });
+                                });
+                            } catch(_e) { console.warn('Hidden merge error:', _e); }
+                        }
                         normalizeAllStatuses();
                         if (typeof renderFilters === 'function') renderFilters();
                         renderTable();
@@ -3920,7 +3946,7 @@
         }
 
         // Save cell value
-        async function saveCell(rowIndex, colName, newValue) {
+        async function saveCell(rowIndex, colName, newValue, _noAutoHide) {
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName];
             if (!sheetData || !sheetData[rowIndex]) {
@@ -3935,6 +3961,18 @@
             }
             // 2. Re-render table ONLY after editor is closed (_cellEditing cleared by editCell)
             //    For dropdowns (Status/Condition) _cellEditing is false so this runs immediately.
+            // Auto-hide row when Status changes to Closed (admin action)
+            if (colName === 'Status' && !_noAutoHide && isAdmin) {
+                const _ns = (newValue || '').toLowerCase().trim();
+                if (_ns === 'closed' || _ns.includes('sold to another buyer')) {
+                    const _curHid = (sheetData[rowIndex]['Hidden'] || '').toString().trim();
+                    if (_curHid !== '1') {
+                        sheetData[rowIndex]['Hidden'] = '1'; // immediate in-memory
+                        // Persist the Hidden flag to Supabase asynchronously (non-recursive)
+                        setTimeout(() => saveCell(rowIndex, 'Hidden', '1', true), 150);
+                    }
+                }
+            }
             if (!_cellEditing) renderTable();
 
             // 3. Persist to Supabase
