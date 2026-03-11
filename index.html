@@ -274,9 +274,15 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 10.5px;
+            font-size: 9px;
             height: 28px;
             box-sizing: border-box;
+            text-align: center;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.01em;
         }
 
         .btn-export {
@@ -774,9 +780,9 @@
             .btn-clear-filters,
             .btn-interest,
             .btn-mail-send {
-                font-size: 10px;
-                padding: 3px 8px;
-                height: 26px;
+                font-size: 9px;
+                padding: 4px 10px;
+                height: 28px;
             }
             /* Mail icon and interest button full-width on very small screens */
             @media (max-width: 480px) {
@@ -799,9 +805,9 @@
             background: linear-gradient(135deg, #f97316, #ef4444);
             color: #fff;
             border: none;
-            padding: 4px 11px;
+            padding: 4px 10px;
             border-radius: 5px;
-            font-size: 11px;
+            font-size: 9px;
             font-weight: 600;
             cursor: pointer;
             position: relative;
@@ -809,8 +815,18 @@
             vertical-align: middle;
             height: 28px;
             box-sizing: border-box;
+            text-align: center;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.01em;
         }
         .btn-interest:hover { opacity: .88; }
+
+        /* ── Admin-mode safety locks: loginBtn + loginModal NEVER visible when authenticated ── */
+        body.admin-mode #loginBtn  { display: none !important; }
+        body.admin-mode #loginModal { display: none !important; }
         .btn-interest .interest-tooltip {
             display: none;
             position: fixed;
@@ -3692,7 +3708,7 @@
                             const sheetLabel = getSheetName(currentTab);
                             if (fileEntries.length === 0) {
                                 // Show grey file icon when no file present
-                                html += `<td><span style="font-size:16px;filter:grayscale(100%) opacity(0.35);" title="No file uploaded">📄</span></td>`;
+                                html += `<td><span style="font-size:16px;filter:grayscale(100%) opacity(0.35);cursor:default;" title="Information to be provided following a firm expression of interest">📄</span></td>`;
                             } else {
                                 const fileLinksHtml = fileEntries.map((entry, fi) => {
                                     const ext = entry.originalName.split('.').pop() || 'file';
@@ -4854,6 +4870,8 @@
         }
 
         function toggleAdmin() {
+            // If already authenticated, do nothing
+            if (isAdmin) return;
             showLoginModal();
         }
 
