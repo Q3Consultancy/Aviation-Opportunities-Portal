@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v83 -->
+    <!-- Build: v84 -->
     <style>
         * {
             margin: 0;
@@ -3079,6 +3079,54 @@
             return false;
         }
 
+        const FORCED_HIDDEN_ROW_NUMBERS = {
+            'Engines': [39,40,41,42,43,49,50,51,52,60,61,62,63,64,65,66,67,68,69,70,73,76,78,86,87,88],
+            'Aircraft Sale': [15,16,18,23],
+            'Aircraft Lease': [1,2,3,4],
+            'Parts': []
+        };
+
+        function applyForcedVisibilityRules() {
+            Object.entries(FORCED_HIDDEN_ROW_NUMBERS).forEach(([sheetName, rowNumbers]) => {
+                if (!Array.isArray(data[sheetName])) data[sheetName] = [];
+                const forcedNos = new Set((rowNumbers || []).map(v => String(v)));
+                data[sheetName].forEach(row => {
+                    const rowNo = String((row && row['No'] !== undefined && row['No'] !== null) ? row['No'] : '').trim();
+                    if (forcedNos.has(rowNo)) row['Hidden'] = '1';
+                });
+            });
+
+            if (!Array.isArray(data['Parts'])) data['Parts'] = [];
+            const partsRows = data['Parts'];
+            const embraerFileUrl = 'https://docs.google.com/spreadsheets/d/1NUZmXBNQoa9CFP6NnscMy7MMUor8Qd8P/edit?usp=sharing&ouid=112477179979391558361&rtpof=true&sd=true';
+            let embraerRow = partsRows.find(row => String((row && row['Part']) || '').trim().toLowerCase() === 'embraer parts');
+            if (!embraerRow) {
+                const maxNo = partsRows.reduce((max, row) => Math.max(max, parseInt(row && row['No'], 10) || 0), 0);
+                embraerRow = {
+                    'No': String(maxNo + 1 || 1),
+                    'Deal #': 'PT-EMB-001',
+                    'Part': 'Embraer Parts',
+                    'Files': embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001',
+                    'Condition': 'SV',
+                    'Location': '[Brazil]',
+                    'Status': 'Buyer Request',
+                    'Comments': 'Supporting file attached',
+                    'Date Received': '07 May 2026',
+                    'Hidden': '',
+                    'Entry Owner': '',
+                    'Seller / Broker': 'Q3 Consultancy'
+                };
+                partsRows.push(embraerRow);
+            } else {
+                embraerRow['Files'] = embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001';
+                if (!embraerRow['Condition']) embraerRow['Condition'] = 'SV';
+                if (!embraerRow['Location']) embraerRow['Location'] = '[Brazil]';
+                if (!embraerRow['Status']) embraerRow['Status'] = 'Buyer Request';
+                if (embraerRow['Hidden'] === undefined || embraerRow['Hidden'] === null) embraerRow['Hidden'] = '';
+            }
+            partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
+        }
+
         // Key names (with literal newlines as they appear in data.json)
 
         // ── Inline fallback data (112 rows) — loads even if Supabase + data.json fail ──
@@ -3326,6 +3374,7 @@
                 try {
                     data = convertData(window.__INLINE_DATA__);
                     applyPendingSyncToData();
+                    applyForcedVisibilityRules();
                     const spinner = document.getElementById('engineSpinner');
                     if (spinner) {
                         spinner.classList.add('hidden');
@@ -3385,6 +3434,7 @@
                 }
                 data = freshData;
                 applyPendingSyncToData();
+                applyForcedVisibilityRules();
                 if (window.__INLINE_DATA__) {
                     try {
                         const _ilc = convertData(window.__INLINE_DATA__);
@@ -3429,6 +3479,7 @@
                         }
                     });
                     applyPendingSyncToData();
+                    applyForcedVisibilityRules();
                     normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
@@ -3589,6 +3640,7 @@
             const _scrollTop  = _tc ? _tc.scrollTop  : 0;
             const _scrollLeft = _tc ? _tc.scrollLeft : 0;
 
+            applyForcedVisibilityRules();
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
             const table = document.getElementById('dataTable');
@@ -4576,6 +4628,7 @@
 
         // Update statistics
         function updateStats() {
+            applyForcedVisibilityRules();
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
 
