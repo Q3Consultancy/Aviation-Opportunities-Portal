@@ -3058,14 +3058,20 @@
             return isNaN(d) ? null : d;
         }
 
+        function isRowExplicitlyHidden(row) {
+            const hf = (row && row['Hidden'] !== undefined && row['Hidden'] !== null)
+                ? String(row['Hidden']).trim().toLowerCase()
+                : '';
+            return hf === '1' || hf === 'true' || hf === 'hidden' || hf === 'yes' || hf === 'y';
+        }
+
         // Check if row should be hidden (for non-admin)
         function shouldHideRow(row) {
             const _previewMode = (typeof _currentViewMode !== 'undefined') &&
                                  (_currentViewMode === 'mobile' || _currentViewMode === 'desktop');
             if (isAdmin && !_previewMode) return false;
             // Hide rows explicitly flagged by admin
-            const hf = (row['Hidden'] || '').toString().trim();
-            if (hf === '1' || hf.toLowerCase() === 'true') return true;
+            if (isRowExplicitlyHidden(row)) return true;
             const status = normalizeStatus(row['Status'] || '').toString().toLowerCase().trim();
             // Hide 'Closed' rows for non-admin users and admin preview modes
             if (status === 'closed' || status.includes('sold to another buyer')) return true;
@@ -3385,7 +3391,7 @@
                                     if (!data[sheet] || !_ilc[sheet]) return;
                                     const _hidMap = {};
                                     _ilc[sheet].forEach(r => {
-                                        if ((r['Hidden'] || '') === '1')
+                                        if (isRowExplicitlyHidden(r))
                                             _hidMap[String(r['No'] || '')] = '1';
                                     });
                                     data[sheet].forEach(row => {
@@ -3393,7 +3399,7 @@
                                         // Only apply if Supabase didn't send an explicit value
                                         if (row['Hidden'] === undefined || row['Hidden'] === null)
                                             row['Hidden'] = _hidMap[_noKey] || '';
-                                        else if (row['Hidden'] === '' && _hidMap[_noKey])
+                                        else if ((!String(row['Hidden'] || '').trim()) && _hidMap[_noKey])
                                             row['Hidden'] = '1'; // inline says hidden, Supabase has blank
                                     });
                                 });
@@ -3676,7 +3682,7 @@
                 // so _buildCardHTML reads the correct row and 'No' value
                 const sdIdx = sheetData.indexOf(row);
                 if (isAdmin) {
-                    const _isHidden = (row['Hidden'] || '').toString().trim() === '1';
+                    const _isHidden = isRowExplicitlyHidden(row);
                     const _hidClass = _isHidden ? ' row-hidden-flag' : '';
                     html += `<tr class="${selClass}${_hidClass}" data-srow="${sdIdx}" onclick="toggleRowSelection(${index}, this)">`;
                 } else {
@@ -3830,6 +3836,15 @@
                         return;
                     }
 
+                    if (col === 'Hidden') {
+                        const hiddenText = isRowExplicitlyHidden(row) ? 'Hidden' : '—';
+                        const hiddenStyle = isRowExplicitlyHidden(row)
+                            ? 'display:inline-block;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:700;font-size:10px;letter-spacing:0.02em;'
+                            : 'color:#94a3b8;font-style:italic;';
+                        html += `<td data-row="${sdIdx}" data-col-idx="${visibleColumns.indexOf(col)}" data-col="${col}" title="Managed by the Hide checkbox"><span style="${hiddenStyle}">${hiddenText}</span></td>`;
+                        return;
+                    }
+
                     // All columns editable in admin except Files
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
                     const colIdx = visibleColumns.indexOf(col);
@@ -3875,7 +3890,7 @@
                         }
                 });
                 if (isAdmin && _currentViewMode === 'admin') {
-                    const _hv = (row['Hidden'] || '').toString().trim() === '1';
+                    const _hv = isRowExplicitlyHidden(row);
                     html += `<td class="hidden-toggle-cell"><input type="checkbox" ${_hv ? 'checked' : ''} title="Hide from public view" onchange="toggleRowHidden(${sdIdx}, this.checked)"></td>`;
                     html += `<td style="white-space:nowrap;">` +
                         `<button class="edit-btn"   onclick="editRow(${index})"   title="Edit this row">✏️ Edit</button>` +
