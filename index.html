@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v82 -->
+    <!-- Build: v83 -->
     <style>
         * {
             margin: 0;
@@ -3334,7 +3334,6 @@
                     normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
-                    // Show '…' placeholder for non-admin until Supabase confirms
                     if (typeof updateStats === 'function') {
                         if (!isAdmin) {
                             const _sg = document.getElementById('statsGrid');
@@ -3344,92 +3343,75 @@
                     }
                     if (typeof filterTable === 'function') filterTable();
                     updateLastUpdated();
-                    console.log('✅ Inline data loaded:', 
-                        Object.entries(data).map(([k,v]) => k+':'+v.length).join(', '));
+                    console.log('✅ Inline data loaded:', Object.entries(data).map(([k,v]) => k + ':' + v.length).join(', '));
                 } catch(e) {
                     console.error('Inline data error:', e);
                 }
             }
 
-            // ── Step 2: Try Supabase for live data (background refresh) ──
-            const sbReady = window._sbReady === true && window._sb;
-            if (sbReady) {
+            const TABLE_MAP = {
+                'Engines':        'engines',
+                'Aircraft Sale':  'aircraft_sale',
+                'Aircraft Lease': 'aircraft_lease',
+                'Parts':          'parts'
+            };
+
+            // ── Step 2: Try Supabase for live data (per-sheet, resilient) ──
+            let loadedLiveSheetCount = 0;
+            const freshData = {
+                'Engines': Array.isArray(data['Engines']) ? data['Engines'] : [],
+                'Aircraft Sale': Array.isArray(data['Aircraft Sale']) ? data['Aircraft Sale'] : [],
+                'Aircraft Lease': Array.isArray(data['Aircraft Lease']) ? data['Aircraft Lease'] : [],
+                'Parts': Array.isArray(data['Parts']) ? data['Parts'] : []
+            };
+
+            for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
                 try {
-                    const TABLE_MAP = {
-                        'Engines':        'engines',
-                        'Aircraft Sale':  'aircraft_sale',
-                        'Aircraft Lease': 'aircraft_lease',
-                        'Parts':          'parts'
-                    };
-                    const freshData = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
-                    const sb = window._sb;
-                    for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
-                        const result = await sb.from(tableName).select('*').order('no', { ascending: true }).limit(10000);
-                        if (result.error) throw new Error('Supabase ' + tableName + ': ' + result.error.message);
-                        freshData[sheetName] = (result.data || []).map(r => {
-                            const mapped = mapFromSupabase(r, sheetName);
-                            mapped._docId = String(r.id || r.no || '');
-                            return mapped;
-                        });
-                    }
-                    // Only update if Supabase returned data
-                    const totalRows = Object.values(freshData).reduce((s, a) => s + a.length, 0);
-                    if (totalRows > 0) {
-                        for (const sheet of Object.values(freshData)) {
-                            sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
-                        }
-                        data = freshData;
-                        applyPendingSyncToData();
-                        // ── Re-apply Hidden baseline from inline data ──────────────
-                        // Supabase rows pre-dating the Hidden feature won't have the
-                        // field set. Re-apply from __INLINE_DATA__ for rows whose
-                        // inline record has Hidden='1', unless Supabase has explicitly
-                        // cleared it (Hidden='' from a real admin uncheck).
-                        if (window.__INLINE_DATA__) {
-                            try {
-                                const _ilc = convertData(window.__INLINE_DATA__);
-                                ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
-                                    if (!data[sheet] || !_ilc[sheet]) return;
-                                    const _hidMap = {};
-                                    _ilc[sheet].forEach(r => {
-                                        if (isRowExplicitlyHidden(r))
-                                            _hidMap[String(r['No'] || '')] = '1';
-                                    });
-                                    data[sheet].forEach(row => {
-                                        const _noKey = String(row['No'] || '');
-                                        // Only apply if Supabase didn't send an explicit value
-                                        if (row['Hidden'] === undefined || row['Hidden'] === null)
-                                            row['Hidden'] = _hidMap[_noKey] || '';
-                                        else if ((!String(row['Hidden'] || '').trim()) && _hidMap[_noKey])
-                                            row['Hidden'] = '1'; // inline says hidden, Supabase has blank
-                                    });
-                                });
-                            } catch(_e) { console.warn('Hidden merge error:', _e); }
-                        }
-                        normalizeAllStatuses();
-                        if (typeof renderFilters === 'function') renderFilters();
-                        renderTable();
-                        if (typeof updateStats === 'function') updateStats();
-                        if (typeof filterTable === 'function') filterTable();
-                        updateLastUpdated();
-                        console.log('✅ Supabase live data loaded');
-                        if (typeof showToast === 'function') showToast('✅ Live Data', null, 'toast-sm');
-                    } else {
-                        console.warn('⚠️ Supabase returned 0 rows — keeping inline data. If you added entries, check Supabase RLS SELECT policy for the anon role.');
-                        // Show admin a soft warning if logged in
-                        if (isAdmin) {
-                            const _tw = document.getElementById('saveToast');
-                            if (_tw) {
-                                _tw.textContent = '⚠️ Database returned 0 rows — check Supabase RLS policies';
-                                _tw.style.background = '#f59e0b';
-                                _tw.classList.add('show');
-                                setTimeout(() => { _tw.classList.remove('show'); _tw.style.background = ''; }, 8000);
-                            }
-                        }
-                    }
-                } catch(e) {
-                    console.warn('⚠️ Supabase fetch failed (using inline data):', e.message);
+                    const rows = await fetchRowsFromSupabase(tableName);
+                    freshData[sheetName] = (rows || []).map(r => {
+                        const mapped = mapFromSupabase(r, sheetName);
+                        mapped._docId = String(r.id || r.no || mapped._docId || '');
+                        return mapped;
+                    });
+                    loadedLiveSheetCount += 1;
+                } catch (e) {
+                    console.warn('⚠️ Live fetch failed for ' + sheetName + ' — keeping current data:', e.message || e);
                 }
+            }
+
+            if (loadedLiveSheetCount > 0) {
+                for (const sheet of Object.values(freshData)) {
+                    sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                }
+                data = freshData;
+                applyPendingSyncToData();
+                if (window.__INLINE_DATA__) {
+                    try {
+                        const _ilc = convertData(window.__INLINE_DATA__);
+                        ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
+                            if (!data[sheet] || !_ilc[sheet]) return;
+                            const _hidMap = {};
+                            _ilc[sheet].forEach(r => {
+                                if (isRowExplicitlyHidden(r)) _hidMap[String(r['No'] || '')] = '1';
+                            });
+                            data[sheet].forEach(row => {
+                                const _noKey = String(row['No'] || '');
+                                if (row['Hidden'] === undefined || row['Hidden'] === null) row['Hidden'] = _hidMap[_noKey] || '';
+                                else if ((!String(row['Hidden'] || '').trim()) && _hidMap[_noKey]) row['Hidden'] = '1';
+                            });
+                        });
+                    } catch(_e) {
+                        console.warn('Hidden merge error:', _e);
+                    }
+                }
+                normalizeAllStatuses();
+                if (typeof renderFilters === 'function') renderFilters();
+                renderTable();
+                if (typeof updateStats === 'function') updateStats();
+                if (typeof filterTable === 'function') filterTable();
+                updateLastUpdated();
+                console.log('✅ Live data loaded for', loadedLiveSheetCount, 'sheet(s)');
+                if (typeof showToast === 'function') showToast('✅ Live Data', null, 'toast-sm');
                 return;
             }
 
@@ -3439,10 +3421,13 @@
                 if (!r.ok) throw new Error('data.json status ' + r.status);
                 const rawData = await r.json();
                 const jsonData = convertData(rawData);
-                // Only use if it has data
                 const totalRows = Object.values(jsonData).reduce((s, a) => s + a.length, 0);
                 if (totalRows > 0) {
-                    data = jsonData;
+                    Object.keys(TABLE_MAP).forEach(sheetName => {
+                        if (Array.isArray(jsonData[sheetName]) && jsonData[sheetName].length > 0) {
+                            data[sheetName] = jsonData[sheetName];
+                        }
+                    });
                     applyPendingSyncToData();
                     normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
@@ -4087,8 +4072,7 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const { error } = await window._sb.from(tableName).delete().eq('id', docId);
-                    if (error) throw error;
+                    await deleteRowFromSupabase(tableName, docId, row && row['No']);
                     clearPendingDelete(sheetName, row && row['No'], docId);
                     console.log('✅ Deal deleted from Supabase:', docId);
                     showToast('✅ Entry deleted permanently');
@@ -5546,6 +5530,167 @@ function toggleRowSelection(rowIndex, trEl) {
             return result;
         }
 
+        function getSupabaseRestHeaders(preferValue) {
+            const headers = {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'Content-Type': 'application/json'
+            };
+            if (preferValue) headers['Prefer'] = preferValue;
+            return headers;
+        }
+
+        async function supabaseRestRequest(path, options) {
+            const opts = options || {};
+            const response = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+                method: opts.method || 'GET',
+                headers: Object.assign(getSupabaseRestHeaders(opts.prefer), opts.headers || {}),
+                body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+            });
+            let payload = null;
+            const text = await response.text();
+            if (text) {
+                try { payload = JSON.parse(text); }
+                catch (_) { payload = text; }
+            }
+            if (!response.ok) {
+                const message = payload && payload.message ? payload.message : ('REST ' + response.status);
+                throw new Error(message);
+            }
+            return payload;
+        }
+
+        async function fetchRowsFromSupabase(tableName) {
+            let lastError = null;
+            if (window._sbReady && window._sb) {
+                const sdkAttempts = [
+                    () => window._sb.from(tableName).select('*').order('no', { ascending: true }).limit(10000),
+                    () => window._sb.from(tableName).select('*').limit(10000)
+                ];
+                for (const run of sdkAttempts) {
+                    try {
+                        const result = await run();
+                        if (!result.error) return result.data || [];
+                        lastError = result.error;
+                    } catch (err) {
+                        lastError = err;
+                    }
+                }
+            }
+            const restAttempts = [
+                tableName + '?select=*&order=no.asc&limit=10000',
+                tableName + '?select=*&limit=10000'
+            ];
+            for (const path of restAttempts) {
+                try {
+                    const rows = await supabaseRestRequest(path, { method: 'GET' });
+                    return Array.isArray(rows) ? rows : [];
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+            throw lastError || new Error('Unable to fetch ' + tableName);
+        }
+
+        async function deleteRowFromSupabase(tableName, docId, rowNo) {
+            let lastError = null;
+            if (window._sbReady && window._sb) {
+                const sdkAttempts = [];
+                if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
+                    sdkAttempts.push(() => window._sb.from(tableName).delete().eq('id', docId));
+                }
+                if (rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
+                    sdkAttempts.push(() => window._sb.from(tableName).delete().eq('no', rowNo));
+                }
+                for (const run of sdkAttempts) {
+                    try {
+                        const result = await run();
+                        if (!result.error) return result;
+                        lastError = result.error;
+                    } catch (err) {
+                        lastError = err;
+                    }
+                }
+            }
+            const restAttempts = [];
+            if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
+                restAttempts.push(tableName + '?id=eq.' + encodeURIComponent(String(docId)));
+            }
+            if (rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
+                restAttempts.push(tableName + '?no=eq.' + encodeURIComponent(String(rowNo)));
+            }
+            for (const path of restAttempts) {
+                try {
+                    await supabaseRestRequest(path, { method: 'DELETE', prefer: 'return=minimal' });
+                    return { error: null };
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+            throw lastError || new Error('Delete failed for ' + tableName);
+        }
+
+        async function restPersistRowToSupabase(tableName, payload) {
+            let lastError = null;
+            const attempts = [];
+            if (payload.id && !isNaN(payload.id)) {
+                attempts.push({
+                    mode: 'rest-upsert-id',
+                    path: tableName + '?on_conflict=id&select=*',
+                    method: 'POST',
+                    prefer: 'return=representation,resolution=merge-duplicates',
+                    body: [payload]
+                });
+                attempts.push({
+                    mode: 'rest-update-id',
+                    path: tableName + '?id=eq.' + encodeURIComponent(String(payload.id)) + '&select=*',
+                    method: 'PATCH',
+                    prefer: 'return=representation',
+                    body: { deal_data: payload.deal_data, no: payload.no }
+                });
+            }
+            if (payload.no !== undefined && payload.no !== null && payload.no !== 0) {
+                attempts.push({
+                    mode: 'rest-upsert-no',
+                    path: tableName + '?on_conflict=no&select=*',
+                    method: 'POST',
+                    prefer: 'return=representation,resolution=merge-duplicates',
+                    body: [payload]
+                });
+                attempts.push({
+                    mode: 'rest-update-no',
+                    path: tableName + '?no=eq.' + encodeURIComponent(String(payload.no)) + '&select=*',
+                    method: 'PATCH',
+                    prefer: 'return=representation',
+                    body: { deal_data: payload.deal_data, no: payload.no }
+                });
+            }
+            const insertPayload = { ...payload };
+            delete insertPayload.id;
+            attempts.push({
+                mode: 'rest-insert',
+                path: tableName + '?select=*',
+                method: 'POST',
+                prefer: 'return=representation',
+                body: [insertPayload]
+            });
+
+            for (const attempt of attempts) {
+                try {
+                    const rows = await supabaseRestRequest(attempt.path, {
+                        method: attempt.method,
+                        prefer: attempt.prefer,
+                        body: attempt.body
+                    });
+                    return { data: Array.isArray(rows) ? rows : [], error: null };
+                } catch (err) {
+                    lastError = err;
+                    console.warn('Supabase REST persist attempt failed (' + attempt.mode + '):', err && (err.message || err));
+                }
+            }
+            throw lastError || new Error('Unknown REST persistence error');
+        }
+
         async function persistRowToSupabase(tableName, row, sheetName) {
             const payload = mapToSupabase({ ...row }, sheetName);
             const attempts = [];
@@ -5577,26 +5722,31 @@ function toggleRowSelection(rowIndex, trEl) {
             });
 
             let lastError = null;
-            for (const attempt of attempts) {
-                for (let tryNo = 1; tryNo <= 3; tryNo++) {
-                    try {
-                        const result = await attempt.run();
-                        if (!result.error) return result;
-                        lastError = result.error;
-                    } catch (err) {
-                        lastError = err;
+            if (window._sbReady && window._sb) {
+                for (const attempt of attempts) {
+                    for (let tryNo = 1; tryNo <= 3; tryNo++) {
+                        try {
+                            const result = await attempt.run();
+                            if (!result.error) return result;
+                            lastError = result.error;
+                        } catch (err) {
+                            lastError = err;
+                        }
+                        const msg = (lastError && (lastError.message || String(lastError))) || '';
+                        const isTransient = /load failed|failed to fetch|network|fetch/i.test(msg);
+                        if (tryNo < 3 && isTransient) {
+                            console.warn('Transient Supabase error (' + attempt.mode + ', retry ' + tryNo + '):', msg);
+                            await new Promise(resolve => setTimeout(resolve, 350 * tryNo));
+                            continue;
+                        }
+                        break;
                     }
-                    const msg = (lastError && (lastError.message || String(lastError))) || '';
-                    const isTransient = /load failed|failed to fetch|network|fetch/i.test(msg);
-                    if (tryNo < 3 && isTransient) {
-                        console.warn('Transient Supabase error (' + attempt.mode + ', retry ' + tryNo + '):', msg);
-                        await new Promise(resolve => setTimeout(resolve, 350 * tryNo));
-                        continue;
-                    }
-                    break;
+                    console.warn('Supabase persist attempt failed (' + attempt.mode + '):', lastError && (lastError.message || lastError));
                 }
-                console.warn('Supabase persist attempt failed (' + attempt.mode + '):', lastError && (lastError.message || lastError));
             }
+
+            const restResult = await restPersistRowToSupabase(tableName, payload);
+            if (restResult && !restResult.error) return restResult;
             throw lastError || new Error('Unknown Supabase persistence error');
         }
 
@@ -6999,5 +7149,6 @@ function updateAdminUI(isAdminMode) {
       </div><!-- /upload-modal-box -->
     </div><!-- /uploadModal -->
 
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
