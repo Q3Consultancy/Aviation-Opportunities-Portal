@@ -3318,6 +3318,7 @@
             if (window.__INLINE_DATA__) {
                 try {
                     data = convertData(window.__INLINE_DATA__);
+                    applyPendingSyncToData();
                     const spinner = document.getElementById('engineSpinner');
                     if (spinner) {
                         spinner.classList.add('hidden');
@@ -3371,6 +3372,7 @@
                             sheet.sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
                         }
                         data = freshData;
+                        applyPendingSyncToData();
                         // ── Re-apply Hidden baseline from inline data ──────────────
                         // Supabase rows pre-dating the Hidden feature won't have the
                         // field set. Re-apply from __INLINE_DATA__ for rows whose
@@ -3434,6 +3436,7 @@
                 const totalRows = Object.values(jsonData).reduce((s, a) => s + a.length, 0);
                 if (totalRows > 0) {
                     data = jsonData;
+                    applyPendingSyncToData();
                     normalizeAllStatuses();
                     if (typeof renderFilters === 'function') renderFilters();
                     renderTable();
@@ -3999,6 +4002,7 @@
             }
             // 1. Update in-memory (always immediate)
             sheetData[rowIndex][colName] = newValue;
+            queuePendingUpsert(sheetName, sheetData[rowIndex]);
             // If Seller Price or Commission USD changed manually, recalc
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
@@ -4032,10 +4036,12 @@
                         sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
                     }
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
-                    showToast('✅ Saved: ' + colName);
+                    clearPendingUpsert(sheetName, sheetData[rowIndex]);
+                    showToast('✅ Saved permanently: ' + colName);
                 } catch (err) {
                     console.warn('Supabase save error (cell):', err.message || err);
-                    showToast('⚠️ Saved locally — sync issue: ' + (err.message || 'check console'));
+                    showToast('⚠️ Saved locally — auto-sync queued');
+                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
                 }
             } else {
                 console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
@@ -4050,6 +4056,7 @@
             const sheetName = getSheetName(currentTab);
             const row    = data[sheetName][rowIndex];
             const docId  = (row && (row._docId || String(row['No'] || rowIndex + 1)));
+            if (row) queuePendingDelete(sheetName, row);
 
             // Remove from local data first (instant UI)
             data[sheetName].splice(rowIndex, 1);
@@ -4066,9 +4073,13 @@
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
                     const { error } = await window._sb.from(tableName).delete().eq('id', docId);
                     if (error) throw error;
+                    clearPendingDelete(sheetName, row && row['No'], docId);
                     console.log('✅ Deal deleted from Supabase:', docId);
+                    showToast('✅ Entry deleted permanently');
                 } catch (err) {
                     console.warn('Supabase delete error:', err.message);
+                    showToast('⚠️ Delete queued — will sync automatically');
+                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
                 }
             }
         }
@@ -4366,6 +4377,7 @@
             // Recalculate price fields (using correct sheetName + row index)
             const _rcIdx = (data[sheetName] || []).indexOf(existingRow);
             if (_rcIdx >= 0 && typeof recalcRow === 'function') recalcRow(sheetName, _rcIdx);
+            queuePendingUpsert(sheetName, existingRow);
 
             // Save to Supabase using resilient row persistence
             if (window._sbReady && window._sb) {
@@ -4377,11 +4389,13 @@
                         if (persisted && persisted.data && persisted.data[0]) {
                             existingRow._docId = String(persisted.data[0].id || persisted.data[0].no || existingRow._docId || '');
                         }
-                        showToast('✅ Entry updated & synced!', '#10b981');
+                        clearPendingUpsert(sheetName, existingRow);
+                        showToast('✅ Entry updated & synced!', 3000);
                     }
                 } catch(e) {
                     console.warn('Supabase update exception:', e);
-                    showToast('✅ Updated locally', '#10b981');
+                    showToast('⚠️ Update queued locally — auto-sync will retry');
+                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
                 }
             } else {
                 showToast('✅ Entry updated locally', '#10b981');
@@ -4444,6 +4458,7 @@
             // Recalc Commission USD and Price for the new row
             const newIdx = data[sheetName].length - 1;
             recalcRow(sheetName, newIdx);
+            queuePendingUpsert(sheetName, data[sheetName][newIdx]);
 
             // Save to Supabase
             if (window._sbReady) {
@@ -4457,10 +4472,11 @@
                     if (persisted && persisted.data && persisted.data[0]) {
                         data[sheetName][newIdx]._docId = String(persisted.data[0].id || persisted.data[0].no || data[sheetName][newIdx]._docId || '');
                         console.log('✅ New deal saved to Supabase, id=' + data[sheetName][newIdx]._docId);
+                        clearPendingUpsert(sheetName, data[sheetName][newIdx]);
                     }
                     const _t2 = document.getElementById('saveToast');
                     if (_t2) {
-                        _t2.textContent = '✅ Entry saved to database!';
+                        _t2.textContent = '✅ Entry saved permanently!';
                         _t2.style.background = '#22c55e';
                         _t2.classList.add('show');
                         setTimeout(() => { _t2.classList.remove('show'); _t2.style.background = ''; }, 3000);
@@ -4469,7 +4485,7 @@
                     console.warn('Supabase add error:', err.message || err);
                     const _t = document.getElementById('saveToast');
                     if (_t) {
-                        _t.textContent = '⚠️ Entry added locally — click 💾 Save to sync to database';
+                        _t.textContent = '⚠️ Entry added locally — auto-sync queued';
                         _t.style.background = '#f59e0b';
                         _t.classList.add('show');
                         setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 7000);
@@ -4771,21 +4787,24 @@
                             'Parts': 'parts'
                         };
                         let syncedCount = 0;
+                        let deletedCount = 0;
                         for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
                             const rows = data[sheetName] || [];
                             if (rows.length === 0) continue;
                             syncedCount += await persistRowsToSupabase(tableName, rows, sheetName);
                         }
-                        if (syncedCount) {
-                            console.log('✅ Supabase sync complete:', syncedCount, 'records');
+                        const _pendingFlush = await flushPendingSyncQueue(false);
+                        deletedCount = _pendingFlush.deleted || 0;
+                        if (syncedCount || deletedCount) {
+                            console.log('✅ Supabase sync complete:', syncedCount, 'records and', deletedCount, 'deletes');
                         }
                         // Show success toast + restore button
                         const _savedCount2 = savedCount;
                         const _toast2 = document.getElementById('saveToast');
                         const _btn2   = document.getElementById('saveBtn');
                         if (_toast2) {
-                            _toast2.textContent = syncedCount
-                                ? '✅ Synced: ' + syncedCount + ' records saved to database'
+                            _toast2.textContent = (syncedCount || deletedCount)
+                                ? '✅ Synced: ' + syncedCount + ' records' + (deletedCount ? ' and ' + deletedCount + ' deletes' : '')
                                 : '✅ All ' + _savedCount2 + ' records saved';
                             _toast2.style.background = '#10b981';
                             _toast2.classList.add('show');
@@ -5126,6 +5145,7 @@
                 Object.assign(columnWidths, _cwStored);
             } catch(e) {}
             await loadData();
+            setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
             // Admin access: show login button and open login modal if URL has #admin
             // Guard: skip if already logged in (prevents modal re-appearing after login)
             if (!isAdmin) {
@@ -5139,6 +5159,10 @@
                 }
             }
         };
+
+        window.addEventListener('online', function() {
+            setTimeout(() => { flushPendingSyncQueue(true); }, 600);
+        });
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -5533,12 +5557,202 @@ function toggleRowSelection(rowIndex, trEl) {
 
             let lastError = null;
             for (const attempt of attempts) {
-                const result = await attempt.run();
-                if (!result.error) return result;
-                lastError = result.error;
-                console.warn('Supabase persist attempt failed (' + attempt.mode + '):', result.error.message || result.error);
+                for (let tryNo = 1; tryNo <= 3; tryNo++) {
+                    try {
+                        const result = await attempt.run();
+                        if (!result.error) return result;
+                        lastError = result.error;
+                    } catch (err) {
+                        lastError = err;
+                    }
+                    const msg = (lastError && (lastError.message || String(lastError))) || '';
+                    const isTransient = /load failed|failed to fetch|network|fetch/i.test(msg);
+                    if (tryNo < 3 && isTransient) {
+                        console.warn('Transient Supabase error (' + attempt.mode + ', retry ' + tryNo + '):', msg);
+                        await new Promise(resolve => setTimeout(resolve, 350 * tryNo));
+                        continue;
+                    }
+                    break;
+                }
+                console.warn('Supabase persist attempt failed (' + attempt.mode + '):', lastError && (lastError.message || lastError));
             }
             throw lastError || new Error('Unknown Supabase persistence error');
+        }
+
+        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV2';
+
+        function _defaultPendingSyncState() {
+            return { upserts: {}, deletes: [] };
+        }
+
+        function loadPendingSyncState() {
+            try {
+                const raw = localStorage.getItem(LOCAL_SYNC_QUEUE_KEY);
+                if (!raw) return _defaultPendingSyncState();
+                const parsed = JSON.parse(raw);
+                return {
+                    upserts: parsed && parsed.upserts ? parsed.upserts : {},
+                    deletes: parsed && Array.isArray(parsed.deletes) ? parsed.deletes : []
+                };
+            } catch (e) {
+                console.warn('Pending sync load error:', e);
+                return _defaultPendingSyncState();
+            }
+        }
+
+        function savePendingSyncState(state) {
+            try {
+                localStorage.setItem(LOCAL_SYNC_QUEUE_KEY, JSON.stringify(state || _defaultPendingSyncState()));
+            } catch (e) {
+                console.warn('Pending sync save error:', e);
+            }
+        }
+
+        function _pendingUpsertKey(sheetName, rowNo) {
+            return String(sheetName || '') + '::' + String(rowNo || '');
+        }
+
+        function queuePendingUpsert(sheetName, row) {
+            if (!sheetName || !row) return;
+            const rowNo = String(row['No'] || '').trim();
+            if (!rowNo) return;
+            const state = loadPendingSyncState();
+            state.upserts[_pendingUpsertKey(sheetName, rowNo)] = {
+                sheetName,
+                rowNo,
+                row: JSON.parse(JSON.stringify(row)),
+                queuedAt: new Date().toISOString()
+            };
+            state.deletes = state.deletes.filter(d => !(d.sheetName === sheetName && String(d.rowNo || '') === rowNo));
+            savePendingSyncState(state);
+        }
+
+        function clearPendingUpsert(sheetName, rowOrNo) {
+            const rowNo = String(typeof rowOrNo === 'object' ? (rowOrNo && rowOrNo['No']) : rowOrNo || '').trim();
+            if (!sheetName || !rowNo) return;
+            const state = loadPendingSyncState();
+            delete state.upserts[_pendingUpsertKey(sheetName, rowNo)];
+            savePendingSyncState(state);
+        }
+
+        function queuePendingDelete(sheetName, row) {
+            if (!sheetName || !row) return;
+            const rowNo = String(row['No'] || '').trim();
+            if (!rowNo) return;
+            const docId = String(row._docId || '').trim();
+            const state = loadPendingSyncState();
+            delete state.upserts[_pendingUpsertKey(sheetName, rowNo)];
+            state.deletes = state.deletes.filter(d => !(d.sheetName === sheetName && String(d.rowNo || '') === rowNo));
+            state.deletes.push({ sheetName, rowNo, docId, queuedAt: new Date().toISOString() });
+            savePendingSyncState(state);
+        }
+
+        function clearPendingDelete(sheetName, rowNo, docId) {
+            const _rowNo = String(rowNo || '').trim();
+            const _docId = String(docId || '').trim();
+            const state = loadPendingSyncState();
+            state.deletes = state.deletes.filter(d => {
+                if (sheetName && d.sheetName !== sheetName) return true;
+                if (_docId && String(d.docId || '') === _docId) return false;
+                if (_rowNo && String(d.rowNo || '') === _rowNo) return false;
+                return !(sheetName && !_rowNo && !_docId && d.sheetName === sheetName);
+            });
+            savePendingSyncState(state);
+        }
+
+        function applyPendingSyncToData() {
+            const state = loadPendingSyncState();
+            let applied = 0;
+            Object.values(state.upserts || {}).forEach(item => {
+                if (!item || !item.sheetName || !item.row) return;
+                if (!data[item.sheetName]) data[item.sheetName] = [];
+                const rows = data[item.sheetName];
+                const idx = rows.findIndex(r =>
+                    (item.row._docId && String(r._docId || '') === String(item.row._docId)) ||
+                    String(r['No'] || '') === String(item.rowNo || '')
+                );
+                if (idx >= 0) rows[idx] = { ...rows[idx], ...item.row };
+                else rows.push({ ...item.row });
+                applied += 1;
+            });
+            (state.deletes || []).forEach(item => {
+                if (!item || !item.sheetName || !data[item.sheetName]) return;
+                const before = data[item.sheetName].length;
+                data[item.sheetName] = data[item.sheetName].filter(r => {
+                    if (item.docId && String(r._docId || '') === String(item.docId)) return false;
+                    return String(r['No'] || '') !== String(item.rowNo || '');
+                });
+                if (data[item.sheetName].length !== before) applied += 1;
+            });
+            ['Engines','Aircraft Sale','Aircraft Lease','Parts'].forEach(sheet => {
+                if (Array.isArray(data[sheet])) {
+                    data[sheet].sort((a, b) => (parseInt(a['No']) || 0) - (parseInt(b['No']) || 0));
+                }
+            });
+            return applied;
+        }
+
+        async function flushPendingSyncQueue(showStatus) {
+            if (!window._sbReady || !window._sb) return { skipped: true, reason: 'db-not-ready' };
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                return { skipped: true, reason: 'offline' };
+            }
+            const TABLE_MAP = {
+                'Engines': 'engines',
+                'Aircraft Sale': 'aircraft_sale',
+                'Aircraft Lease': 'aircraft_lease',
+                'Parts': 'parts'
+            };
+            const state = loadPendingSyncState();
+            let synced = 0, deleted = 0, lastError = null;
+
+            for (const item of [...(state.deletes || [])]) {
+                try {
+                    const tableName = TABLE_MAP[item.sheetName];
+                    if (!tableName) continue;
+                    let req = window._sb.from(tableName).delete();
+                    if (item.docId && !isNaN(item.docId)) req = req.eq('id', parseInt(item.docId));
+                    else req = req.eq('no', parseInt(item.rowNo) || 0);
+                    const { error } = await req;
+                    if (error) throw error;
+                    state.deletes = state.deletes.filter(d => !(d.sheetName === item.sheetName && String(d.rowNo || '') === String(item.rowNo || '')));
+                    deleted += 1;
+                } catch (err) {
+                    lastError = err;
+                    console.warn('Pending delete sync error:', err.message || err);
+                }
+            }
+
+            for (const [key, item] of Object.entries(state.upserts || {})) {
+                try {
+                    const tableName = TABLE_MAP[item.sheetName];
+                    if (!tableName) continue;
+                    const result = await persistRowToSupabase(tableName, item.row, item.sheetName);
+                    if (result && result.data && result.data[0]) {
+                        const persistedId = String(result.data[0].id || result.data[0].no || item.row._docId || '');
+                        item.row._docId = persistedId;
+                        const rows = data[item.sheetName] || [];
+                        const idx = rows.findIndex(r => String(r['No'] || '') === String(item.rowNo || ''));
+                        if (idx >= 0) rows[idx]._docId = persistedId;
+                    }
+                    delete state.upserts[key];
+                    synced += 1;
+                } catch (err) {
+                    lastError = err;
+                    console.warn('Pending upsert sync error:', err.message || err);
+                }
+            }
+
+            savePendingSyncState(state);
+            const pendingCount = Object.keys(state.upserts || {}).length + (state.deletes || []).length;
+            if (showStatus) {
+                if (!lastError && (synced || deleted)) {
+                    showToast('✅ Auto-sync complete — changes saved permanently', 3800);
+                } else if (lastError && pendingCount > 0) {
+                    showToast('⚠️ Some changes are still queued and will retry automatically', 4500);
+                }
+            }
+            return { synced, deleted, pendingCount, lastError };
         }
 
         async function persistRowsToSupabase(tableName, rows, sheetName) {
@@ -5548,6 +5762,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 if (result && result.data && result.data[0]) {
                     row._docId = String(result.data[0].id || result.data[0].no || row._docId || '');
                 }
+                clearPendingUpsert(sheetName, row);
                 syncedCount += 1;
             }
             return syncedCount;
