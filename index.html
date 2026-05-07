@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v84 -->
+    <!-- Build: v85 -->
     <style>
         * {
             margin: 0;
@@ -3080,9 +3080,15 @@
         }
 
         const FORCED_HIDDEN_ROW_NUMBERS = {
-            'Engines': [39,40,41,42,43,49,50,51,52,60,61,62,63,64,65,66,67,68,69,70,73,76,78,86,87,88],
+            'Engines': [39,40,41,42,43,51,52,60,61,62,63,64,65,66,67,68,69,70,73,76,78,86,87,88],
             'Aircraft Sale': [15,16,18,23],
             'Aircraft Lease': [1,2,3,4],
+            'Parts': []
+        };
+        const FORCED_VISIBLE_ROW_NUMBERS = {
+            'Engines': [49,50],
+            'Aircraft Sale': [],
+            'Aircraft Lease': [],
             'Parts': []
         };
 
@@ -3093,6 +3099,15 @@
                 data[sheetName].forEach(row => {
                     const rowNo = String((row && row['No'] !== undefined && row['No'] !== null) ? row['No'] : '').trim();
                     if (forcedNos.has(rowNo)) row['Hidden'] = '1';
+                });
+            });
+
+            Object.entries(FORCED_VISIBLE_ROW_NUMBERS).forEach(([sheetName, rowNumbers]) => {
+                if (!Array.isArray(data[sheetName])) data[sheetName] = [];
+                const forcedNos = new Set((rowNumbers || []).map(v => String(v)));
+                data[sheetName].forEach(row => {
+                    const rowNo = String((row && row['No'] !== undefined && row['No'] !== null) ? row['No'] : '').trim();
+                    if (forcedNos.has(rowNo)) row['Hidden'] = '';
                 });
             });
 
@@ -3108,8 +3123,8 @@
                     'Part': 'Embraer Parts',
                     'Files': embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001',
                     'Condition': 'SV',
-                    'Location': '[Brazil]',
-                    'Status': 'Buyer Request',
+                    'Location': '[USA]',
+                    'Status': 'Seller Request',
                     'Comments': 'Supporting file attached',
                     'Date Received': '07 May 2026',
                     'Hidden': '',
@@ -3120,8 +3135,8 @@
             } else {
                 embraerRow['Files'] = embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001';
                 if (!embraerRow['Condition']) embraerRow['Condition'] = 'SV';
-                if (!embraerRow['Location']) embraerRow['Location'] = '[Brazil]';
-                if (!embraerRow['Status']) embraerRow['Status'] = 'Buyer Request';
+                embraerRow['Location'] = '[USA]';
+                embraerRow['Status'] = 'Seller Request';
                 if (embraerRow['Hidden'] === undefined || embraerRow['Hidden'] === null) embraerRow['Hidden'] = '';
             }
             partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
