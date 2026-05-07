@@ -2949,6 +2949,7 @@
             'Financial Closing',
             'Closed'
         ];
+        const ENTRY_OWNER_OPTIONS = ['Mohamed', 'Quincy, Thierno', 'Vernu'];
 
 
 
@@ -3059,12 +3060,14 @@
 
         // Check if row should be hidden (for non-admin)
         function shouldHideRow(row) {
-            if (isAdmin) return false;
+            const _previewMode = (typeof _currentViewMode !== 'undefined') &&
+                                 (_currentViewMode === 'mobile' || _currentViewMode === 'desktop');
+            if (isAdmin && !_previewMode) return false;
             // Hide rows explicitly flagged by admin
             const hf = (row['Hidden'] || '').toString().trim();
             if (hf === '1' || hf.toLowerCase() === 'true') return true;
-            const status = (row['Status'] || '').toString().toLowerCase().trim();
-            // Hide 'Closed' rows for non-admin users
+            const status = normalizeStatus(row['Status'] || '').toString().toLowerCase().trim();
+            // Hide 'Closed' rows for non-admin users and admin preview modes
             if (status === 'closed' || status.includes('sold to another buyer')) return true;
             return false;
         }
@@ -3448,10 +3451,10 @@
         // Get columns for a sheet in the correct display order,
         // inserting Team Commission (%) right after Seller's Price (USD)
         const BASELINE_COL_ORDER = {
-            'Engines': ['No', 'Deal #', 'Engine', 'Files', 'ESN', 'Cycles Remaining', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'LLP Sheet', 'Last Shop Visit', 'Last Shop Visit Report', 'QEC / Accessory List', 'Engine History', 'NIS', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Buyer(s) 5', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Aircraft Sale': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Aircraft Lease': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Comments', 'Status', 'Date Received'],
-            'Parts': ['No', 'Deal #', 'Part', 'Files', 'Manufacturers S/N', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Condition', 'Comments', 'Status', 'Date Received']
+            'Engines': ['No', 'Deal #', 'Engine', 'Files', 'ESN', 'Cycles Remaining', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'LLP Sheet', 'Last Shop Visit', 'Last Shop Visit Report', 'QEC / Accessory List', 'Engine History', 'NIS', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Buyer(s) 5', 'Condition', 'Entry Owner', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Sale': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Entry Owner', 'Comments', 'Status', 'Date Received'],
+            'Aircraft Lease': ['No', 'Deal #', 'Aircraft', 'Files', 'Engine', "Manufacturer's Serial Number", 'Manufacturers S/N', 'Date-Of-Manufacture', 'Total Time', 'Total Cycles', 'Configuration', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Buyer(s) 2', 'Buyer(s) 3', 'Buyer(s) 4', 'Condition', 'Entry Owner', 'Comments', 'Status', 'Date Received'],
+            'Parts': ['No', 'Deal #', 'Part', 'Files', 'Manufacturers S/N', "Seller's Price \n(USD)", 'Team Commission\n(USD)', 'Price \n(USD)', 'Location', 'Seller / Broker', 'Buyer(s)', 'Condition', 'Entry Owner', 'Comments', 'Status', 'Date Received']
         };
 
         function getOrderedColumns(sheetData) {
@@ -3465,7 +3468,7 @@
 
             // Start with Excel baseline order; always include Condition + Comments
             const baseline   = BASELINE_COL_ORDER[sheetName] || [];
-            const alwaysShow = ['Condition', KEY_COMMENTS];
+            const alwaysShow = ['Condition', KEY_COMMENTS].concat(isAdmin ? ['Entry Owner'] : []);
             let cols = baseline.filter(c => dataKeys.includes(c) || alwaysShow.includes(c));
             // Append any data keys not in baseline (future/unknown columns)
             dataKeys.forEach(k => { if (!cols.includes(k)) cols.push(k); });
@@ -3811,6 +3814,19 @@
                         return;
                     }
 
+                    if (col === 'Entry Owner') {
+                        if (isAdmin) {
+                            const ownerValue = value || '';
+                            const ownerOptions = ENTRY_OWNER_OPTIONS.map(o => `<option value="${o}" ${ownerValue === o ? 'selected' : ''}>${o}</option>`).join('');
+                            html += `<td class="editable" data-row="${sdIdx}" data-col-idx="${visibleColumns.indexOf(col)}" data-col="${col}">` +
+                                    `<select class="status-select owner-select" onchange="saveCell(${sdIdx},'Entry Owner',this.value);" title="Assign entry owner">` +
+                                    `<option value="">— Select —</option>${ownerOptions}</select></td>`;
+                        } else {
+                            html += `<td>${value || '—'}</td>`;
+                        }
+                        return;
+                    }
+
                     // All columns editable in admin except Files
                     const editableClass = isAdmin && col !== 'Files' ? 'editable' : 'read-only';
                     const colIdx = visibleColumns.indexOf(col);
@@ -4011,30 +4027,15 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const rowSnap   = mapToSupabase({ ...sheetData[rowIndex] }, sheetName);
-                    let   sbResult;
-                    if (rowSnap.id) {
-                        // Existing record — UPDATE by id
-                        sbResult = await window._sb
-                            .from(tableName)
-                            .update({ deal_data: rowSnap.deal_data, no: rowSnap.no })
-                            .eq('id', rowSnap.id);
-                    } else {
-                        // No id yet — INSERT and capture the new id
-                        sbResult = await window._sb
-                            .from(tableName)
-                            .insert(rowSnap)
-                            .select();
-                        if (!sbResult.error && sbResult.data && sbResult.data[0]) {
-                            sheetData[rowIndex]._docId = String(sbResult.data[0].id || '');
-                        }
+                    const persisted = await persistRowToSupabase(tableName, sheetData[rowIndex], sheetName);
+                    if (persisted && persisted.data && persisted.data[0]) {
+                        sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
                     }
-                    if (sbResult.error) throw sbResult.error;
-                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row id:', rowSnap.id || 'new', ')');
+                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
                     showToast('✅ Saved: ' + colName);
                 } catch (err) {
-                    console.warn('Supabase save error (cell):', err.message);
-                    showToast('⚠️ Save error — check console');
+                    console.warn('Supabase save error (cell):', err.message || err);
+                    showToast('⚠️ Saved locally — sync issue: ' + (err.message || 'check console'));
                 }
             } else {
                 console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
@@ -4103,9 +4104,10 @@
                 { key: 'Buyer(s) 3',     label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',     label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 5',     label: 'Buyer(s) 5',        type: 'text',   required: false, placeholder: '' },
+                { key: 'Entry Owner',     label: 'Entry Owner',        type: 'select', required: false, options: ['', ...ENTRY_OWNER_OPTIONS] },
                 { section: '📋 Status & Date' },
                 { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['SV', 'FN', 'OH', 'RP', 'AR', 'BER', 'RJ/SCR'], default: 'SV' },
-                { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',          label: 'Status',             type: 'select', required: false, options: ['', ...ADMIN_STATUS_OPTIONS] },
                 { key: 'Date Received',   label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY', defaultValue: todayFormatted },
             ],
             'Aircraft Sale': [
@@ -4130,9 +4132,10 @@
                 { key: 'Buyer(s) 2',      label: 'Buyer(s) 2',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
+                { key: 'Entry Owner',      label: 'Entry Owner',        type: 'select', required: false, options: ['', ...ENTRY_OWNER_OPTIONS] },
                 { section: '📋 Status & Date' },
                 { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['SV', 'FN', 'OH', 'RP', 'AR', 'BER', 'RJ/SCR'], default: 'SV' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Lessor Request', 'Lessee Request', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', ...ADMIN_STATUS_OPTIONS] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
             'Aircraft Lease': [
@@ -4157,9 +4160,10 @@
                 { key: 'Buyer(s) 2',      label: 'Buyer(s) 2',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 3',      label: 'Buyer(s) 3',        type: 'text',   required: false, placeholder: '' },
                 { key: 'Buyer(s) 4',      label: 'Buyer(s) 4',        type: 'text',   required: false, placeholder: '' },
+                { key: 'Entry Owner',      label: 'Entry Owner',        type: 'select', required: false, options: ['', ...ENTRY_OWNER_OPTIONS] },
                 { section: '📋 Status & Date' },
                 { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['SV', 'FN', 'OH', 'RP', 'AR', 'BER', 'RJ/SCR'], default: 'SV' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Lessor Request', 'Lessee Request', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', ...ADMIN_STATUS_OPTIONS] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ],
             'Parts': [
@@ -4176,9 +4180,10 @@
                 { section: '👥 Parties' },
                 { key: 'Seller / Broker',  label: 'Seller / Broker',   type: 'text',   required: false, placeholder: 'Name / Company' },
                 { key: 'Buyer(s)',         label: 'Buyer(s)',           type: 'text',   required: false, placeholder: 'Primary buyer' },
+                { key: 'Entry Owner',      label: 'Entry Owner',        type: 'select', required: false, options: ['', ...ENTRY_OWNER_OPTIONS] },
                 { section: '📋 Status & Date' },
                 { key: 'Condition', label: 'Condition', type: 'select', required: false, options: ['SV', 'FN', 'OH', 'RP', 'AR', 'BER', 'RJ/SCR'], default: 'SV' },
-                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', 'Seller Request', 'Buyer Request', 'Buyer: Submitted', 'Buyer: Reviewing data', 'Buyer: Finalizing LOI and APA', 'Closed [Sold to another Buyer]'] },
+                { key: 'Status',           label: 'Status',             type: 'select', required: false, options: ['', ...ADMIN_STATUS_OPTIONS] },
                 { key: 'Date Received',    label: 'Date Received',      type: 'text',   required: false, placeholder: 'DD/Mon/YYYY' },
             ]
         };
@@ -4362,21 +4367,17 @@
             const _rcIdx = (data[sheetName] || []).indexOf(existingRow);
             if (_rcIdx >= 0 && typeof recalcRow === 'function') recalcRow(sheetName, _rcIdx);
 
-            // Save to Supabase (upsert on 'no')
+            // Save to Supabase using resilient row persistence
             if (window._sbReady && window._sb) {
                 try {
                     const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
                                  'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
                     if (tbl) {
-                        const mapped = mapToSupabase(existingRow, sheetName);
-                        const { error } = await window._sb.from(tbl)
-                            .upsert(mapped, { onConflict: 'id' });
-                        if (error) {
-                            console.warn('Supabase update error:', error);
-                            showToast('⚠️ Saved locally — sync issue: ' + error.message, '#f59e0b');
-                        } else {
-                            showToast('✅ Entry updated & synced!', '#10b981');
+                        const persisted = await persistRowToSupabase(tbl, existingRow, sheetName);
+                        if (persisted && persisted.data && persisted.data[0]) {
+                            existingRow._docId = String(persisted.data[0].id || persisted.data[0].no || existingRow._docId || '');
                         }
+                        showToast('✅ Entry updated & synced!', '#10b981');
                     }
                 } catch(e) {
                     console.warn('Supabase update exception:', e);
@@ -4452,17 +4453,11 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const rowToSave = mapToSupabase({ ...data[sheetName][newIdx] }, sheetName);
-                    // delete id so Supabase auto-assigns it for new rows
-                    delete rowToSave.id;
-                    const { data: inserted, error } = await window._sb
-                        .from(tableName).insert(rowToSave).select();
-                    if (error) throw error;
-                    if (inserted && inserted[0]) {
-                        data[sheetName][newIdx]._docId = String(inserted[0].id || inserted[0].no || '');
+                    const persisted = await persistRowToSupabase(tableName, data[sheetName][newIdx], sheetName);
+                    if (persisted && persisted.data && persisted.data[0]) {
+                        data[sheetName][newIdx]._docId = String(persisted.data[0].id || persisted.data[0].no || data[sheetName][newIdx]._docId || '');
                         console.log('✅ New deal saved to Supabase, id=' + data[sheetName][newIdx]._docId);
                     }
-                    // Show green success toast
                     const _t2 = document.getElementById('saveToast');
                     if (_t2) {
                         _t2.textContent = '✅ Entry saved to database!';
@@ -4471,8 +4466,7 @@
                         setTimeout(() => { _t2.classList.remove('show'); _t2.style.background = ''; }, 3000);
                     }
                 } catch (err) {
-                    console.warn('Supabase add error:', err.message);
-                    // Show amber toast – entry is in memory, tell admin to click Save
+                    console.warn('Supabase add error:', err.message || err);
                     const _t = document.getElementById('saveToast');
                     if (_t) {
                         _t.textContent = '⚠️ Entry added locally — click 💾 Save to sync to database';
@@ -4776,54 +4770,22 @@
                             'Aircraft Lease': 'aircraft_lease',
                             'Parts': 'parts'
                         };
-                        let insertedCount = 0, updatedCount = 0;
+                        let syncedCount = 0;
                         for (const [sheetName, tableName] of Object.entries(TABLE_MAP)) {
                             const rows = data[sheetName] || [];
                             if (rows.length === 0) continue;
-
-                            // Split into new rows (no _docId) and existing rows (have _docId)
-                            const newRows = rows.filter(r => !r._docId || isNaN(r._docId));
-                            const existingRows = rows.filter(r => r._docId && !isNaN(r._docId));
-
-                            // INSERT new rows – get back ids so they persist on refresh
-                            if (newRows.length > 0) {
-                                const mapped = newRows.map(r => mapToSupabase({...r}, sheetName));
-                                const { data: inserted, error } = await window._sb
-                                    .from(tableName).insert(mapped).select();
-                                if (error) {
-                                    console.warn('Supabase insert warning (' + sheetName + '):', error.message);
-                                } else if (inserted) {
-                                    // Back-fill _docId so future saves use upsert
-                                    inserted.forEach((ins, i) => {
-                                        const origIdx = rows.indexOf(newRows[i]);
-                                        if (origIdx >= 0) rows[origIdx]._docId = String(ins.id || ins.no || '');
-                                    });
-                                    insertedCount += inserted.length;
-                                }
-                            }
-
-                            // UPSERT existing rows (update in place)
-                            if (existingRows.length > 0) {
-                                const mapped = existingRows.map(r => mapToSupabase({...r}, sheetName));
-                                const { error } = await window._sb
-                                    .from(tableName).upsert(mapped, { onConflict: 'id' });
-                                if (error) {
-                                    console.warn('Supabase upsert warning (' + sheetName + '):', error.message);
-                                } else {
-                                    updatedCount += existingRows.length;
-                                }
-                            }
+                            syncedCount += await persistRowsToSupabase(tableName, rows, sheetName);
                         }
-                        if (insertedCount || updatedCount) {
-                            console.log('✅ Supabase sync: ' + insertedCount + ' inserted, ' + updatedCount + ' updated');
+                        if (syncedCount) {
+                            console.log('✅ Supabase sync complete:', syncedCount, 'records');
                         }
                         // Show success toast + restore button
                         const _savedCount2 = savedCount;
                         const _toast2 = document.getElementById('saveToast');
                         const _btn2   = document.getElementById('saveBtn');
                         if (_toast2) {
-                            _toast2.textContent = insertedCount || updatedCount
-                                ? '✅ Synced: ' + (insertedCount + updatedCount) + ' records saved to database'
+                            _toast2.textContent = syncedCount
+                                ? '✅ Synced: ' + syncedCount + ' records saved to database'
                                 : '✅ All ' + _savedCount2 + ' records saved';
                             _toast2.style.background = '#10b981';
                             _toast2.classList.add('show');
@@ -5537,6 +5499,58 @@ function toggleRowSelection(rowIndex, trEl) {
                 result['Condition'] = 'SV';
             }
             return result;
+        }
+
+        async function persistRowToSupabase(tableName, row, sheetName) {
+            const payload = mapToSupabase({ ...row }, sheetName);
+            const attempts = [];
+            if (payload.id && !isNaN(payload.id)) {
+                attempts.push({
+                    mode: 'upsert-id',
+                    run: () => window._sb.from(tableName).upsert(payload, { onConflict: 'id' }).select()
+                });
+                attempts.push({
+                    mode: 'update-id',
+                    run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data, no: payload.no }).eq('id', payload.id).select()
+                });
+            }
+            if (payload.no !== undefined && payload.no !== null && payload.no !== 0) {
+                attempts.push({
+                    mode: 'upsert-no',
+                    run: () => window._sb.from(tableName).upsert(payload, { onConflict: 'no' }).select()
+                });
+                attempts.push({
+                    mode: 'update-no',
+                    run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data }).eq('no', payload.no).select()
+                });
+            }
+            const insertPayload = { ...payload };
+            delete insertPayload.id;
+            attempts.push({
+                mode: 'insert',
+                run: () => window._sb.from(tableName).insert(insertPayload).select()
+            });
+
+            let lastError = null;
+            for (const attempt of attempts) {
+                const result = await attempt.run();
+                if (!result.error) return result;
+                lastError = result.error;
+                console.warn('Supabase persist attempt failed (' + attempt.mode + '):', result.error.message || result.error);
+            }
+            throw lastError || new Error('Unknown Supabase persistence error');
+        }
+
+        async function persistRowsToSupabase(tableName, rows, sheetName) {
+            let syncedCount = 0;
+            for (const row of rows) {
+                const result = await persistRowToSupabase(tableName, row, sheetName);
+                if (result && result.data && result.data[0]) {
+                    row._docId = String(result.data[0].id || result.data[0].no || row._docId || '');
+                }
+                syncedCount += 1;
+            }
+            return syncedCount;
         }
 
         // File upload via Google Drive links (no storage backend needed)
