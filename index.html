@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
+    <!-- Build: v81 -->
     <style>
         * {
             margin: 0;
@@ -4594,25 +4595,29 @@
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
 
-            // Active = non-Closed rows (consistent for both admin and public view)
+            // Active = non-Closed rows (admin operational count)
             const isClosedRow = row => {
-                const st = (row['Status'] || '').toString().toLowerCase().trim();
+                const st = normalizeStatus(row['Status'] || '').toString().toLowerCase().trim();
                 return st === 'closed' || st.includes('sold to another buyer');
             };
             const activeRecords = sheetData.filter(row => !isClosedRow(row)).length;
+            const visiblePublicRecords = sheetData.filter(row => !shouldHideRow(row)).length;
             const totalRecords  = sheetData.length;
 
             const statsGrid = document.getElementById('statsGrid');
+            const _previewMode = (typeof _currentViewMode !== 'undefined') &&
+                                 (_currentViewMode === 'mobile' || _currentViewMode === 'desktop');
 
-            if (!isAdmin) {
+            if (!isAdmin || _previewMode) {
                 statsGrid.innerHTML = `
                     <div class="stat-card">
-                        <div class="stat-value">${activeRecords}</div>
+                        <div class="stat-value">${visiblePublicRecords}</div>
                         <div class="stat-label">Live ${getStatLabel(sheetName)} Opportunities</div>
                     </div>
                 `;
             } else {
                 const closedCount  = totalRecords - activeRecords;
+                const hiddenCount  = sheetData.filter(row => isRowExplicitlyHidden(row)).length;
                 const allColumns   = sheetData.length > 0 ? Object.keys(sheetData[0]) : [];
                 statsGrid.innerHTML = `
                     <div class="stat-card">
@@ -4621,7 +4626,7 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${totalRecords}</div>
-                        <div class="stat-label">Total Records (incl. ${closedCount} Closed)</div>
+                        <div class="stat-label">Total Records (incl. ${closedCount} Closed / ${hiddenCount} Hidden)</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${allColumns.length}</div>
