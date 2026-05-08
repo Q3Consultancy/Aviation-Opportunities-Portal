@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v87 -->
+    <!-- Build: v88 -->
     <style>
         * {
             margin: 0;
@@ -1470,7 +1470,7 @@
                 padding: 6px 3px !important;
             }
 
-            /* Backup widths by physical column order when the Engines mobile table is 4 columns */
+            /* Backup widths by physical column order when the public mobile table is 4 columns */
             body:not(.admin-mode) .table-container th:nth-child(1),
             body:not(.admin-mode) .table-container td:nth-child(1) {
                 width: 34px !important; min-width: 34px !important; max-width: 36px !important;
@@ -2943,17 +2943,17 @@
         const PUBLIC_COLUMNS = {
             // Public desktop columns
             'Engines':        ['No','Engine','Status','Files'],
-            'Aircraft Sale':  ['No','Aircraft', 'Condition','Total Cycles',    'Location','Files','Status'],
-            'Aircraft Lease': ['No','Aircraft', 'Condition','Total Cycles',    'Location','Files','Status'],
-            'Parts':          ['No','Part',     'Condition','Location',        'Files',   'Status']
+            'Aircraft Sale':  ['No','Aircraft','Status','Files'],
+            'Aircraft Lease': ['No','Aircraft','Status','Files'],
+            'Parts':          ['No','Part','Status','Files']
         };
 
         // Mobile-only compact columns
         const MOBILE_PUBLIC_COLUMNS = {
             'Engines':        ['No','Engine','Status','Files'],
-            'Aircraft Sale':  ['No','Aircraft', 'Files'],
-            'Aircraft Lease': ['No','Aircraft', 'Files'],
-            'Parts':          ['No','Part',     'Files']
+            'Aircraft Sale':  ['No','Aircraft','Status','Files'],
+            'Aircraft Lease': ['No','Aircraft','Status','Files'],
+            'Parts':          ['No','Part','Status','Files']
         };
 
         // Fields shown inside the row detail card (non-admin hover/tap)
