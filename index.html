@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v88 -->
+    <!-- Build: v89 -->
     <style>
         * {
             margin: 0;
@@ -3578,7 +3578,7 @@
 
             // ── Step 3: Try data.json for additional/updated data ──
             try {
-                const r = await fetch('data.json');
+                const r = await fetch('data.json?_ts=' + Date.now(), { cache: 'no-store' });
                 if (!r.ok) throw new Error('data.json status ' + r.status);
                 const rawData = await r.json();
                 const jsonData = convertData(rawData);
@@ -5328,7 +5328,24 @@
 
         window.addEventListener('online', function() {
             setTimeout(() => { flushPendingSyncQueue(true); }, 600);
+            setTimeout(() => { loadData(); }, 900);
         });
+
+        window.addEventListener('pageshow', function() {
+            setTimeout(() => { loadData(); }, 120);
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                setTimeout(() => { loadData(); }, 150);
+            }
+        });
+
+        setInterval(function() {
+            if (!document.hidden) {
+                loadData();
+            }
+        }, 45000);
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -5703,9 +5720,15 @@ function toggleRowSelection(rowIndex, trEl) {
 
         async function supabaseRestRequest(path, options) {
             const opts = options || {};
-            const response = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+            const sep = path.includes('?') ? '&' : '?';
+            const bustPath = path + sep + '_ts=' + Date.now();
+            const response = await fetch(SUPABASE_URL + '/rest/v1/' + bustPath, {
                 method: opts.method || 'GET',
-                headers: Object.assign(getSupabaseRestHeaders(opts.prefer), opts.headers || {}),
+                headers: Object.assign(getSupabaseRestHeaders(opts.prefer), {
+                    'Cache-Control': 'no-cache, no-store, max-age=0',
+                    'Pragma': 'no-cache'
+                }, opts.headers || {}),
+                cache: 'no-store',
                 body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
             });
             let payload = null;
@@ -5721,31 +5744,102 @@ function toggleRowSelection(rowIndex, trEl) {
             return payload;
         }
 
+        function _normalizeNoFromSupabaseRow(row) {
+            if (!row) return '';
+            const topLevelNo = row.no !== undefined && row.no !== null ? String(row.no).trim() : '';
+            const nestedNo = row.deal_data && row.deal_data['No'] !== undefined && row.deal_data['No'] !== null
+                ? String(row.deal_data['No']).trim()
+                : '';
+            return topLevelNo || nestedNo || '';
+        }
+
+        function _isHiddenLikeFromSupabaseRow(row) {
+            const hiddenVal = row && row.deal_data ? row.deal_data['Hidden'] : '';
+            const hv = String(hiddenVal || '').trim().toLowerCase();
+            if (hv === '1' || hv === 'true' || hv === 'hidden' || hv === 'yes' || hv === 'y') return true;
+            const statusVal = row && row.deal_data ? row.deal_data['Status'] : '';
+            const sv = normalizeStatus(statusVal || '').toString().toLowerCase().trim();
+            return sv === 'closed' || sv.includes('sold to another buyer');
+        }
+
+        function _choosePreferredSupabaseRow(a, b) {
+            if (!a) return b;
+            if (!b) return a;
+            const aUpdated = Date.parse(a.updated_at || a.modified_at || a.created_at || '') || 0;
+            const bUpdated = Date.parse(b.updated_at || b.modified_at || b.created_at || '') || 0;
+            if (aUpdated !== bUpdated) return bUpdated > aUpdated ? b : a;
+            const aId = parseInt(a.id, 10) || 0;
+            const bId = parseInt(b.id, 10) || 0;
+            if (aId !== bId) return bId > aId ? b : a;
+            const aHidden = _isHiddenLikeFromSupabaseRow(a);
+            const bHidden = _isHiddenLikeFromSupabaseRow(b);
+            if (aHidden !== bHidden) return bHidden ? b : a;
+            const aKeys = Object.keys((a && a.deal_data) || {}).length;
+            const bKeys = Object.keys((b && b.deal_data) || {}).length;
+            return bKeys >= aKeys ? b : a;
+        }
+
+        function dedupeSupabaseRows(rows, tableName) {
+            if (!Array.isArray(rows) || rows.length === 0) return [];
+            const byNo = new Map();
+            const passthrough = [];
+            let duplicateCount = 0;
+            rows.forEach(row => {
+                const noKey = _normalizeNoFromSupabaseRow(row);
+                if (!noKey) {
+                    passthrough.push(row);
+                    return;
+                }
+                if (!byNo.has(noKey)) {
+                    byNo.set(noKey, row);
+                    return;
+                }
+                duplicateCount += 1;
+                byNo.set(noKey, _choosePreferredSupabaseRow(byNo.get(noKey), row));
+            });
+            const deduped = [...byNo.values(), ...passthrough].sort((a, b) => {
+                const noA = parseInt(_normalizeNoFromSupabaseRow(a), 10) || 0;
+                const noB = parseInt(_normalizeNoFromSupabaseRow(b), 10) || 0;
+                if (noA !== noB) return noA - noB;
+                const idA = parseInt(a && a.id, 10) || 0;
+                const idB = parseInt(b && b.id, 10) || 0;
+                return idA - idB;
+            });
+            if (duplicateCount > 0) console.warn('Deduped ' + duplicateCount + ' duplicate row(s) from ' + tableName);
+            return deduped;
+        }
+
         async function fetchRowsFromSupabase(tableName) {
             let lastError = null;
-            if (window._sbReady && window._sb) {
-                const sdkAttempts = [
-                    () => window._sb.from(tableName).select('*').order('no', { ascending: true }).limit(10000),
-                    () => window._sb.from(tableName).select('*').limit(10000)
-                ];
-                for (const run of sdkAttempts) {
-                    try {
-                        const result = await run();
-                        if (!result.error) return result.data || [];
-                        lastError = result.error;
-                    } catch (err) {
-                        lastError = err;
-                    }
-                }
-            }
             const restAttempts = [
                 tableName + '?select=*&order=no.asc&limit=10000',
                 tableName + '?select=*&limit=10000'
             ];
-            for (const path of restAttempts) {
+            const sdkAttempts = (window._sbReady && window._sb) ? [
+                () => window._sb.from(tableName).select('*').order('no', { ascending: true }).limit(10000),
+                () => window._sb.from(tableName).select('*').limit(10000)
+            ] : [];
+            const preferRestFirst = !isAdmin || _currentViewMode === 'desktop' || _currentViewMode === 'mobile';
+            const orderedAttempts = preferRestFirst
+                ? [
+                    ...restAttempts.map(path => ({ type: 'rest', path })),
+                    ...sdkAttempts.map(run => ({ type: 'sdk', run }))
+                  ]
+                : [
+                    ...sdkAttempts.map(run => ({ type: 'sdk', run })),
+                    ...restAttempts.map(path => ({ type: 'rest', path }))
+                  ];
+
+            for (const attempt of orderedAttempts) {
                 try {
-                    const rows = await supabaseRestRequest(path, { method: 'GET' });
-                    return Array.isArray(rows) ? rows : [];
+                    if (attempt.type === 'sdk') {
+                        const result = await attempt.run();
+                        if (!result.error) return dedupeSupabaseRows(result.data || [], tableName);
+                        lastError = result.error;
+                    } else {
+                        const rows = await supabaseRestRequest(attempt.path, { method: 'GET' });
+                        return dedupeSupabaseRows(Array.isArray(rows) ? rows : [], tableName);
+                    }
                 } catch (err) {
                     lastError = err;
                 }
@@ -7310,6 +7404,6 @@ function updateAdminUI(isAdminMode) {
       </div><!-- /upload-modal-box -->
     </div><!-- /uploadModal -->
 
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
