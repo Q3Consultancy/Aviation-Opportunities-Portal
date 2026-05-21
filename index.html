@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v89 -->
+    <!-- Build: v91 -->
     <style>
         * {
             margin: 0;
@@ -3149,22 +3149,39 @@
             return hf === '1' || hf === 'true' || hf === 'hidden' || hf === 'yes' || hf === 'y';
         }
 
+        function getSuppressedRowNumberSet(sheetName) {
+            const suppressed = new Set(((FORCED_HIDDEN_ROW_NUMBERS[sheetName] || [])).map(v => String(v).trim()));
+            const sheetRows = Array.isArray(data[sheetName]) ? data[sheetName] : [];
+            sheetRows.forEach(r => {
+                const rowNo = String((r && r['No'] !== undefined && r['No'] !== null) ? r['No'] : '').trim();
+                if (!rowNo) return;
+                const status = normalizeStatus((r && r['Status']) || '').toString().toLowerCase().trim();
+                if (isRowExplicitlyHidden(r) || status === 'closed' || status.includes('sold to another buyer')) {
+                    suppressed.add(rowNo);
+                }
+            });
+            return suppressed;
+        }
+
         // Check if row should be hidden (for non-admin)
-        function shouldHideRow(row) {
+        function shouldHideRow(row, sheetNameOverride) {
             const _previewMode = (typeof _currentViewMode !== 'undefined') &&
                                  (_currentViewMode === 'mobile' || _currentViewMode === 'desktop');
             if (isAdmin && !_previewMode) return false;
+            const sheetName = sheetNameOverride || (row && row._sheetName) || getSheetName(currentTab);
+            const rowNo = String((row && row['No'] !== undefined && row['No'] !== null) ? row['No'] : '').trim();
+            if (rowNo && getSuppressedRowNumberSet(sheetName).has(rowNo)) return true;
             // Hide rows explicitly flagged by admin
             if (isRowExplicitlyHidden(row)) return true;
-            const status = normalizeStatus(row['Status'] || '').toString().toLowerCase().trim();
+            const status = normalizeStatus((row && row['Status']) || '').toString().toLowerCase().trim();
             // Hide 'Closed' rows for non-admin users and admin preview modes
             if (status === 'closed' || status.includes('sold to another buyer')) return true;
             return false;
         }
 
         const FORCED_HIDDEN_ROW_NUMBERS = {
-            'Engines': [39,40,41,42,43,51,52,60,61,62,63,64,65,66,67,68,69,70,73,76,78,86,87,88],
-            'Aircraft Sale': [15,16,18,23],
+            'Engines': [19,39,40,41,42,43,51,52,60,61,62,63,64,65,66,67,68,69,70,73,76,78,86,87,88],
+            'Aircraft Sale': [6,7,8,9,10,15,16,18,23],
             'Aircraft Lease': [1,2,3,4],
             'Parts': []
         };
@@ -3358,7 +3375,7 @@
                     // Build sorted unique values
                     const uniqueVals = [...new Set(
                         sheetData
-                            .filter(row => !shouldHideRow(row))
+                            .filter(row => !shouldHideRow(row, sheetName))
                             .map(row => {
                                 let v = (row[col] || '').toString().trim();
                                 if (col === 'Location') v = v.replace(/^\[|\]$/g, '').replace(/\[([^\]]+)\]/g, '$1').trim();
@@ -3668,7 +3685,7 @@
                     if (!exportCols.includes('Hidden')) exportCols = [...exportCols, 'Hidden'];
                 } else {
                     // Public: non-hidden rows, public columns (no Files, no admin cols)
-                    exportRows = sheetData.filter(row => !shouldHideRow(row));
+                    exportRows = sheetData.filter(row => !shouldHideRow(row, sheetName));
                     exportCols = (PUBLIC_COLUMNS[sheetName] || []).filter(c => c !== 'Files');
                     // Ensure Condition is present
                     if (!exportCols.includes('Condition') && exportCols.length > 0)
@@ -3789,7 +3806,7 @@
                     : (PUBLIC_COLUMNS[sheetName] || []));
             }
 
-            let filteredData = sheetData.filter(row => !shouldHideRow(row));
+            let filteredData = sheetData.filter(row => !shouldHideRow(row, sheetName));
             // Store visible columns globally for filterTable
             window._visibleCols = visibleColumns;
 
@@ -4200,6 +4217,9 @@
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
                     clearPendingUpsert(sheetName, sheetData[rowIndex]);
                     showToast('✅ Saved permanently: ' + colName);
+                    if (colName === 'Status' || colName === 'Hidden') {
+                        setTimeout(() => { loadData(); }, 250);
+                    }
                 } catch (err) {
                     console.warn('Supabase save error (cell):', err.message || err);
                     showToast('⚠️ Saved locally — auto-sync queued');
@@ -4747,7 +4767,7 @@
                 return st === 'closed' || st.includes('sold to another buyer');
             };
             const activeRecords = sheetData.filter(row => !isClosedRow(row)).length;
-            const visiblePublicRecords = sheetData.filter(row => !shouldHideRow(row)).length;
+            const visiblePublicRecords = sheetData.filter(row => !shouldHideRow(row, sheetName)).length;
             const totalRecords  = sheetData.length;
 
             const statsGrid = document.getElementById('statsGrid');
@@ -4853,6 +4873,8 @@
                 alert('No data to export');
                 return;
             }
+
+            let filteredData = sheetData.filter(row => !shouldHideRow(row, sheetName));
 
             // Use defined CSV columns (no Price, no Files) for all users
             const csvCols = CSV_EXPORT_COLUMNS[sheetName] || (() => {
@@ -5488,7 +5510,7 @@ function toggleRowSelection(rowIndex, trEl) {
             }
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
-            const filteredData = sheetData.filter(function(row){ return !shouldHideRow(row); });
+            const filteredData = sheetData.filter(function(row){ return !shouldHideRow(row, sheetName); });
             const allCols    = getOrderedColumns(sheetData);
             const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
             const showCols   = allCols.filter(function(col){
@@ -5552,7 +5574,7 @@ function toggleRowSelection(rowIndex, trEl) {
             }
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName] || [];
-            const filteredData = sheetData.filter(function(r){ return !shouldHideRow(r); });
+            const filteredData = sheetData.filter(function(r){ return !shouldHideRow(r, sheetName); });
             const allCols    = getOrderedColumns(sheetData);
             const hiddenCols = HIDDEN_COLUMNS[sheetName] || [];
             const showCols   = allCols.filter(function(c){
@@ -5765,15 +5787,17 @@ function toggleRowSelection(rowIndex, trEl) {
         function _choosePreferredSupabaseRow(a, b) {
             if (!a) return b;
             if (!b) return a;
+            const aHidden = _isHiddenLikeFromSupabaseRow(a);
+            const bHidden = _isHiddenLikeFromSupabaseRow(b);
+            // Safety-first: if any duplicate copy is hidden/closed, prefer that version
+            // so public users do not keep seeing a row that admin has closed/hidden.
+            if (aHidden !== bHidden) return bHidden ? b : a;
             const aUpdated = Date.parse(a.updated_at || a.modified_at || a.created_at || '') || 0;
             const bUpdated = Date.parse(b.updated_at || b.modified_at || b.created_at || '') || 0;
             if (aUpdated !== bUpdated) return bUpdated > aUpdated ? b : a;
             const aId = parseInt(a.id, 10) || 0;
             const bId = parseInt(b.id, 10) || 0;
             if (aId !== bId) return bId > aId ? b : a;
-            const aHidden = _isHiddenLikeFromSupabaseRow(a);
-            const bHidden = _isHiddenLikeFromSupabaseRow(b);
-            if (aHidden !== bHidden) return bHidden ? b : a;
             const aKeys = Object.keys((a && a.deal_data) || {}).length;
             const bKeys = Object.keys((b && b.deal_data) || {}).length;
             return bKeys >= aKeys ? b : a;
@@ -5885,6 +5909,30 @@ function toggleRowSelection(rowIndex, trEl) {
             throw lastError || new Error('Delete failed for ' + tableName);
         }
 
+        async function verifyPersistedRow(tableName, payload) {
+            if (!payload || payload.no === undefined || payload.no === null || payload.no === 0) return false;
+            try {
+                const verifyRows = await supabaseRestRequest(
+                    tableName + '?select=id,no,deal_data&no=eq.' + encodeURIComponent(String(payload.no)) + '&limit=50',
+                    { method: 'GET' }
+                );
+                const deduped = dedupeSupabaseRows(Array.isArray(verifyRows) ? verifyRows : [], tableName);
+                if (!deduped.length) return false;
+                const chosen = deduped[0] || {};
+                const deal = chosen.deal_data || {};
+                const expectedStatus = normalizeStatus((payload.deal_data && payload.deal_data['Status']) || '') || ((payload.deal_data && payload.deal_data['Status']) || '');
+                const actualStatus = normalizeStatus(deal['Status'] || '') || (deal['Status'] || '');
+                const expectedHidden = isRowExplicitlyHidden(payload.deal_data || {}) || String(expectedStatus || '').toLowerCase() === 'closed' || String(expectedStatus || '').toLowerCase().includes('sold to another buyer');
+                const actualHidden = _isHiddenLikeFromSupabaseRow(chosen);
+                if (String(actualStatus) !== String(expectedStatus)) return false;
+                if (!!actualHidden !== !!expectedHidden) return false;
+                return true;
+            } catch (err) {
+                console.warn('Persist verification failed:', err && (err.message || err));
+                return false;
+            }
+        }
+
         async function restPersistRowToSupabase(tableName, payload) {
             let lastError = null;
             const attempts = [];
@@ -5937,7 +5985,11 @@ function toggleRowSelection(rowIndex, trEl) {
                         prefer: attempt.prefer,
                         body: attempt.body
                     });
-                    return { data: Array.isArray(rows) ? rows : [], error: null };
+                    const arr = Array.isArray(rows) ? rows : [];
+                    const hasRows = arr.length > 0;
+                    const verified = await verifyPersistedRow(tableName, payload);
+                    if (hasRows && verified) return { data: arr, error: null };
+                    lastError = new Error('REST persist not verified for ' + attempt.mode);
                 } catch (err) {
                     lastError = err;
                     console.warn('Supabase REST persist attempt failed (' + attempt.mode + '):', err && (err.message || err));
@@ -5966,7 +6018,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 });
                 attempts.push({
                     mode: 'update-no',
-                    run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data }).eq('no', payload.no).select()
+                    run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data, no: payload.no }).eq('no', payload.no).select()
                 });
             }
             const insertPayload = { ...payload };
@@ -5982,13 +6034,15 @@ function toggleRowSelection(rowIndex, trEl) {
                     for (let tryNo = 1; tryNo <= 3; tryNo++) {
                         try {
                             const result = await attempt.run();
-                            if (!result.error) return result;
-                            lastError = result.error;
+                            const hasRows = !result.error && Array.isArray(result.data) && result.data.length > 0;
+                            const verified = !result.error && await verifyPersistedRow(tableName, payload);
+                            if (!result.error && hasRows && verified) return result;
+                            lastError = result.error || new Error('Supabase persist not verified for ' + attempt.mode);
                         } catch (err) {
                             lastError = err;
                         }
                         const msg = (lastError && (lastError.message || String(lastError))) || '';
-                        const isTransient = /load failed|failed to fetch|network|fetch/i.test(msg);
+                        const isTransient = /load failed|failed to fetch|network|fetch|not verified/i.test(msg);
                         if (tryNo < 3 && isTransient) {
                             console.warn('Transient Supabase error (' + attempt.mode + ', retry ' + tryNo + '):', msg);
                             await new Promise(resolve => setTimeout(resolve, 350 * tryNo));
