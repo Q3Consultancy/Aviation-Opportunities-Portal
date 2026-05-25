@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v92 -->
+    <!-- Build: v95 -->
     <style>
         * {
             margin: 0;
@@ -4203,7 +4203,7 @@
             if (!_cellEditing) renderTable();
 
             // 3. Persist to Supabase
-            if (window._sbReady) {
+            if (hasLiveSupabaseConfig()) {
                 try {
                     const TABLE_MAP = {
                         'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
@@ -4246,7 +4246,7 @@
             updateStats();
 
             // Delete from Supabase
-            if (window._sbReady) {
+            if (hasLiveSupabaseConfig()) {
                 try {
                     const TABLE_MAP = {
                         'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
@@ -4566,7 +4566,7 @@
             queuePendingUpsert(sheetName, existingRow);
 
             // Save to Supabase using resilient row persistence
-            if (window._sbReady && window._sb) {
+            if (hasLiveSupabaseConfig()) {
                 try {
                     const tbl = {'Engines':'engines','Aircraft Sale':'aircraft_sale',
                                  'Aircraft Lease':'aircraft_lease','Parts':'parts'}[sheetName];
@@ -4654,7 +4654,7 @@
             queuePendingUpsert(sheetName, data[sheetName][newIdx]);
 
             // Save to Supabase
-            if (window._sbReady) {
+            if (hasLiveSupabaseConfig()) {
                 try {
                     const TABLE_MAP = {
                         'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
@@ -4957,11 +4957,11 @@
             }
 
             // ── Best-effort background sync to Supabase (never blocks/errors UI) ──
-            if (!window._sbReady) {
+            if (!hasLiveSupabaseConfig()) {
                 // No DB connection — update the toast to warn
                 if (toast) {
                     setTimeout(() => {
-                        toast.textContent = '💾 Saved locally — no database connection';
+                        toast.textContent = '💾 Saved locally — no live database connection';
                         toast.style.background = '#f59e0b';
                         toast.classList.add('show');
                         setTimeout(() => toast.classList.remove('show'), 4000);
@@ -4976,7 +4976,7 @@
                     }, 600);
                 }
             }
-            if (window._sbReady) {
+            if (hasLiveSupabaseConfig()) {
                 (async () => {
                     try {
                         const TABLE_MAP = {
@@ -5751,6 +5751,14 @@ function toggleRowSelection(rowIndex, trEl) {
             return headers;
         }
 
+        function hasLiveSupabaseConfig() {
+            return !!(
+                SUPABASE_URL && SUPABASE_ANON_KEY &&
+                !String(SUPABASE_URL).includes('PASTE_YOUR') &&
+                !String(SUPABASE_ANON_KEY).includes('PASTE_YOUR')
+            );
+        }
+
         async function supabaseRestRequest(path, options) {
             const opts = options || {};
             const sep = path.includes('?') ? '&' : '?';
@@ -6184,7 +6192,7 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         async function flushPendingSyncQueue(showStatus) {
-            if (!window._sbReady || !window._sb) return { skipped: true, reason: 'db-not-ready' };
+            if (!hasLiveSupabaseConfig()) return { skipped: true, reason: 'db-not-ready' };
             if (typeof navigator !== 'undefined' && navigator.onLine === false) {
                 return { skipped: true, reason: 'offline' };
             }
@@ -6201,11 +6209,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 try {
                     const tableName = TABLE_MAP[item.sheetName];
                     if (!tableName) continue;
-                    let req = window._sb.from(tableName).delete();
-                    if (item.docId && !isNaN(item.docId)) req = req.eq('id', parseInt(item.docId));
-                    else req = req.eq('no', parseInt(item.rowNo) || 0);
-                    const { error } = await req;
-                    if (error) throw error;
+                    await deleteRowFromSupabase(tableName, item.docId, item.rowNo);
                     state.deletes = state.deletes.filter(d => !(d.sheetName === item.sheetName && String(d.rowNo || '') === String(item.rowNo || '')));
                     deleted += 1;
                 } catch (err) {
