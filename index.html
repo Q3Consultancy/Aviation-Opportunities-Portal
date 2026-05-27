@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v95 -->
+    <!-- Build: v96 -->
     <style>
         * {
             margin: 0;
@@ -3213,32 +3213,6 @@
 
             if (!Array.isArray(data['Parts'])) data['Parts'] = [];
             const partsRows = data['Parts'];
-            const embraerFileUrl = 'https://docs.google.com/spreadsheets/d/1NUZmXBNQoa9CFP6NnscMy7MMUor8Qd8P/edit?usp=sharing&ouid=112477179979391558361&rtpof=true&sd=true';
-            let embraerRow = partsRows.find(row => String((row && row['Part']) || '').trim().toLowerCase() === 'embraer parts');
-            if (!embraerRow) {
-                const maxNo = partsRows.reduce((max, row) => Math.max(max, parseInt(row && row['No'], 10) || 0), 0);
-                embraerRow = {
-                    'No': String(maxNo + 1 || 1),
-                    'Deal #': 'PT-EMB-001',
-                    'Part': 'Embraer Parts',
-                    'Files': embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001',
-                    'Condition': 'SV',
-                    'Location': '[USA]',
-                    'Status': 'Seller Request',
-                    'Comments': 'Supporting file attached',
-                    'Date Received': '07 May 2026',
-                    'Hidden': '',
-                    'Entry Owner': '',
-                    'Seller / Broker': 'Q3 Consultancy'
-                };
-                partsRows.push(embraerRow);
-            } else {
-                embraerRow['Files'] = embraerFileUrl + '|Embraer Parts Supporting File.xlsx|PT-EMB-001';
-                if (!embraerRow['Condition']) embraerRow['Condition'] = 'SV';
-                embraerRow['Location'] = '[USA]';
-                embraerRow['Status'] = 'Seller Request';
-                if (embraerRow['Hidden'] === undefined || embraerRow['Hidden'] === null) embraerRow['Hidden'] = '';
-            }
             partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
         }
 
@@ -5892,39 +5866,56 @@ function toggleRowSelection(rowIndex, trEl) {
 
         async function deleteRowFromSupabase(tableName, docId, rowNo) {
             let lastError = null;
-            if (window._sbReady && window._sb) {
-                const sdkAttempts = [];
-                if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
-                    sdkAttempts.push(() => window._sb.from(tableName).delete().eq('id', docId));
-                }
-                if (rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
-                    sdkAttempts.push(() => window._sb.from(tableName).delete().eq('no', rowNo));
-                }
-                for (const run of sdkAttempts) {
-                    try {
-                        const result = await run();
-                        if (!result.error) return result;
-                        lastError = result.error;
-                    } catch (err) {
-                        lastError = err;
-                    }
-                }
-            }
-            const restAttempts = [];
+            let deletedAny = false;
+            const deleteIds = [];
+            const seenIds = new Set();
+
             if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
-                restAttempts.push(tableName + '?id=eq.' + encodeURIComponent(String(docId)));
+                const idVal = String(docId).trim();
+                seenIds.add(idVal);
+                deleteIds.push(idVal);
             }
+
             if (rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
-                restAttempts.push(tableName + '?no=eq.' + encodeURIComponent(String(rowNo)));
-            }
-            for (const path of restAttempts) {
                 try {
-                    await supabaseRestRequest(path, { method: 'DELETE', prefer: 'return=minimal' });
-                    return { error: null };
+                    const rows = await fetchSupabaseRowsByNo(tableName, rowNo);
+                    rows.forEach(row => {
+                        const idVal = row && row.id !== undefined && row.id !== null ? String(row.id).trim() : '';
+                        if (idVal && !seenIds.has(idVal)) {
+                            seenIds.add(idVal);
+                            deleteIds.push(idVal);
+                        }
+                    });
                 } catch (err) {
                     lastError = err;
                 }
             }
+
+            for (const idVal of deleteIds) {
+                try {
+                    await supabaseRestRequest(
+                        tableName + '?id=eq.' + encodeURIComponent(String(idVal)),
+                        { method: 'DELETE', prefer: 'return=minimal' }
+                    );
+                    deletedAny = true;
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+
+            if (!deletedAny && rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
+                try {
+                    await supabaseRestRequest(
+                        tableName + '?no=eq.' + encodeURIComponent(String(rowNo)),
+                        { method: 'DELETE', prefer: 'return=minimal' }
+                    );
+                    deletedAny = true;
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+
+            if (deletedAny) return { error: null };
             throw lastError || new Error('Delete failed for ' + tableName);
         }
 
@@ -5952,129 +5943,137 @@ function toggleRowSelection(rowIndex, trEl) {
             }
         }
 
+
+        async function fetchSupabaseRowsByNo(tableName, rowNo) {
+            if (rowNo === undefined || rowNo === null || String(rowNo).trim() === '') return [];
+            const rows = await supabaseRestRequest(
+                tableName + '?select=id,no,deal_data&no=eq.' + encodeURIComponent(String(rowNo)) + '&limit=100',
+                { method: 'GET' }
+            );
+            return Array.isArray(rows) ? rows : [];
+        }
+
         async function restPersistRowToSupabase(tableName, payload) {
             let lastError = null;
-            const attempts = [];
-            if (payload.id && !isNaN(payload.id)) {
-                attempts.push({
-                    mode: 'rest-upsert-id',
-                    path: tableName + '?on_conflict=id&select=*',
-                    method: 'POST',
-                    prefer: 'return=representation,resolution=merge-duplicates',
-                    body: [payload]
-                });
-                attempts.push({
-                    mode: 'rest-update-id',
-                    path: tableName + '?id=eq.' + encodeURIComponent(String(payload.id)) + '&select=*',
-                    method: 'PATCH',
-                    prefer: 'return=representation',
-                    body: { deal_data: payload.deal_data, no: payload.no }
-                });
-            }
-            if (payload.no !== undefined && payload.no !== null && payload.no !== 0) {
-                attempts.push({
-                    mode: 'rest-upsert-no',
-                    path: tableName + '?on_conflict=no&select=*',
-                    method: 'POST',
-                    prefer: 'return=representation,resolution=merge-duplicates',
-                    body: [payload]
-                });
-                attempts.push({
-                    mode: 'rest-update-no',
-                    path: tableName + '?no=eq.' + encodeURIComponent(String(payload.no)) + '&select=*',
-                    method: 'PATCH',
-                    prefer: 'return=representation',
-                    body: { deal_data: payload.deal_data, no: payload.no }
-                });
-            }
-            const insertPayload = { ...payload };
-            delete insertPayload.id;
-            attempts.push({
-                mode: 'rest-insert',
-                path: tableName + '?select=*',
-                method: 'POST',
-                prefer: 'return=representation',
-                body: [insertPayload]
-            });
 
-            for (const attempt of attempts) {
+            if (payload.id && !isNaN(payload.id)) {
                 try {
-                    const rows = await supabaseRestRequest(attempt.path, {
-                        method: attempt.method,
-                        prefer: attempt.prefer,
-                        body: attempt.body
-                    });
+                    const rows = await supabaseRestRequest(
+                        tableName + '?id=eq.' + encodeURIComponent(String(payload.id)) + '&select=*',
+                        {
+                            method: 'PATCH',
+                            prefer: 'return=representation',
+                            body: { deal_data: payload.deal_data, no: payload.no }
+                        }
+                    );
                     const arr = Array.isArray(rows) ? rows : [];
-                    const hasRows = arr.length > 0;
-                    const verified = await verifyPersistedRow(tableName, payload);
-                    if (hasRows && verified) return { data: arr, error: null };
-                    lastError = new Error('REST persist not verified for ' + attempt.mode);
+                    if (arr.length && await verifyPersistedRow(tableName, payload)) return { data: arr, error: null };
+                    lastError = new Error('REST update by id not verified');
                 } catch (err) {
                     lastError = err;
-                    console.warn('Supabase REST persist attempt failed (' + attempt.mode + '):', err && (err.message || err));
+                    console.warn('Supabase REST update-by-id failed:', err && (err.message || err));
                 }
             }
+
+            if (payload.no !== undefined && payload.no !== null && payload.no !== 0) {
+                try {
+                    const existingRows = await fetchSupabaseRowsByNo(tableName, payload.no);
+                    if (existingRows.length > 0) {
+                        let patched = [];
+                        for (const row of existingRows) {
+                            const rowId = row && row.id !== undefined && row.id !== null ? String(row.id).trim() : '';
+                            if (!rowId) continue;
+                            const rows = await supabaseRestRequest(
+                                tableName + '?id=eq.' + encodeURIComponent(rowId) + '&select=*',
+                                {
+                                    method: 'PATCH',
+                                    prefer: 'return=representation',
+                                    body: { deal_data: payload.deal_data, no: payload.no }
+                                }
+                            );
+                            if (Array.isArray(rows) && rows.length) patched = patched.concat(rows);
+                        }
+                        if (!patched.length) {
+                            const rows = await supabaseRestRequest(
+                                tableName + '?no=eq.' + encodeURIComponent(String(payload.no)) + '&select=*',
+                                {
+                                    method: 'PATCH',
+                                    prefer: 'return=representation',
+                                    body: { deal_data: payload.deal_data, no: payload.no }
+                                }
+                            );
+                            if (Array.isArray(rows) && rows.length) patched = patched.concat(rows);
+                        }
+                        if (patched.length && await verifyPersistedRow(tableName, payload)) return { data: patched, error: null };
+                        lastError = new Error('REST update by no not verified');
+                    }
+                } catch (err) {
+                    lastError = err;
+                    console.warn('Supabase REST update-by-no failed:', err && (err.message || err));
+                }
+            }
+
+            try {
+                const insertPayload = { ...payload };
+                delete insertPayload.id;
+                const rows = await supabaseRestRequest(
+                    tableName + '?select=*',
+                    {
+                        method: 'POST',
+                        prefer: 'return=representation',
+                        body: [insertPayload]
+                    }
+                );
+                const arr = Array.isArray(rows) ? rows : [];
+                if (arr.length && await verifyPersistedRow(tableName, payload)) return { data: arr, error: null };
+                lastError = new Error('REST insert not verified');
+            } catch (err) {
+                lastError = err;
+                console.warn('Supabase REST insert failed:', err && (err.message || err));
+            }
+
             throw lastError || new Error('Unknown REST persistence error');
         }
 
         async function persistRowToSupabase(tableName, row, sheetName) {
             const payload = mapToSupabase({ ...row }, sheetName);
+            let lastError = null;
+
+            try {
+                const restResult = await restPersistRowToSupabase(tableName, payload);
+                if (restResult && !restResult.error) return restResult;
+            } catch (err) {
+                lastError = err;
+                console.warn('Primary REST persistence failed:', err && (err.message || err));
+            }
+
             const attempts = [];
-            if (payload.id && !isNaN(payload.id)) {
-                attempts.push({
-                    mode: 'upsert-id',
-                    run: () => window._sb.from(tableName).upsert(payload, { onConflict: 'id' }).select()
-                });
+            if (payload.id && !isNaN(payload.id) && window._sbReady && window._sb) {
                 attempts.push({
                     mode: 'update-id',
                     run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data, no: payload.no }).eq('id', payload.id).select()
                 });
             }
-            if (payload.no !== undefined && payload.no !== null && payload.no !== 0) {
-                attempts.push({
-                    mode: 'upsert-no',
-                    run: () => window._sb.from(tableName).upsert(payload, { onConflict: 'no' }).select()
-                });
+            if (payload.no !== undefined && payload.no !== null && payload.no !== 0 && window._sbReady && window._sb) {
                 attempts.push({
                     mode: 'update-no',
                     run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data, no: payload.no }).eq('no', payload.no).select()
                 });
             }
-            const insertPayload = { ...payload };
-            delete insertPayload.id;
-            attempts.push({
-                mode: 'insert',
-                run: () => window._sb.from(tableName).insert(insertPayload).select()
-            });
 
-            let lastError = null;
-            if (window._sbReady && window._sb) {
-                for (const attempt of attempts) {
-                    for (let tryNo = 1; tryNo <= 3; tryNo++) {
-                        try {
-                            const result = await attempt.run();
-                            const hasRows = !result.error && Array.isArray(result.data) && result.data.length > 0;
-                            const verified = !result.error && await verifyPersistedRow(tableName, payload);
-                            if (!result.error && hasRows && verified) return result;
-                            lastError = result.error || new Error('Supabase persist not verified for ' + attempt.mode);
-                        } catch (err) {
-                            lastError = err;
-                        }
-                        const msg = (lastError && (lastError.message || String(lastError))) || '';
-                        const isTransient = /load failed|failed to fetch|network|fetch|not verified/i.test(msg);
-                        if (tryNo < 3 && isTransient) {
-                            console.warn('Transient Supabase error (' + attempt.mode + ', retry ' + tryNo + '):', msg);
-                            await new Promise(resolve => setTimeout(resolve, 350 * tryNo));
-                            continue;
-                        }
-                        break;
-                    }
-                    console.warn('Supabase persist attempt failed (' + attempt.mode + '):', lastError && (lastError.message || lastError));
+            for (const attempt of attempts) {
+                try {
+                    const result = await attempt.run();
+                    const hasRows = !result.error && Array.isArray(result.data) && result.data.length > 0;
+                    const verified = !result.error && await verifyPersistedRow(tableName, payload);
+                    if (!result.error && hasRows && verified) return result;
+                    lastError = result.error || new Error('Supabase persist not verified for ' + attempt.mode);
+                } catch (err) {
+                    lastError = err;
+                    console.warn('Supabase fallback persist failed (' + attempt.mode + '):', err && (err.message || err));
                 }
             }
 
-            const restResult = await restPersistRowToSupabase(tableName, payload);
-            if (restResult && !restResult.error) return restResult;
             throw lastError || new Error('Unknown Supabase persistence error');
         }
 
