@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v99 -->
+    <!-- Build: v100 -->
     <style>
         * {
             margin: 0;
@@ -4232,17 +4232,19 @@
                     console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
                     clearPendingUpsert(sheetName, sheetData[rowIndex]);
                     showToast('✅ Saved live to portal: ' + colName, 3200);
+                    broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
                     if (colName === 'Status' || colName === 'Hidden') {
-                        setTimeout(() => { loadData(); }, 250);
+                        setTimeout(() => { loadData(); }, 120);
                     }
                 } catch (err) {
                     console.warn('Supabase save error (cell):', err.message || err);
                     const _retryCell = await flushPendingSyncQueue(false);
                     if (_retryCell && !_retryCell.lastError && (_retryCell.pendingCount || 0) === 0) {
                         showToast('✅ Saved live to portal: ' + colName, 3200);
+                        broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
                         if (colName === 'Status' || colName === 'Hidden') {
-                            setTimeout(() => { loadData(); }, 250);
-                        }
+                            setTimeout(() => { loadData(); }, 120);
+                        } 
                     } else {
                         showToast('⚠️ Saved only in this browser — live portal update queued', 5200);
                         setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
@@ -4280,12 +4282,15 @@
                     clearPendingDelete(sheetName, row && row['No'], docId);
                     console.log('✅ Deal deleted from Supabase:', docId);
                     showToast('✅ Entry deleted permanently');
+                    broadcastPortalChange('delete', sheetName, row && row['No']);
+                    setTimeout(() => { loadData(); }, 120);
                 } catch (err) {
                     console.warn('Supabase delete error:', err.message);
                     const _retryDelete = await flushPendingSyncQueue(false);
                     if (_retryDelete && !_retryDelete.lastError && (_retryDelete.pendingCount || 0) === 0) {
                         showToast('✅ Entry deleted permanently');
-                        setTimeout(() => { loadData(); }, 250);
+                        broadcastPortalChange('delete', sheetName, row && row['No']);
+                        setTimeout(() => { loadData(); }, 120);
                     } else {
                         showToast('⚠️ Delete queued — will sync automatically');
                         setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
@@ -4623,14 +4628,16 @@
                         }
                         clearPendingUpsert(sheetName, existingRow);
                         showToast('✅ Entry updated live on portal', 3200);
-                        setTimeout(() => { loadData(); }, 250);
+                        broadcastPortalChange('edit', sheetName, existingRow['No']);
+                        setTimeout(() => { loadData(); }, 120);
                     }
                 } catch(e) {
                     console.warn('Supabase update exception:', e);
                     const _retryEdit = await flushPendingSyncQueue(false);
                     if (_retryEdit && !_retryEdit.lastError && (_retryEdit.pendingCount || 0) === 0) {
                         showToast('✅ Entry updated live on portal', 3200);
-                        setTimeout(() => { loadData(); }, 250);
+                        broadcastPortalChange('edit', sheetName, existingRow['No']);
+                        setTimeout(() => { loadData(); }, 120);
                     } else {
                         showToast('⚠️ Update saved locally only — live portal sync will retry', 5200);
                         setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
@@ -4726,7 +4733,8 @@
                         data[sheetName][newIdx]._docId = String(persisted.data[0].id || persisted.data[0].no || data[sheetName][newIdx]._docId || '');
                         console.log('✅ New deal saved to Supabase, id=' + data[sheetName][newIdx]._docId);
                         clearPendingUpsert(sheetName, data[sheetName][newIdx]);
-                        setTimeout(() => { loadData(); }, 250);
+                        broadcastPortalChange('add', sheetName, data[sheetName][newIdx]['No']);
+                        setTimeout(() => { loadData(); }, 120);
                     }
                     const _t2 = document.getElementById('saveToast');
                     if (_t2) {
@@ -4745,7 +4753,8 @@
                             _t.style.background = '#22c55e';
                             _t.classList.add('show');
                             setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 3000);
-                            setTimeout(() => { loadData(); }, 250);
+                            broadcastPortalChange('add', sheetName, data[sheetName][newIdx]['No']);
+                            setTimeout(() => { loadData(); }, 120);
                         } else {
                             _t.textContent = '⚠️ Entry added locally only — live portal sync queued';
                             _t.style.background = '#f59e0b';
@@ -5413,7 +5422,8 @@
                 Object.assign(columnWidths, _cwStored);
             } catch(e) {}
             await loadData();
-            setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+            initPortalLiveSync();
+            setTimeout(() => { flushPendingSyncQueue(false); }, 400);
             // Admin access: show login button and open login modal if URL has #admin
             // Guard: skip if already logged in (prevents modal re-appearing after login)
             if (!isAdmin) {
@@ -5428,9 +5438,15 @@
             }
         };
 
+        document.addEventListener('supabaseReady', function() {
+            initPortalLiveSync();
+            schedulePortalReload(120);
+        });
+
         window.addEventListener('online', function() {
-            setTimeout(() => { flushPendingSyncQueue(true); }, 600);
-            setTimeout(() => { loadData(); }, 900);
+            initPortalLiveSync();
+            setTimeout(() => { flushPendingSyncQueue(true); }, 250);
+            setTimeout(() => { loadData(); }, 450);
         });
 
         window.addEventListener('pageshow', function() {
@@ -5447,7 +5463,7 @@
             if (!document.hidden) {
                 loadData();
             }
-        }, isAdmin ? 12000 : 8000);
+        }, 4000);
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -5842,6 +5858,66 @@ function toggleRowSelection(rowIndex, trEl) {
             return headers;
         }
 
+        let _portalSyncChannel = null;
+        let _portalRealtimeStarted = false;
+        let _portalReloadTimer = null;
+
+        function schedulePortalReload(delay) {
+            clearTimeout(_portalReloadTimer);
+            _portalReloadTimer = setTimeout(() => {
+                if (typeof loadData === 'function') loadData();
+            }, Math.max(0, delay || 0));
+        }
+
+        function broadcastPortalChange(reason, sheetName, rowNo) {
+            const payload = {
+                ts: Date.now(),
+                reason: reason || '',
+                sheetName: sheetName || '',
+                rowNo: rowNo === undefined || rowNo === null ? '' : String(rowNo)
+            };
+            try { localStorage.setItem('q3PortalLivePing', JSON.stringify(payload)); } catch (e) {}
+            try {
+                if (typeof BroadcastChannel === 'function') {
+                    if (!_portalSyncChannel) _portalSyncChannel = new BroadcastChannel('q3-portal-live-sync');
+                    _portalSyncChannel.postMessage(payload);
+                }
+            } catch (e) {}
+        }
+
+        function initPortalLiveSync() {
+            if (!window._portalLiveSyncBound) {
+                window._portalLiveSyncBound = true;
+                window.addEventListener('storage', function(e) {
+                    if (e.key === 'q3PortalLivePing' && e.newValue) schedulePortalReload(120);
+                });
+                try {
+                    if (typeof BroadcastChannel === 'function') {
+                        if (!_portalSyncChannel) _portalSyncChannel = new BroadcastChannel('q3-portal-live-sync');
+                        _portalSyncChannel.onmessage = function() { schedulePortalReload(120); };
+                    }
+                } catch (e) {
+                    console.warn('BroadcastChannel init error:', e);
+                }
+            }
+            if (_portalRealtimeStarted || !window._sbReady || !window._sb) return;
+            try {
+                _portalRealtimeStarted = true;
+                window._portalRealtimeChannel = window._sb
+                    .channel('q3-portal-live-sync')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'engines' }, function() { schedulePortalReload(120); })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'aircraft_sale' }, function() { schedulePortalReload(120); })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'aircraft_lease' }, function() { schedulePortalReload(120); })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'parts' }, function() { schedulePortalReload(120); })
+                    .subscribe(function(status) {
+                        console.log('🔄 Live sync channel:', status);
+                    });
+            } catch (e) {
+                _portalRealtimeStarted = false;
+                console.warn('Realtime init error:', e);
+            }
+        }
+
         function hasLiveSupabaseConfig() {
             return !!(
                 SUPABASE_URL && SUPABASE_ANON_KEY &&
@@ -6099,8 +6175,8 @@ function toggleRowSelection(rowIndex, trEl) {
                         }
                     );
                     const arr = Array.isArray(rows) ? rows : [];
-                    if (arr.length && await verifyPersistedRow(tableName, payload)) return { data: arr, error: null };
-                    lastError = new Error('REST update by id not verified');
+                    if (arr.length) return { data: arr, error: null };
+                    lastError = new Error('REST update by id returned no rows');
                 } catch (err) {
                     lastError = err;
                     console.warn('Supabase REST update-by-id failed:', err && (err.message || err));
@@ -6136,8 +6212,8 @@ function toggleRowSelection(rowIndex, trEl) {
                             );
                             if (Array.isArray(rows) && rows.length) patched = patched.concat(rows);
                         }
-                        if (patched.length && await verifyPersistedRow(tableName, payload)) return { data: patched, error: null };
-                        lastError = new Error('REST update by no not verified');
+                        if (patched.length) return { data: patched, error: null };
+                        lastError = new Error('REST update by no returned no rows');
                     }
                 } catch (err) {
                     lastError = err;
@@ -6157,8 +6233,8 @@ function toggleRowSelection(rowIndex, trEl) {
                     }
                 );
                 const arr = Array.isArray(rows) ? rows : [];
-                if (arr.length && await verifyPersistedRow(tableName, payload)) return { data: arr, error: null };
-                lastError = new Error('REST insert not verified');
+                if (arr.length) return { data: arr, error: null };
+                lastError = new Error('REST insert returned no rows');
             } catch (err) {
                 lastError = err;
                 console.warn('Supabase REST insert failed:', err && (err.message || err));
@@ -6197,9 +6273,8 @@ function toggleRowSelection(rowIndex, trEl) {
                 try {
                     const result = await attempt.run();
                     const hasRows = !result.error && Array.isArray(result.data) && result.data.length > 0;
-                    const verified = !result.error && await verifyPersistedRow(tableName, payload);
-                    if (!result.error && hasRows && verified) return result;
-                    lastError = result.error || new Error('Supabase persist not verified for ' + attempt.mode);
+                    if (!result.error && hasRows) return result;
+                    lastError = result.error || new Error('Supabase persist returned no rows for ' + attempt.mode);
                 } catch (err) {
                     lastError = err;
                     console.warn('Supabase fallback persist failed (' + attempt.mode + '):', err && (err.message || err));
@@ -6342,6 +6417,7 @@ function toggleRowSelection(rowIndex, trEl) {
                     if (!tableName) continue;
                     await deleteRowFromSupabase(tableName, item.docId, item.rowNo);
                     state.deletes = state.deletes.filter(d => !(d.sheetName === item.sheetName && String(d.rowNo || '') === String(item.rowNo || '')));
+                    broadcastPortalChange('queued-delete-sync', item.sheetName, item.rowNo);
                     deleted += 1;
                 } catch (err) {
                     lastError = err;
@@ -6362,6 +6438,7 @@ function toggleRowSelection(rowIndex, trEl) {
                         if (idx >= 0) rows[idx]._docId = persistedId;
                     }
                     delete state.upserts[key];
+                    broadcastPortalChange('queued-upsert-sync', item.sheetName, item.rowNo);
                     synced += 1;
                 } catch (err) {
                     lastError = err;
