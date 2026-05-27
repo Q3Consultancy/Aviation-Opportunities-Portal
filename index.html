@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v96 -->
+    <!-- Build: v97 -->
     <style>
         * {
             margin: 0;
@@ -4196,8 +4196,16 @@
                     }
                 } catch (err) {
                     console.warn('Supabase save error (cell):', err.message || err);
-                    showToast('⚠️ Saved only in this browser — live portal update queued', 5200);
-                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    const _retryCell = await flushPendingSyncQueue(false);
+                    if (_retryCell && !_retryCell.lastError && (_retryCell.pendingCount || 0) === 0) {
+                        showToast('✅ Saved live to portal: ' + colName, 3200);
+                        if (colName === 'Status' || colName === 'Hidden') {
+                            setTimeout(() => { loadData(); }, 250);
+                        }
+                    } else {
+                        showToast('⚠️ Saved only in this browser — live portal update queued', 5200);
+                        setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    }
                 }
             } else {
                 console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
@@ -4233,8 +4241,14 @@
                     showToast('✅ Entry deleted permanently');
                 } catch (err) {
                     console.warn('Supabase delete error:', err.message);
-                    showToast('⚠️ Delete queued — will sync automatically');
-                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    const _retryDelete = await flushPendingSyncQueue(false);
+                    if (_retryDelete && !_retryDelete.lastError && (_retryDelete.pendingCount || 0) === 0) {
+                        showToast('✅ Entry deleted permanently');
+                        setTimeout(() => { loadData(); }, 250);
+                    } else {
+                        showToast('⚠️ Delete queued — will sync automatically');
+                        setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    }
                 }
             }
         }
@@ -4555,8 +4569,14 @@
                     }
                 } catch(e) {
                     console.warn('Supabase update exception:', e);
-                    showToast('⚠️ Update saved locally only — live portal sync will retry', 5200);
-                    setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    const _retryEdit = await flushPendingSyncQueue(false);
+                    if (_retryEdit && !_retryEdit.lastError && (_retryEdit.pendingCount || 0) === 0) {
+                        showToast('✅ Entry updated live on portal', 3200);
+                        setTimeout(() => { loadData(); }, 250);
+                    } else {
+                        showToast('⚠️ Update saved locally only — live portal sync will retry', 5200);
+                        setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
+                    }
                 }
             } else {
                 showToast('⚠️ Entry updated only in this browser — live portal unavailable', 5200);
@@ -4651,12 +4671,21 @@
                     }
                 } catch (err) {
                     console.warn('Supabase add error:', err.message || err);
+                    const _retryAdd = await flushPendingSyncQueue(false);
                     const _t = document.getElementById('saveToast');
                     if (_t) {
-                        _t.textContent = '⚠️ Entry added locally only — live portal sync queued';
-                        _t.style.background = '#f59e0b';
-                        _t.classList.add('show');
-                        setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 7000);
+                        if (_retryAdd && !_retryAdd.lastError && (_retryAdd.pendingCount || 0) === 0) {
+                            _t.textContent = '✅ Entry saved live to portal!';
+                            _t.style.background = '#22c55e';
+                            _t.classList.add('show');
+                            setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 3000);
+                            setTimeout(() => { loadData(); }, 250);
+                        } else {
+                            _t.textContent = '⚠️ Entry added locally only — live portal sync queued';
+                            _t.style.background = '#f59e0b';
+                            _t.classList.add('show');
+                            setTimeout(() => { _t.classList.remove('show'); _t.style.background = ''; }, 7000);
+                        }
                     }
                 }
             } else {
@@ -5352,7 +5381,7 @@
             if (!document.hidden) {
                 loadData();
             }
-        }, 45000);
+        }, isAdmin ? 12000 : 8000);
 
         // Allow Enter key for password + backdrop close for modals
         document.addEventListener('DOMContentLoaded', function() {
@@ -5922,21 +5951,36 @@ function toggleRowSelection(rowIndex, trEl) {
         async function verifyPersistedRow(tableName, payload) {
             if (!payload || payload.no === undefined || payload.no === null || payload.no === 0) return false;
             try {
-                const verifyRows = await supabaseRestRequest(
-                    tableName + '?select=id,no,deal_data&no=eq.' + encodeURIComponent(String(payload.no)) + '&limit=50',
-                    { method: 'GET' }
-                );
-                const deduped = dedupeSupabaseRows(Array.isArray(verifyRows) ? verifyRows : [], tableName);
-                if (!deduped.length) return false;
-                const chosen = deduped[0] || {};
-                const deal = chosen.deal_data || {};
-                const expectedStatus = normalizeStatus((payload.deal_data && payload.deal_data['Status']) || '') || ((payload.deal_data && payload.deal_data['Status']) || '');
-                const actualStatus = normalizeStatus(deal['Status'] || '') || (deal['Status'] || '');
-                const expectedHidden = isRowExplicitlyHidden(payload.deal_data || {}) || String(expectedStatus || '').toLowerCase() === 'closed' || String(expectedStatus || '').toLowerCase().includes('sold to another buyer');
-                const actualHidden = _isHiddenLikeFromSupabaseRow(chosen);
-                if (String(actualStatus) !== String(expectedStatus)) return false;
-                if (!!actualHidden !== !!expectedHidden) return false;
-                return true;
+                const verifyRows = await fetchSupabaseRowsByNo(tableName, payload.no);
+                if (!Array.isArray(verifyRows) || !verifyRows.length) return false;
+                const expectedDeal = payload.deal_data || {};
+                const expectedStatus = normalizeStatus(expectedDeal['Status'] || '') || (expectedDeal['Status'] || '');
+                const expectedHidden = isRowExplicitlyHidden(expectedDeal || {}) || String(expectedStatus || '').toLowerCase() === 'closed' || String(expectedStatus || '').toLowerCase().includes('sold to another buyer');
+                const fieldsToCheck = ['Deal #', 'Part', 'Aircraft', 'Engine', 'Files', 'Comments', 'Location', 'Condition', 'Date Received'];
+
+                const matched = verifyRows.some(row => {
+                    const deal = (row && row.deal_data) || {};
+                    const actualStatus = normalizeStatus(deal['Status'] || '') || (deal['Status'] || '');
+                    const actualHidden = _isHiddenLikeFromSupabaseRow(row);
+                    if (String(actualStatus) !== String(expectedStatus)) return false;
+                    if (!!actualHidden !== !!expectedHidden) return false;
+                    for (const key of fieldsToCheck) {
+                        if (!(key in expectedDeal)) continue;
+                        const expectedVal = String(expectedDeal[key] || '').trim();
+                        if (!expectedVal) continue;
+                        const actualVal = String(deal[key] || '').trim();
+                        if (actualVal !== expectedVal) return false;
+                    }
+                    return true;
+                });
+
+                if (matched) return true;
+                return verifyRows.some(row => {
+                    const deal = (row && row.deal_data) || {};
+                    const actualStatus = normalizeStatus(deal['Status'] || '') || (deal['Status'] || '');
+                    const actualHidden = _isHiddenLikeFromSupabaseRow(row);
+                    return String(actualStatus) === String(expectedStatus) && (!!actualHidden === !!expectedHidden);
+                });
             } catch (err) {
                 console.warn('Persist verification failed:', err && (err.message || err));
                 return false;
