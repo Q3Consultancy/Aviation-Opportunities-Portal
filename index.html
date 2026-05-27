@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v97 -->
+    <!-- Build: v99 -->
     <style>
         * {
             margin: 0;
@@ -3192,6 +3192,46 @@
             'Parts': []
         };
 
+
+        const REQUIRED_PARTS_FILE_URL = 'https://docs.google.com/spreadsheets/d/1rtAaGaa8V3PGIbXL4N7LDKmfB0G6qOvl/edit?usp=sharing&ouid=112477179979391558361&rtpof=true&sd=true';
+        // v99 safeguard: keep six Parts rows visible across admin/public/mobile and preserve add-form file links.
+        const REQUIRED_PARTS_ROWS = [
+            { 'No': '1', 'Deal #': 'PT001', 'Part': 'Embraer 170/190 Parts', 'Files': REQUIRED_PARTS_FILE_URL + '|Embraer 170/190 Parts File', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '2', 'Deal #': 'PT002', 'Part': 'CFM-56 Inventory',      'Files': REQUIRED_PARTS_FILE_URL + '|CFM-56 Inventory File',      'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '3', 'Deal #': 'PT003', 'Part': 'Airbus Inventory',      'Files': REQUIRED_PARTS_FILE_URL + '|Airbus Inventory File',      'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '4', 'Deal #': 'PT004', 'Part': 'Boeing 767 Inventory',  'Files': REQUIRED_PARTS_FILE_URL + '|Boeing 767 Inventory File',  'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '5', 'Deal #': 'PT005', 'Part': 'CF6 Inventory',         'Files': REQUIRED_PARTS_FILE_URL + '|CF6 Inventory File',         'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '6', 'Deal #': 'PT006', 'Part': 'PW4 Parts',             'Files': REQUIRED_PARTS_FILE_URL + '|PW4 Parts File',             'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' }
+        ];
+
+        function ensureRequiredPartsRows() {
+            if (!Array.isArray(data['Parts'])) data['Parts'] = [];
+            const partsRows = data['Parts'];
+            const byNo = new Map();
+            partsRows.forEach(row => {
+                const rowNo = String((row && row['No'] !== undefined && row['No'] !== null) ? row['No'] : '').trim();
+                if (rowNo) byNo.set(rowNo, row);
+            });
+            REQUIRED_PARTS_ROWS.forEach(req => {
+                let row = byNo.get(req['No']);
+                if (!row) {
+                    row = {};
+                    partsRows.push(row);
+                    byNo.set(req['No'], row);
+                }
+                row['No'] = req['No'];
+                row['Deal #'] = req['Deal #'];
+                row['Part'] = req['Part'];
+                row['Files'] = req['Files'];
+                row['Condition'] = req['Condition'];
+                row['Status'] = req['Status'];
+                row['Hidden'] = '';
+                if (!row['Location']) row['Location'] = req['Location'];
+                if (!row['Date Received']) row['Date Received'] = '27 May 2026';
+            });
+            partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
+        }
+
         function applyForcedVisibilityRules() {
             Object.entries(FORCED_HIDDEN_ROW_NUMBERS).forEach(([sheetName, rowNumbers]) => {
                 if (!Array.isArray(data[sheetName])) data[sheetName] = [];
@@ -3211,9 +3251,7 @@
                 });
             });
 
-            if (!Array.isArray(data['Parts'])) data['Parts'] = [];
-            const partsRows = data['Parts'];
-            partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
+            ensureRequiredPartsRows();
         }
 
         // Key names (with literal newlines as they appear in data.json)
@@ -3846,23 +3884,26 @@
                     if (col === 'Files') {
                         if (isAdmin) {
                             const fileEntries = parseFileEntries(value);
-                            const sheetLabel = getSheetName(currentTab);
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
-                                return `<a href="${entry.url}" class="file-link" target="_blank" title="Open: ${label}">📄 <span style="font-size:10px;">${label}</span></a>
-                                        <span class="file-remove" onclick="removeFileLink(${index},${fi})" title="Remove this link">✕</span>`;
+                                return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                                            <a href="${entry.url}" class="file-link" target="_blank" title="Open: ${label}">📄</a>
+                                            <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>
+                                            <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
+                                            <span class="file-remove" onclick="removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
+                                        </div>`;
                             }).join('');
-                            html += `<td class="file-upload-cell" id="fcell-${index}">
+                            html += `<td class="file-upload-cell" id="fcell-${sdIdx}">
                                 <div class="file-links-list">${fileLinksHtml}</div>
-                                <button class="btn-add-link" onclick="showAddLinkInput(${index})" title="Add Google Drive or any file link">＋ Add Link</button>
-                                <div class="add-link-row" id="addlink-${index}" style="display:none;">
-                                    <input type="text" class="add-link-input" id="linkinput-${index}"
+                                <button class="btn-add-link" onclick="showAddLinkInput(${sdIdx})" title="Add Google Drive or any file link">＋ Add Link</button>
+                                <div class="add-link-row" id="addlink-${sdIdx}" style="display:none;">
+                                    <input type="text" class="add-link-input" id="linkinput-${sdIdx}"
                                            placeholder="Paste Google Drive / Dropbox / any URL here"
-                                           onkeydown="if(event.key==='Enter')saveFileLink(${index})"/>
-                                    <input type="text" class="add-link-label" id="linklabel-${index}"
+                                           onkeydown="if(event.key==='Enter')saveFileLink(${sdIdx})"/>
+                                    <input type="text" class="add-link-label" id="linklabel-${sdIdx}"
                                            placeholder="File name (e.g. Engine Records.pdf)"/>
-                                    <button class="btn-link-save" onclick="saveFileLink(${index})">Save</button>
-                                    <button class="btn-link-cancel" onclick="hideAddLinkInput(${index})">Cancel</button>
+                                    <button class="btn-link-save" onclick="saveFileLink(${sdIdx})">Save</button>
+                                    <button class="btn-link-cancel" onclick="hideAddLinkInput(${sdIdx})">Cancel</button>
                                 </div>
                             </td>`;
                         } else {
@@ -4352,6 +4393,9 @@
                 { key: 'Part',             label: 'Part Description',   type: 'text',   required: true,  placeholder: 'e.g. Landing Gear Assembly' },
                 { key: 'Manufacturers S/N',label: 'Manufacturers S/N',  type: 'text',   required: false, placeholder: 'Part serial number' },
                 { key: 'Location',         label: 'Location',           type: 'text',   required: false, placeholder: 'e.g. [USA]' },
+                { section: '📎 File Details' },
+                { key: '__FileURL',        label: 'File Hyperlink',     type: 'text',   required: false, placeholder: 'Paste file URL here' },
+                { key: '__FileLabel',      label: 'File Name',          type: 'text',   required: false, placeholder: 'e.g. PW4 OH Material.xlsx' },
                 { section: '💰 Pricing (Admin)' },
                 { key: "Seller's Price \n(USD)", label: "Seller's Price (USD)",  type: 'number', required: false, placeholder: '0' },
                 { key: 'Team Commission\n(%)',   label: 'Team Commission (%)',   type: 'number', required: false, placeholder: 'e.g. 5.5', min: '0', max: '100', step: '0.01' },
@@ -4468,6 +4512,12 @@
                 });
             }
 
+            const fileUrlField = container.querySelector('[data-key="__FileURL"]');
+            const fileLabelField = container.querySelector('[data-key="__FileLabel"]');
+            const currentFileEntries = parseFileEntries((cloneSource && cloneSource['Files']) || '');
+            if (fileUrlField) fileUrlField.value = currentFileEntries[0] ? currentFileEntries[0].url : '';
+            if (fileLabelField) fileLabelField.value = currentFileEntries[0] ? currentFileEntries[0].originalName : '';
+
             document.getElementById('addDealModal').classList.add('show');
             // Focus first required input (skip No.)
             const firstInput = container.querySelector('input:not([readonly])[required], select[required]');
@@ -4543,6 +4593,14 @@
                 existingRow[key] = val;
             });
 
+            const _editFileUrl = String(existingRow['__FileURL'] || '').trim();
+            const _editFileLabel = String(existingRow['__FileLabel'] || '').trim();
+            if (_editFileUrl) {
+                existingRow['Files'] = normalizeLinkedFileUrl(_editFileUrl) + '|' + (_editFileLabel || guessFileName(_editFileUrl));
+            }
+            delete existingRow['__FileURL'];
+            delete existingRow['__FileLabel'];
+
             const _editStatus = normalizeStatus(existingRow['Status'] || '').toString().toLowerCase().trim();
             if (_editStatus === 'closed' || _editStatus.includes('sold to another buyer')) {
                 existingRow['Hidden'] = '1';
@@ -4617,12 +4675,20 @@
                 newRow[key] = el.value.trim();
             });
 
+            const _newFileUrl = String(newRow['__FileURL'] || '').trim();
+            const _newFileLabel = String(newRow['__FileLabel'] || '').trim();
+            if (_newFileUrl) {
+                newRow['Files'] = normalizeLinkedFileUrl(_newFileUrl) + '|' + (_newFileLabel || guessFileName(_newFileUrl));
+            }
+            delete newRow['__FileURL'];
+            delete newRow['__FileLabel'];
+
             // Auto-assign No
             const nextNo = sheetData.length > 0
                 ? Math.max(...sheetData.map(r => parseInt(r['No']) || 0)) + 1
                 : 1;
             newRow['No'] = String(nextNo);
-            newRow['Files'] = '';
+            if (!newRow['Files']) newRow['Files'] = '';
 
             const _newStatus = normalizeStatus(newRow['Status'] || '').toString().toLowerCase().trim();
             if (_newStatus === 'closed' || _newStatus.includes('sold to another buyer')) {
@@ -5652,6 +5718,15 @@ function toggleRowSelection(rowIndex, trEl) {
             if (lbl) lbl.value = '';
         }
 
+        function normalizeLinkedFileUrl(rawUrl) {
+            let finalUrl = rawUrl;
+            const gdMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (gdMatch) {
+                finalUrl = 'https://drive.google.com/file/d/' + gdMatch[1] + '/view';
+            }
+            return finalUrl;
+        }
+
         function saveFileLink(rowIndex) {
             if (!isAdmin) return;
             const urlInput   = document.getElementById('linkinput-' + rowIndex);
@@ -5664,13 +5739,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 return;
             }
 
-            // Convert Google Drive share URL to direct preview URL
-            let finalUrl = rawUrl;
-            const gdMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (gdMatch) {
-                finalUrl = 'https://drive.google.com/file/d/' + gdMatch[1] + '/view';
-            }
-
+            const finalUrl = normalizeLinkedFileUrl(rawUrl);
             const fileName = rawName || guessFileName(rawUrl);
             const entry    = finalUrl + '|' + fileName;
 
@@ -5680,6 +5749,25 @@ function toggleRowSelection(rowIndex, trEl) {
 
             saveCell(rowIndex, 'Files', newVal);
             hideAddLinkInput(rowIndex);
+        }
+
+        function renameFileLink(rowIndex, fileIdx) {
+            if (!isAdmin) return;
+            const sheetName = getSheetName(currentTab);
+            const existing = data[sheetName][rowIndex]['Files'] || '';
+            const entries = parseFileEntries(existing);
+            const current = entries[fileIdx];
+            if (!current) return;
+            const newName = prompt('Edit file name', current.originalName || ('File ' + (fileIdx + 1)));
+            if (newName === null) return;
+            const trimmed = String(newName || '').trim();
+            if (!trimmed) return;
+            entries[fileIdx].originalName = trimmed;
+            const rebuilt = entries.map(entry => {
+                const dealNumPart = entry.dealNum ? '|' + entry.dealNum : '';
+                return (entry.url || '') + '|' + (entry.originalName || 'file') + dealNumPart;
+            }).join(';;');
+            saveCell(rowIndex, 'Files', rebuilt);
         }
 
         function removeFileLink(rowIndex, fileIdx) {
