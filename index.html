@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v100 -->
+    <!-- Build: v101 -->
     <style>
         * {
             margin: 0;
@@ -3215,17 +3215,17 @@
             REQUIRED_PARTS_ROWS.forEach(req => {
                 let row = byNo.get(req['No']);
                 if (!row) {
-                    row = {};
+                    row = { ...req, 'Date Received': '27 May 2026' };
                     partsRows.push(row);
                     byNo.set(req['No'], row);
+                    return;
                 }
                 row['No'] = req['No'];
-                row['Deal #'] = req['Deal #'];
-                row['Part'] = req['Part'];
-                row['Files'] = req['Files'];
-                row['Condition'] = req['Condition'];
-                row['Status'] = req['Status'];
-                row['Hidden'] = '';
+                if (!row['Deal #']) row['Deal #'] = req['Deal #'];
+                if (!row['Part']) row['Part'] = req['Part'];
+                if (!row['Files']) row['Files'] = req['Files'];
+                if (!row['Condition']) row['Condition'] = req['Condition'];
+                if (!row['Status']) row['Status'] = req['Status'];
                 if (!row['Location']) row['Location'] = req['Location'];
                 if (!row['Date Received']) row['Date Received'] = '27 May 2026';
             });
@@ -4201,20 +4201,19 @@
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
             }
-            // 2. Re-render table ONLY after editor is closed (_cellEditing cleared by editCell)
-            //    For dropdowns (Status/Condition) _cellEditing is false so this runs immediately.
-            // Auto-hide row when Status changes to Closed (admin action)
+            // 2. Capture a stable snapshot before any re-render mutates helper rows.
+            //    This is critical for required Parts rows whose defaults are applied during render.
             if (colName === 'Status' && !_noAutoHide && isAdmin) {
                 const _ns = (newValue || '').toLowerCase().trim();
                 if (_ns === 'closed' || _ns.includes('sold to another buyer')) {
                     const _curHid = (sheetData[rowIndex]['Hidden'] || '').toString().trim();
                     if (_curHid !== '1') {
-                        sheetData[rowIndex]['Hidden'] = '1'; // immediate in-memory
-                        // Persist the Hidden flag to Supabase asynchronously (non-recursive)
+                        sheetData[rowIndex]['Hidden'] = '1';
                         setTimeout(() => saveCell(rowIndex, 'Hidden', '1', true), 150);
                     }
                 }
             }
+            const _rowSnapshot = JSON.parse(JSON.stringify(sheetData[rowIndex] || {}));
             if (!_cellEditing) renderTable();
 
             // 3. Persist to Supabase
@@ -4225,7 +4224,7 @@
                         'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
                     };
                     const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const persisted = await persistRowToSupabase(tableName, sheetData[rowIndex], sheetName);
+                    const persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
                     if (persisted && persisted.data && persisted.data[0]) {
                         sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
                     }
@@ -6062,6 +6061,7 @@ function toggleRowSelection(rowIndex, trEl) {
             let deletedAny = false;
             const deleteIds = [];
             const seenIds = new Set();
+            const sdkDeletes = (window._sbReady && window._sb) ? [] : null;
 
             if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
                 const idVal = String(docId).trim();
@@ -6108,6 +6108,26 @@ function toggleRowSelection(rowIndex, trEl) {
                 }
             }
 
+            if (!deletedAny && sdkDeletes) {
+                if (docId !== undefined && docId !== null && String(docId).trim() !== '') {
+                    sdkDeletes.push(() => window._sb.from(tableName).delete().eq('id', parseInt(String(docId).trim(), 10)));
+                }
+                if (rowNo !== undefined && rowNo !== null && String(rowNo).trim() !== '') {
+                    sdkDeletes.push(() => window._sb.from(tableName).delete().eq('no', parseInt(String(rowNo).trim(), 10)));
+                }
+                for (const run of sdkDeletes) {
+                    try {
+                        const result = await run();
+                        if (!result.error) {
+                            deletedAny = true;
+                            break;
+                        }
+                        lastError = result.error;
+                    } catch (err) {
+                        lastError = err;
+                    }
+                }
+            }
             if (deletedAny) return { error: null };
             throw lastError || new Error('Delete failed for ' + tableName);
         }
@@ -6266,6 +6286,15 @@ function toggleRowSelection(rowIndex, trEl) {
                 attempts.push({
                     mode: 'update-no',
                     run: () => window._sb.from(tableName).update({ deal_data: payload.deal_data, no: payload.no }).eq('no', payload.no).select()
+                });
+                attempts.push({
+                    mode: 'insert-no',
+                    run: () => window._sb.from(tableName).insert({ deal_data: payload.deal_data, no: payload.no }).select()
+                });
+            } else if (window._sbReady && window._sb) {
+                attempts.push({
+                    mode: 'insert-generic',
+                    run: () => window._sb.from(tableName).insert({ deal_data: payload.deal_data, no: payload.no || 0 }).select()
                 });
             }
 
