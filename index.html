@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v101 -->
+    <!-- Build: v102 -->
     <style>
         * {
             margin: 0;
@@ -3886,24 +3886,28 @@
                             const fileEntries = parseFileEntries(value);
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
-                                return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
-                                            <a href="${entry.url}" class="file-link" target="_blank" title="Open: ${label}">📄</a>
-                                            <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>
-                                            <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
-                                            <span class="file-remove" onclick="removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
+                                return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+                                            <a href="${entry.url}" class="file-link" target="_blank" rel="noopener" title="Open: ${label}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
+                                            <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
+                                            <a href="${entry.url}" target="_blank" rel="noopener" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;" title="${entry.url}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
+                                            <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();editFileLinkUrl(${sdIdx},${fi})" title="Edit this hyperlink">Edit Link</button>
+                                            <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
+                                            <span class="file-remove" onclick="event.stopPropagation();removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
                                         </div>`;
                             }).join('');
-                            html += `<td class="file-upload-cell" id="fcell-${sdIdx}">
+                            html += `<td class="file-upload-cell" id="fcell-${sdIdx}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">
                                 <div class="file-links-list">${fileLinksHtml}</div>
-                                <button class="btn-add-link" onclick="showAddLinkInput(${sdIdx})" title="Add Google Drive or any file link">＋ Add Link</button>
-                                <div class="add-link-row" id="addlink-${sdIdx}" style="display:none;">
+                                <button class="btn-add-link" onclick="event.stopPropagation();showAddLinkInput(${sdIdx})" title="Add Google Drive or any file link">＋ Add Link</button>
+                                <div class="add-link-row" id="addlink-${sdIdx}" style="display:none;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">
                                     <input type="text" class="add-link-input" id="linkinput-${sdIdx}"
                                            placeholder="Paste Google Drive / Dropbox / any URL here"
-                                           onkeydown="if(event.key==='Enter')saveFileLink(${sdIdx})"/>
+                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()"
+                                           onkeydown="event.stopPropagation();if(event.key==='Enter')saveFileLink(${sdIdx})"/>
                                     <input type="text" class="add-link-label" id="linklabel-${sdIdx}"
-                                           placeholder="File name (e.g. Engine Records.pdf)"/>
-                                    <button class="btn-link-save" onclick="saveFileLink(${sdIdx})">Save</button>
-                                    <button class="btn-link-cancel" onclick="hideAddLinkInput(${sdIdx})">Cancel</button>
+                                           placeholder="File name (e.g. Engine Records.pdf)"
+                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()"/>
+                                    <button class="btn-link-save" onclick="event.stopPropagation();saveFileLink(${sdIdx})">Save</button>
+                                    <button class="btn-link-cancel" onclick="event.stopPropagation();hideAddLinkInput(${sdIdx})">Cancel</button>
                                 </div>
                             </td>`;
                         } else {
@@ -3918,9 +3922,9 @@
                                     const rowData = filteredData[index];
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                    return `<a href="${entry.url}" class="file-link" target="_blank" download="${dlName}" title="View/Download: ${entry.originalName}">📄</a>`;
+                                    return `<a href="${entry.url}" class="file-link" target="_blank" rel="noopener" download="${dlName}" title="View/Download: ${entry.originalName}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>`;
                                 }).join('');
-                                html += `<td>${fileLinksHtml}</td>`;
+                                html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
                             }
                         }
                         return;
@@ -5264,6 +5268,17 @@
                     cardTip    = _cd.desc ? ' title="' + _cd.desc + '"' : '';
                 }
                 if (col === 'Location' && !isEmpty) displayVal = addFlagToLocation(displayVal);
+                if (col === 'Files') {
+                    const cardFiles = parseFileEntries(val || '');
+                    if (!cardFiles.length) {
+                        displayVal = '<span style="color:#475569;font-style:italic;">No file attached</span>';
+                    } else {
+                        displayVal = cardFiles.map((entry, fi) => {
+                            const linkLabel = entry.originalName || ('File ' + (fi + 1));
+                            return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
+                        }).join('');
+                    }
+                }
                 if (col === 'Status' && !isEmpty) {
                     displayVal = normalizeStatus(displayVal) || displayVal;
                     displayVal = getPublicStatusBadgeHTML(displayVal, true);
@@ -5275,6 +5290,16 @@
                         `</div>`;
             });
 
+            if (!CARD_FIELDS.includes('Files')) {
+                const cardFiles = parseFileEntries(row['Files'] || '');
+                if (cardFiles.length) {
+                    const fileHtml = cardFiles.map((entry, fi) => {
+                        const linkLabel = entry.originalName || ('File ' + (fi + 1));
+                        return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
+                    }).join('');
+                    rows += `<div class="rdc-row"><span class="rdc-label">Files</span><span class="rdc-value">${fileHtml}</span></div>`;
+                }
+            }
             return `<div class="rdc-title">${titleVal}</div>${rows}`;
         }
 
@@ -5781,6 +5806,26 @@ function toggleRowSelection(rowIndex, trEl) {
             const rebuilt = entries.map(entry => {
                 const dealNumPart = entry.dealNum ? '|' + entry.dealNum : '';
                 return (entry.url || '') + '|' + (entry.originalName || 'file') + dealNumPart;
+            }).join(';;');
+            saveCell(rowIndex, 'Files', rebuilt);
+        }
+
+        function editFileLinkUrl(rowIndex, fileIdx) {
+            if (!isAdmin) return;
+            const sheetName = getSheetName(currentTab);
+            const existing = data[sheetName][rowIndex]['Files'] || '';
+            const entries = parseFileEntries(existing);
+            const current = entries[fileIdx];
+            if (!current) return;
+            const newUrl = prompt('Edit file hyperlink', current.url || '');
+            if (newUrl === null) return;
+            const trimmed = String(newUrl || '').trim();
+            if (!trimmed) return;
+            entries[fileIdx].url = normalizeLinkedFileUrl(trimmed);
+            if (!entries[fileIdx].originalName) entries[fileIdx].originalName = guessFileName(trimmed);
+            const rebuilt = entries.map(entry => {
+                const dealNumPart = entry.dealNum ? '|' + entry.dealNum : '';
+                return (entry.url || '') + '|' + (entry.originalName || guessFileName(entry.url || '')) + dealNumPart;
             }).join(';;');
             saveCell(rowIndex, 'Files', rebuilt);
         }
