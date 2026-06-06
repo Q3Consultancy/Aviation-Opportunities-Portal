@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v111 -->
+    <!-- Build: v112 -->
     <style>
         * {
             margin: 0;
@@ -587,8 +587,23 @@
         .file-row-link {
             position: relative;
             z-index: 6;
-            cursor: pointer;
+            cursor: pointer !important;
             touch-action: manipulation;
+            pointer-events: auto !important;
+        }
+
+        .file-open-btn,
+        .file-open-btn:hover,
+        .file-open-btn:focus,
+        .file-row-link:hover,
+        .file-row-link:focus {
+            cursor: pointer !important;
+        }
+
+        .file-admin-item,
+        .file-links-list,
+        .file-upload-cell {
+            pointer-events: auto;
         }
 
         .modal {
@@ -5850,12 +5865,28 @@ function toggleRowSelection(rowIndex, trEl) {
                     if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) finalUrl = decodeURIComponent(finalUrl);
                 } catch(_) {}
             }
+            if (!finalUrl && el && el.getAttribute) {
+                finalUrl = el.getAttribute('href') || '';
+            }
             if (!finalUrl && el && el.closest) {
                 const item = el.closest('.file-admin-item, .file-links-list, td');
                 const siblingLink = item ? item.querySelector('a.file-row-link, a[href]') : null;
                 if (siblingLink) finalUrl = siblingLink.getAttribute('href') || siblingLink.textContent || '';
             }
             return String(finalUrl || '').trim();
+        }
+
+        function openExactPortalUrl(targetUrl) {
+            if (!targetUrl) return false;
+            try {
+                const win = window.open(targetUrl, '_blank', 'noopener');
+                if (win) {
+                    try { win.opener = null; } catch(_) {}
+                    return false;
+                }
+            } catch(_) {}
+            try { window.location.assign(targetUrl); } catch(_) {}
+            return false;
         }
 
         function activatePortalLink(event, url, el) {
@@ -5883,17 +5914,44 @@ function toggleRowSelection(rowIndex, trEl) {
                 try { event.preventDefault(); } catch(_) {}
             }
             const targetUrl = resolveExactFileUrl(urlOrEncoded, el);
-            if (!targetUrl) return false;
-            try {
-                const win = window.open(targetUrl, '_blank', 'noopener');
-                if (win) {
-                    try { win.opener = null; } catch(_) {}
-                    return false;
-                }
-            } catch(_) {}
-            try { window.location.assign(targetUrl); } catch(_) {}
-            return false;
+            return openExactPortalUrl(targetUrl);
         }
+
+        function installPortalFileDelegation() {
+            if (window.__portalFileDelegationInit) return;
+            window.__portalFileDelegationInit = true;
+
+            const triggerSelector = '.file-open-btn, .file-row-link';
+
+            document.addEventListener('pointerdown', function(event) {
+                const trigger = event.target && event.target.closest ? event.target.closest(triggerSelector) : null;
+                if (!trigger) return;
+                try { event.stopPropagation(); } catch(_) {}
+            }, true);
+
+            document.addEventListener('click', function(event) {
+                const trigger = event.target && event.target.closest ? event.target.closest(triggerSelector) : null;
+                if (!trigger) return;
+                try { event.stopPropagation(); } catch(_) {}
+                try { event.stopImmediatePropagation(); } catch(_) {}
+                try { event.preventDefault(); } catch(_) {}
+                const targetUrl = resolveExactFileUrl('', trigger);
+                openExactPortalUrl(targetUrl);
+            }, true);
+
+            document.addEventListener('keydown', function(event) {
+                const trigger = event.target && event.target.closest ? event.target.closest(triggerSelector) : null;
+                if (!trigger) return;
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                try { event.stopPropagation(); } catch(_) {}
+                try { event.stopImmediatePropagation(); } catch(_) {}
+                try { event.preventDefault(); } catch(_) {}
+                const targetUrl = resolveExactFileUrl('', trigger);
+                openExactPortalUrl(targetUrl);
+            }, true);
+        }
+
+        installPortalFileDelegation();
 
         const openPortalLink = activatePortalLink;
 
