@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v110 -->
+    <!-- Build: v111 -->
     <style>
         * {
             margin: 0;
@@ -566,6 +566,7 @@
             z-index: 8;
             touch-action: manipulation;
             -webkit-tap-highlight-color: rgba(37, 99, 235, 0.15);
+            text-decoration: none;
         }
 
         .file-open-btn:hover {
@@ -581,6 +582,13 @@
         .file-open-btn:focus-visible {
             outline: 2px solid #2563eb;
             outline-offset: 2px;
+        }
+
+        .file-row-link {
+            position: relative;
+            z-index: 6;
+            cursor: pointer;
+            touch-action: manipulation;
         }
 
         .modal {
@@ -3944,9 +3952,9 @@
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
                                 return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-                                            <button type="button" class="file-open-btn" title="Open: ${label}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</button>
+                                            <a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="Open: ${label}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
                                             <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
-                                            <a href="${entry.url}" target="_blank" rel="noopener" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:5;" title="${entry.url}" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
+                                            <a href="${entry.url}" target="_blank" rel="noopener" class="file-row-link" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:6;" title="${entry.url}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return activatePortalLink(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();editFileLinkUrl(${sdIdx},${fi})" title="Edit this hyperlink">Edit Link</button>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
                                             <span class="file-remove" onclick="event.stopPropagation();removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
@@ -3979,7 +3987,7 @@
                                     const rowData = filteredData[index];
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                    return `<button type="button" class="file-open-btn" title="View/Download: ${entry.originalName}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</button>`;
+                                    return `<a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${entry.originalName}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>`;
                                 }).join('');
                                 html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
                             }
@@ -5829,13 +5837,52 @@ function toggleRowSelection(rowIndex, trEl) {
             return finalUrl;
         }
 
+        function resolveExactFileUrl(urlOrEncoded, el) {
+            let finalUrl = urlOrEncoded || '';
+            try {
+                if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) {
+                    finalUrl = decodeURIComponent(finalUrl);
+                }
+            } catch(_) {}
+            if (!finalUrl && el && el.dataset && el.dataset.fileUrl) {
+                finalUrl = el.dataset.fileUrl;
+                try {
+                    if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) finalUrl = decodeURIComponent(finalUrl);
+                } catch(_) {}
+            }
+            if (!finalUrl && el && el.closest) {
+                const item = el.closest('.file-admin-item, .file-links-list, td');
+                const siblingLink = item ? item.querySelector('a.file-row-link, a[href]') : null;
+                if (siblingLink) finalUrl = siblingLink.getAttribute('href') || siblingLink.textContent || '';
+            }
+            return String(finalUrl || '').trim();
+        }
+
         function activatePortalLink(event, url, el) {
+            if (event) {
+                try { event.stopPropagation(); } catch(_) {}
+                try { event.stopImmediatePropagation(); } catch(_) {}
+            }
+            const targetUrl = resolveExactFileUrl(url, el);
+            if (!targetUrl) {
+                if (event) {
+                    try { event.preventDefault(); } catch(_) {}
+                }
+                return false;
+            }
+            if (el && el.setAttribute) {
+                try { el.setAttribute('href', targetUrl); } catch(_) {}
+            }
+            return true;
+        }
+
+        function openPortalFileButton(event, urlOrEncoded, el) {
             if (event) {
                 try { event.stopPropagation(); } catch(_) {}
                 try { event.stopImmediatePropagation(); } catch(_) {}
                 try { event.preventDefault(); } catch(_) {}
             }
-            const targetUrl = normalizeLinkedFileUrl(url || (el && el.getAttribute ? el.getAttribute('href') : '') || '');
+            const targetUrl = resolveExactFileUrl(urlOrEncoded, el);
             if (!targetUrl) return false;
             try {
                 const win = window.open(targetUrl, '_blank', 'noopener');
@@ -5846,16 +5893,6 @@ function toggleRowSelection(rowIndex, trEl) {
             } catch(_) {}
             try { window.location.assign(targetUrl); } catch(_) {}
             return false;
-        }
-
-        function openPortalFileButton(event, urlOrEncoded) {
-            let finalUrl = urlOrEncoded || '';
-            try {
-                if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) {
-                    finalUrl = decodeURIComponent(finalUrl);
-                }
-            } catch(_) {}
-            return activatePortalLink(event, finalUrl, null);
         }
 
         const openPortalLink = activatePortalLink;
