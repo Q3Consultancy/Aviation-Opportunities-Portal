@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v115 -->
+    <!-- Build: v116 -->
     <style>
         * {
             margin: 0;
@@ -1236,6 +1236,125 @@
             cursor: pointer;
         }
         .btn-link-cancel:hover { background: #f1f5f9; }
+        .add-link-progress {
+            display: none;
+            margin-top: 6px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid #dbeafe;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+            gap: 4px;
+        }
+        .add-link-progress.show { display: block; }
+        .add-link-progress.pending { border-color: #bfdbfe; background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%); }
+        .add-link-progress.success { border-color: #86efac; background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%); }
+        .add-link-progress.error { border-color: #fca5a5; background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%); }
+        .add-link-progress-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+        .add-link-progress.success .add-link-progress-head { color: #166534; }
+        .add-link-progress.error .add-link-progress-head { color: #991b1b; }
+        .add-link-progress-bar {
+            position: relative;
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(148, 163, 184, 0.22);
+        }
+        .add-link-progress-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+            transition: width 0.28s ease;
+        }
+        .add-link-progress.success .add-link-progress-fill { background: linear-gradient(90deg, #16a34a 0%, #4ade80 100%); }
+        .add-link-progress.error .add-link-progress-fill { background: linear-gradient(90deg, #dc2626 0%, #f87171 100%); }
+        .add-link-progress-note {
+            font-size: 10px;
+            line-height: 1.35;
+            color: #334155;
+        }
+        .portal-live-save-indicator {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: min(360px, calc(100vw - 24px));
+            z-index: 10002;
+            border-radius: 12px;
+            border: 1px solid #bfdbfe;
+            background: rgba(255,255,255,0.98);
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+            padding: 12px 14px;
+            display: none;
+            backdrop-filter: blur(8px);
+        }
+        .portal-live-save-indicator.show { display: block; }
+        .portal-live-save-indicator.pending { border-color: #bfdbfe; }
+        .portal-live-save-indicator.success { border-color: #86efac; }
+        .portal-live-save-indicator.error { border-color: #fca5a5; }
+        .portal-live-save-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .portal-live-save-pill {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            color: #1d4ed8;
+            background: #dbeafe;
+            border-radius: 999px;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+        .portal-live-save-indicator.success .portal-live-save-pill { color: #166534; background: #dcfce7; }
+        .portal-live-save-indicator.error .portal-live-save-pill { color: #991b1b; background: #fee2e2; }
+        .portal-live-save-bar {
+            position: relative;
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #e2e8f0;
+            margin-bottom: 6px;
+        }
+        .portal-live-save-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+            transition: width 0.28s ease;
+        }
+        .portal-live-save-indicator.success .portal-live-save-fill { background: linear-gradient(90deg, #16a34a 0%, #4ade80 100%); }
+        .portal-live-save-indicator.error .portal-live-save-fill { background: linear-gradient(90deg, #dc2626 0%, #f87171 100%); }
+        .portal-live-save-note {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #334155;
+        }
+        @media (max-width: 768px) {
+            .portal-live-save-indicator {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                width: auto;
+            }
+        }
         /* ── End Google Drive Link UI ─────────────────────────────────── */
     
         /* ── Collapsible Filter Bar ── */
@@ -3984,6 +4103,10 @@
                             const _draftLabel = _addOpen ? escapeHtmlAttr(_addDraft.label || '') : '';
                             const _draftSaving = !!(_addOpen && _addDraft.saving);
                             const _draftDisabled = _draftSaving ? 'disabled' : '';
+                            const _draftProgress = _addOpen ? clampLiveSavePercent(_addDraft.progress || 0) : 0;
+                            const _draftStatusText = _addOpen ? escapeHtmlAttr(_addDraft.statusText || (_draftSaving ? 'Saving to live portal…' : '')) : '';
+                            const _draftTone = _addOpen ? (_addDraft.statusTone || (_draftSaving ? 'pending' : 'pending')) : 'pending';
+                            const _showDraftProgress = !!(_addOpen && (_draftSaving || _draftStatusText || _draftProgress > 0));
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
                                 return `<div class="file-admin-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;cursor:pointer;">
@@ -4006,6 +4129,11 @@
                                     <input type="text" class="add-link-label" id="linklabel-${sdIdx}" value="${_draftLabel}"
                                            placeholder="File name (e.g. Engine Records.pdf)"
                                            onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" oninput="syncAddLinkDraftFromInputs(${sdIdx})" ${_draftDisabled}/>
+                                    <div class="add-link-progress ${_showDraftProgress ? 'show ' + _draftTone : ''}">
+                                        <div class="add-link-progress-head"><span>${_draftStatusText || (_draftSaving ? 'Saving to live portal…' : 'Ready to save')}</span><strong>${_draftProgress}%</strong></div>
+                                        <div class="add-link-progress-bar"><div class="add-link-progress-fill" style="width:${_draftProgress}%;"></div></div>
+                                        <div class="add-link-progress-note">${_draftSaving ? 'The editor will close only after the live portal confirms the update.' : (_draftStatusText || 'Save waits for live confirmation so non-admin mode updates correctly.')}</div>
+                                    </div>
                                     <button class="btn-link-save" ${_draftDisabled} onclick="event.stopPropagation();saveFileLink(${sdIdx})">${_draftSaving ? 'Saving…' : 'Save'}</button>
                                     <button class="btn-link-cancel" ${_draftDisabled} onclick="event.stopPropagation();hideAddLinkInput(${sdIdx})">Cancel</button>
                                 </div>
@@ -4297,6 +4425,24 @@
             const allowQueue = options.allowQueue !== false && !strictLive;
             const reloadAfterSave = options.reloadAfterSave !== false;
             const optimisticLocal = options.optimisticLocal !== false && !strictLive;
+            const progressRowIndex = options.progressRowIndex !== undefined ? options.progressRowIndex : rowIndex;
+            const bindDraftProgress = !!options.bindDraftProgress;
+
+            function updateStrictProgress(percent, text, tone, saving, extra) {
+                setPortalLiveSaveIndicator(percent, text, tone || 'pending', true);
+                if (bindDraftProgress) {
+                    setAddLinkDraftStatus(progressRowIndex, {
+                        saving: saving,
+                        progress: percent,
+                        statusText: text,
+                        statusTone: tone || 'pending',
+                        liveReady: !!(extra && extra.liveReady),
+                        autoClearMs: extra && extra.autoClearMs
+                    });
+                } else if (extra && extra.autoClearMs) {
+                    clearPortalLiveSaveIndicator(extra.autoClearMs);
+                }
+            }
 
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName];
@@ -4326,6 +4472,7 @@
 
             if (strictLive) {
                 if (!hasLiveSupabaseConfig()) {
+                    updateStrictProgress(0, colName === 'Files' ? 'Live database not ready — not visible in non-admin yet' : 'Live database not ready — change not saved', 'error', false);
                     showToast(colName === 'Files' ? '❌ Link not saved live — database not ready' : '❌ Live database not ready — change not saved', 5200);
                     return { ok: false, liveSaved: false, queued: false, reason: 'db-not-ready' };
                 }
@@ -4337,8 +4484,11 @@
                 const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
 
                 try {
+                    updateStrictProgress(12, colName === 'Files' ? 'Preparing live save…' : 'Preparing live update…', 'pending', true);
+                    updateStrictProgress(38, colName === 'Files' ? 'Saving to live portal…' : 'Saving live update…', 'pending', true);
                     const strictResult = await persistRowStrictLive(tableName, nextRow, sheetName);
                     const persisted = strictResult && strictResult.persisted;
+                    updateStrictProgress(72, colName === 'Files' ? 'Live data verified — refreshing portal…' : 'Live update verified — refreshing portal…', 'pending', true);
                     sheetData[rowIndex] = { ...currentRow, ...nextRow };
                     if (persisted && persisted.data && persisted.data[0]) {
                         sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
@@ -4351,8 +4501,10 @@
                     showToast('✅ Saved live to portal: ' + colName, 3200);
                     broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
                     if (reloadAfterSave) {
+                        updateStrictProgress(88, colName === 'Files' ? 'Live confirmed — updating admin and non-admin views…' : 'Live confirmed — updating portal views…', 'pending', true);
                         await loadData();
                     }
+                    updateStrictProgress(100, colName === 'Files' ? 'Live confirmed — non-admin can now see this file' : 'Live confirmed — portal updated', 'success', false, { liveReady: true, autoClearMs: 4200 });
                     if (colName === 'Status' && !_noAutoHide && isAdmin) {
                         const _ns = (newValue || '').toLowerCase().trim();
                         if ((_ns === 'closed' || _ns.includes('sold to another buyer')) && String(nextRow['Hidden'] || '').trim() === '1') {
@@ -4364,6 +4516,8 @@
                     sheetData[rowIndex] = prevRow;
                     if (!_cellEditing) renderTable();
                     console.warn('Strict live save error (cell):', err && (err.message || err));
+                    const failedAt = clampLiveSavePercent((window.__portalLiveSaveState && window.__portalLiveSaveState.progress) || 38);
+                    updateStrictProgress(failedAt, colName === 'Files' ? 'Live save not confirmed — not visible in non-admin yet' : 'Live save not confirmed — retry needed', 'error', false);
                     showToast(colName === 'Files' ? '❌ Link not saved live — please retry' : '❌ Live save failed — nothing was saved', 5200);
                     return { ok: false, liveSaved: false, queued: false, verified: false, error: err && (err.message || String(err)) };
                 }
@@ -5924,6 +6078,60 @@ function toggleRowSelection(rowIndex, trEl) {
         
         // ── Google Drive / URL Link Management ─────────────────────────────
         window.__activeAddLinkDraft = window.__activeAddLinkDraft || null;
+        window.__portalLiveSaveState = window.__portalLiveSaveState || { visible: false, progress: 0, text: '', tone: 'pending' };
+        window.__portalLiveSaveClearTimer = window.__portalLiveSaveClearTimer || null;
+
+        function clampLiveSavePercent(value) {
+            const num = Number(value);
+            if (!isFinite(num)) return 0;
+            return Math.max(0, Math.min(100, Math.round(num)));
+        }
+
+        function ensurePortalLiveSaveIndicator() {
+            let el = document.getElementById('portalLiveSaveIndicator');
+            if (el) return el;
+            el = document.createElement('div');
+            el.id = 'portalLiveSaveIndicator';
+            el.className = 'portal-live-save-indicator';
+            el.innerHTML = '<div class="portal-live-save-head"><span id="portalLiveSaveTitle">Live portal update</span><span id="portalLiveSavePct" class="portal-live-save-pill">0%</span></div>' +
+                           '<div class="portal-live-save-bar"><div id="portalLiveSaveFill" class="portal-live-save-fill"></div></div>' +
+                           '<div id="portalLiveSaveNote" class="portal-live-save-note">Waiting to save…</div>';
+            document.body.appendChild(el);
+            return el;
+        }
+
+        function renderPortalLiveSaveIndicator() {
+            const state = window.__portalLiveSaveState || {};
+            const el = ensurePortalLiveSaveIndicator();
+            const pct = clampLiveSavePercent(state.progress || 0);
+            el.className = 'portal-live-save-indicator' + (state.visible ? ' show' : '') + (state.tone ? ' ' + state.tone : '');
+            const pctEl = document.getElementById('portalLiveSavePct');
+            const fillEl = document.getElementById('portalLiveSaveFill');
+            const noteEl = document.getElementById('portalLiveSaveNote');
+            if (pctEl) pctEl.textContent = pct + '%';
+            if (fillEl) fillEl.style.width = pct + '%';
+            if (noteEl) noteEl.textContent = state.text || 'Waiting to save…';
+        }
+
+        function setPortalLiveSaveIndicator(progress, text, tone, visible) {
+            clearTimeout(window.__portalLiveSaveClearTimer || null);
+            window.__portalLiveSaveState = {
+                visible: visible !== false,
+                progress: clampLiveSavePercent(progress),
+                text: String(text || ''),
+                tone: tone || 'pending'
+            };
+            renderPortalLiveSaveIndicator();
+        }
+
+        function clearPortalLiveSaveIndicator(delay) {
+            clearTimeout(window.__portalLiveSaveClearTimer || null);
+            const ms = Math.max(0, Number(delay || 0));
+            window.__portalLiveSaveClearTimer = setTimeout(() => {
+                window.__portalLiveSaveState = { visible: false, progress: 0, text: '', tone: 'pending' };
+                renderPortalLiveSaveIndicator();
+            }, ms);
+        }
 
         function escapeHtmlAttr(value) {
             return String(value || '')
@@ -5949,14 +6157,55 @@ function toggleRowSelection(rowIndex, trEl) {
                 ...meta,
                 url: urlInput ? urlInput.value : (draft.url || ''),
                 label: labelInput ? labelInput.value : (draft.label || ''),
-                saving: !!draft.saving
+                saving: !!draft.saving,
+                progress: clampLiveSavePercent(draft.progress || 0),
+                statusText: String(draft.statusText || ''),
+                statusTone: draft.statusTone || 'pending',
+                liveReady: !!draft.liveReady
             };
             return window.__activeAddLinkDraft;
         }
 
+        function setAddLinkDraftStatus(rowIndex, status) {
+            const meta = _currentAddLinkRowMeta(rowIndex);
+            const draft = window.__activeAddLinkDraft || {};
+            if (draft.sheetName && (draft.sheetName !== meta.sheetName || String(draft.rowNo || '') !== meta.rowNo)) {
+                if (status && status.progress !== undefined) {
+                    setPortalLiveSaveIndicator(status.progress, status.statusText || '', status.statusTone || 'pending', true);
+                    if (status.autoClearMs) clearPortalLiveSaveIndicator(status.autoClearMs);
+                }
+                return;
+            }
+            window.__activeAddLinkDraft = {
+                ...draft,
+                ...meta,
+                saving: status && status.saving !== undefined ? !!status.saving : !!draft.saving,
+                progress: status && status.progress !== undefined ? clampLiveSavePercent(status.progress) : clampLiveSavePercent(draft.progress || 0),
+                statusText: status && status.statusText !== undefined ? String(status.statusText || '') : String(draft.statusText || ''),
+                statusTone: status && status.statusTone ? status.statusTone : (draft.statusTone || 'pending'),
+                liveReady: status && status.liveReady !== undefined ? !!status.liveReady : !!draft.liveReady,
+                url: draft.url || '',
+                label: draft.label || ''
+            };
+            const liveState = window.__activeAddLinkDraft;
+            setPortalLiveSaveIndicator(liveState.progress || 0, liveState.statusText || '', liveState.statusTone || 'pending', true);
+            if (status && status.autoClearMs) clearPortalLiveSaveIndicator(status.autoClearMs);
+            if (!_cellEditing) renderTable();
+        }
+
         function showAddLinkInput(rowIndex) {
             const draft = syncAddLinkDraftFromInputs(rowIndex);
-            window.__activeAddLinkDraft = { ...draft, saving: false };
+            window.__activeAddLinkDraft = {
+                ...draft,
+                saving: false,
+                progress: clampLiveSavePercent(draft.progress || 0),
+                statusText: draft.statusText || '',
+                statusTone: draft.statusTone || 'pending',
+                liveReady: !!draft.liveReady
+            };
+            if (!(window.__activeAddLinkDraft && window.__activeAddLinkDraft.liveReady)) {
+                clearPortalLiveSaveIndicator(50);
+            }
             if (!_cellEditing) renderTable();
             setTimeout(() => {
                 const row = document.getElementById('addlink-' + rowIndex);
@@ -5974,6 +6223,7 @@ function toggleRowSelection(rowIndex, trEl) {
             if (draft.saving && !forceClose) return;
             const meta = _currentAddLinkRowMeta(rowIndex);
             if (draft.sheetName && (draft.sheetName !== meta.sheetName || String(draft.rowNo || '') !== meta.rowNo) && !forceClose) return;
+            const wasLiveReady = !!draft.liveReady;
             window.__activeAddLinkDraft = null;
             const row = document.getElementById('addlink-' + rowIndex);
             if (row) row.style.display = 'none';
@@ -5982,6 +6232,7 @@ function toggleRowSelection(rowIndex, trEl) {
             const lbl = document.getElementById('linklabel-' + rowIndex);
             if (lbl) lbl.value = '';
             if (!_cellEditing) renderTable();
+            if (!wasLiveReady) clearPortalLiveSaveIndicator(120);
         }
 
         function normalizeLinkedFileUrl(rawUrl) {
@@ -6123,22 +6374,27 @@ function toggleRowSelection(rowIndex, trEl) {
             const existing = data[sheetName][rowIndex]['Files'] || '';
             const newVal = existing ? existing + ';;' + entry : entry;
 
-            window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || draft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: true };
+            window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || draft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: true, progress: 5, statusText: 'Preparing live save…', statusTone: 'pending', liveReady: false };
+            setAddLinkDraftStatus(rowIndex, { saving: true, progress: 5, statusText: 'Preparing live save…', statusTone: 'pending', liveReady: false });
             if (!_cellEditing) renderTable();
 
             const result = await saveCell(rowIndex, 'Files', newVal, false, {
                 strictLive: true,
                 allowQueue: false,
                 optimisticLocal: false,
-                reloadAfterSave: true
+                reloadAfterSave: true,
+                progressRowIndex: rowIndex,
+                bindDraftProgress: true
             });
             if (result && result.liveSaved) {
+                setAddLinkDraftStatus(rowIndex, { saving: false, progress: 100, statusText: 'Live confirmed — non-admin can now see this file', statusTone: 'success', liveReady: true, autoClearMs: 4200 });
                 showToast('✅ File link saved live to portal', 3200);
+                await new Promise(resolve => setTimeout(resolve, 900));
                 hideAddLinkInput(rowIndex, true);
                 return true;
             }
 
-            window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: false };
+            setAddLinkDraftStatus(rowIndex, { saving: false, progress: clampLiveSavePercent((window.__portalLiveSaveState && window.__portalLiveSaveState.progress) || (window.__activeAddLinkDraft && window.__activeAddLinkDraft.progress) || 0), statusText: 'Live save not confirmed — not visible in non-admin yet', statusTone: 'error', liveReady: false });
             if (!_cellEditing) renderTable();
             showToast('⚠️ Live save not confirmed — editor kept open', 4800);
             return false;
