@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v116 -->
+    <!-- Build: v117 -->
     <style>
         * {
             margin: 0;
@@ -4485,8 +4485,12 @@
 
                 try {
                     updateStrictProgress(12, colName === 'Files' ? 'Preparing live save…' : 'Preparing live update…', 'pending', true);
+                    const liveProbe = await probeLiveBackend(1800);
+                    if (!liveProbe.ok) {
+                        throw new Error('Live backend unreachable: ' + (liveProbe.reason || 'unknown error'));
+                    }
                     updateStrictProgress(38, colName === 'Files' ? 'Saving to live portal…' : 'Saving live update…', 'pending', true);
-                    const strictResult = await persistRowStrictLive(tableName, nextRow, sheetName);
+                    const strictResult = await withLiveTimeout(persistRowStrictLive(tableName, nextRow, sheetName), 4500, 'Live save');
                     const persisted = strictResult && strictResult.persisted;
                     updateStrictProgress(72, colName === 'Files' ? 'Live data verified — refreshing portal…' : 'Live update verified — refreshing portal…', 'pending', true);
                     sheetData[rowIndex] = { ...currentRow, ...nextRow };
@@ -4502,7 +4506,7 @@
                     broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
                     if (reloadAfterSave) {
                         updateStrictProgress(88, colName === 'Files' ? 'Live confirmed — updating admin and non-admin views…' : 'Live confirmed — updating portal views…', 'pending', true);
-                        await loadData();
+                        await withLiveTimeout(loadData(), 2500, 'Portal refresh');
                     }
                     updateStrictProgress(100, colName === 'Files' ? 'Live confirmed — non-admin can now see this file' : 'Live confirmed — portal updated', 'success', false, { liveReady: true, autoClearMs: 4200 });
                     if (colName === 'Status' && !_noAutoHide && isAdmin) {
@@ -4513,10 +4517,21 @@
                     }
                     return { ok: true, liveSaved: true, queued: false, verified: true };
                 } catch (err) {
-                    sheetData[rowIndex] = prevRow;
-                    if (!_cellEditing) renderTable();
                     console.warn('Strict live save error (cell):', err && (err.message || err));
                     const failedAt = clampLiveSavePercent((window.__portalLiveSaveState && window.__portalLiveSaveState.progress) || 38);
+                    const networkLike = isLiveNetworkLikeError(err) || String(err && (err.message || err) || '').toLowerCase().includes('live backend unreachable');
+                    if (colName === 'Files' && networkLike) {
+                        const previewRow = { ...currentRow, ...nextRow };
+                        sheetData[rowIndex] = previewRow;
+                        queuePendingUpsert(sheetName, previewRow, { changedColumn: colName, strictLive: true, previewPublic: true });
+                        if (!_cellEditing) renderTable();
+                        broadcastPortalChange('browser-preview-file-save', sheetName, previewRow['No']);
+                        updateStrictProgress(100, 'Saved in this browser only — live backend offline', 'pending', false, { autoClearMs: 5200 });
+                        showToast('⚠️ Fast browser save complete — live backend offline', 5200);
+                        return { ok: true, liveSaved: false, queued: true, browserPreview: true, verified: false, error: err && (err.message || String(err)) };
+                    }
+                    sheetData[rowIndex] = prevRow;
+                    if (!_cellEditing) renderTable();
                     updateStrictProgress(failedAt, colName === 'Files' ? 'Live save not confirmed — not visible in non-admin yet' : 'Live save not confirmed — retry needed', 'error', false);
                     showToast(colName === 'Files' ? '❌ Link not saved live — please retry' : '❌ Live save failed — nothing was saved', 5200);
                     return { ok: false, liveSaved: false, queued: false, verified: false, error: err && (err.message || String(err)) };
@@ -6394,6 +6409,15 @@ function toggleRowSelection(rowIndex, trEl) {
                 return true;
             }
 
+            if (result && result.browserPreview) {
+                setAddLinkDraftStatus(rowIndex, { saving: false, progress: 100, statusText: 'Saved in this browser only — live backend offline', statusTone: 'pending', liveReady: false, autoClearMs: 5200 });
+                if (!_cellEditing) renderTable();
+                showToast('⚠️ Visible in this browser now — live backend still offline', 5200);
+                await new Promise(resolve => setTimeout(resolve, 700));
+                hideAddLinkInput(rowIndex, true);
+                return true;
+            }
+
             setAddLinkDraftStatus(rowIndex, { saving: false, progress: clampLiveSavePercent((window.__portalLiveSaveState && window.__portalLiveSaveState.progress) || (window.__activeAddLinkDraft && window.__activeAddLinkDraft.progress) || 0), statusText: 'Live save not confirmed — not visible in non-admin yet', statusTone: 'error', liveReady: false });
             if (!_cellEditing) renderTable();
             showToast('⚠️ Live save not confirmed — editor kept open', 4800);
@@ -6594,11 +6618,88 @@ function toggleRowSelection(rowIndex, trEl) {
             );
         }
 
+        function isLiveNetworkLikeError(err) {
+            const msg = String((err && (err.message || err.reason || err.name)) || err || '').toLowerCase();
+            return msg.includes('failed to fetch') ||
+                   msg.includes('networkerror') ||
+                   msg.includes('network request failed') ||
+                   msg.includes('load failed') ||
+                   msg.includes('err_name_not_resolved') ||
+                   msg.includes('dns') ||
+                   msg.includes('timed out') ||
+                   msg.includes('timeout') ||
+                   msg.includes('aborted') ||
+                   msg.includes('unreachable');
+        }
+
+        async function fetchWithLiveTimeout(resource, init, timeoutMs) {
+            const ms = Math.max(300, Number(timeoutMs || 0) || 3500);
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(new Error('timeout')), ms) : null;
+            try {
+                const response = await fetch(resource, { ...(init || {}), signal: controller ? controller.signal : undefined });
+                return response;
+            } catch (err) {
+                if (controller && controller.signal && controller.signal.aborted) {
+                    throw new Error('Live request timed out');
+                }
+                throw err;
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
+        async function withLiveTimeout(promise, timeoutMs, label) {
+            const ms = Math.max(300, Number(timeoutMs || 0) || 4500);
+            let timer = null;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error((label || 'Live operation') + ' timed out')), ms);
+            });
+            try {
+                return await Promise.race([promise, timeoutPromise]);
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
+        async function probeLiveBackend(timeoutMs) {
+            const now = Date.now();
+            const cached = window.__portalLiveBackendProbe || null;
+            if (cached && (now - cached.checkedAt) < 15000) return cached;
+            if (!hasLiveSupabaseConfig()) {
+                const offline = { ok: false, reason: 'database not configured', checkedAt: now };
+                window.__portalLiveBackendProbe = offline;
+                return offline;
+            }
+            try {
+                const response = await fetchWithLiveTimeout(SUPABASE_URL + '/rest/v1/?select=1', {
+                    method: 'GET',
+                    headers: Object.assign(getSupabaseRestHeaders(), {
+                        'Cache-Control': 'no-cache, no-store, max-age=0',
+                        'Pragma': 'no-cache'
+                    }),
+                    cache: 'no-store'
+                }, timeoutMs || 1800);
+                const ok = !!response;
+                const state = { ok, reason: ok ? 'ok' : 'unknown', checkedAt: now };
+                window.__portalLiveBackendProbe = state;
+                return state;
+            } catch (err) {
+                const state = {
+                    ok: false,
+                    reason: isLiveNetworkLikeError(err) ? (err && (err.message || String(err))) : ('Live backend error: ' + (err && (err.message || String(err)))),
+                    checkedAt: now
+                };
+                window.__portalLiveBackendProbe = state;
+                return state;
+            }
+        }
+
         async function supabaseRestRequest(path, options) {
             const opts = options || {};
             const sep = path.includes('?') ? '&' : '?';
             const bustPath = path + sep + '_ts=' + Date.now();
-            const response = await fetch(SUPABASE_URL + '/rest/v1/' + bustPath, {
+            const response = await fetchWithLiveTimeout(SUPABASE_URL + '/rest/v1/' + bustPath, {
                 method: opts.method || 'GET',
                 headers: Object.assign(getSupabaseRestHeaders(opts.prefer), {
                     'Cache-Control': 'no-cache, no-store, max-age=0',
@@ -6606,7 +6707,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 }, opts.headers || {}),
                 cache: 'no-store',
                 body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
-            });
+            }, opts.timeoutMs || 3500);
             let payload = null;
             const text = await response.text();
             if (text) {
@@ -7000,8 +7101,8 @@ function toggleRowSelection(rowIndex, trEl) {
             return { persisted, verifyPayload, verified: true };
         }
 
-        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV115';
-        const LOCAL_SYNC_QUEUE_VERSION = 115;
+        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV117';
+        const LOCAL_SYNC_QUEUE_VERSION = 117;
 
         function _defaultPendingSyncState() {
             return { version: LOCAL_SYNC_QUEUE_VERSION, upserts: {}, deletes: [] };
@@ -7009,7 +7110,7 @@ function toggleRowSelection(rowIndex, trEl) {
 
         function cleanupLegacyPendingSyncState() {
             try {
-                ['q3PortalPendingSyncV2','q3PortalPendingSyncV3','q3PortalPendingSyncV4'].forEach(key => {
+                ['q3PortalPendingSyncV2','q3PortalPendingSyncV3','q3PortalPendingSyncV4','q3PortalPendingSyncV115'].forEach(key => {
                     if (key !== LOCAL_SYNC_QUEUE_KEY) localStorage.removeItem(key);
                 });
             } catch (e) {
@@ -7069,7 +7170,8 @@ function toggleRowSelection(rowIndex, trEl) {
                 row: JSON.parse(JSON.stringify(row)),
                 queuedAt: new Date().toISOString(),
                 changedColumn: meta.changedColumn || '',
-                strictLive: !!meta.strictLive
+                strictLive: !!meta.strictLive,
+                previewPublic: !!meta.previewPublic
             };
             state.deletes = state.deletes.filter(d => !(d.sheetName === sheetName && String(d.rowNo || '') === rowNo));
             savePendingSyncState(state);
@@ -7109,12 +7211,13 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         function applyPendingSyncToData() {
-            if (!shouldApplyPendingSyncState()) return 0;
             const state = loadPendingSyncState();
             let applied = 0;
             Object.values(state.upserts || {}).forEach(item => {
                 if (!item || !item.sheetName || !item.row) return;
-                if (item.changedColumn === 'Files' || item.strictLive) return;
+                const allowPublicPreview = !!(item.previewPublic && item.changedColumn === 'Files');
+                if (!shouldApplyPendingSyncState() && !allowPublicPreview) return;
+                if ((item.changedColumn === 'Files' || item.strictLive) && !allowPublicPreview) return;
                 if (!data[item.sheetName]) data[item.sheetName] = [];
                 const rows = data[item.sheetName];
                 const idx = rows.findIndex(r =>
