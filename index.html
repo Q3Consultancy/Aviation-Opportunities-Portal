@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v104 -->
+    <!-- Build: v105 -->
     <style>
         * {
             margin: 0;
@@ -3193,15 +3193,15 @@
         };
 
 
-        const REQUIRED_PARTS_FILE_URL = 'https://docs.google.com/spreadsheets/d/1rtAaGaa8V3PGIbXL4N7LDKmfB0G6qOvl/edit?usp=sharing&ouid=112477179979391558361&rtpof=true&sd=true';
+        const REQUIRED_PARTS_FILE_URL = '';
         // v99 safeguard: keep six Parts rows visible across admin/public/mobile and preserve add-form file links.
         const REQUIRED_PARTS_ROWS = [
-            { 'No': '1', 'Deal #': 'PT001', 'Part': 'Embraer 170/190 Parts', 'Files': REQUIRED_PARTS_FILE_URL + '|Embraer 170/190 Parts File', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
-            { 'No': '2', 'Deal #': 'PT002', 'Part': 'CFM-56 Inventory',      'Files': REQUIRED_PARTS_FILE_URL + '|CFM-56 Inventory File',      'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
-            { 'No': '3', 'Deal #': 'PT003', 'Part': 'Airbus Inventory',      'Files': REQUIRED_PARTS_FILE_URL + '|Airbus Inventory File',      'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
-            { 'No': '4', 'Deal #': 'PT004', 'Part': 'Boeing 767 Inventory',  'Files': REQUIRED_PARTS_FILE_URL + '|Boeing 767 Inventory File',  'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
-            { 'No': '5', 'Deal #': 'PT005', 'Part': 'CF6 Inventory',         'Files': REQUIRED_PARTS_FILE_URL + '|CF6 Inventory File',         'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
-            { 'No': '6', 'Deal #': 'PT006', 'Part': 'PW4 Parts',             'Files': REQUIRED_PARTS_FILE_URL + '|PW4 Parts File',             'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' }
+            { 'No': '1', 'Deal #': 'PT001', 'Part': 'Embraer 170/190 Parts', 'Files': '', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '2', 'Deal #': 'PT002', 'Part': 'CFM-56 Inventory',      'Files': '', 'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '3', 'Deal #': 'PT003', 'Part': 'Airbus Inventory',      'Files': '', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '4', 'Deal #': 'PT004', 'Part': 'Boeing 767 Inventory',  'Files': '', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '5', 'Deal #': 'PT005', 'Part': 'CF6 Inventory',         'Files': '', 'Condition': 'SV', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' },
+            { 'No': '6', 'Deal #': 'PT006', 'Part': 'PW4 Parts',             'Files': '', 'Condition': 'OH', 'Status': 'Seller Request', 'Hidden': '', 'Location': '[USA]' }
         ];
 
         function ensureRequiredPartsRows() {
@@ -3223,7 +3223,7 @@
                 row['No'] = req['No'];
                 if (!row['Deal #']) row['Deal #'] = req['Deal #'];
                 if (!row['Part']) row['Part'] = req['Part'];
-                if (!row['Files']) row['Files'] = req['Files'];
+                if (!row['Files'] && req['Files']) row['Files'] = req['Files'];
                 if (!row['Condition']) row['Condition'] = req['Condition'];
                 if (!row['Status']) row['Status'] = req['Status'];
                 if (!row['Location']) row['Location'] = req['Location'];
