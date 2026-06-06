@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v117 -->
+    <!-- Build: v118 -->
     <style>
         * {
             margin: 0;
@@ -3443,6 +3443,77 @@
             partsRows.sort((a, b) => (parseInt(a && a['No'], 10) || 0) - (parseInt(b && b['No'], 10) || 0));
         }
 
+        const LOCAL_PUBLIC_FILES_KEY = 'q3PortalPublicFilesV118';
+        const LOCAL_PUBLIC_FILES_VERSION = 118;
+
+        function _defaultBrowserPublicFilesState() {
+            return { version: LOCAL_PUBLIC_FILES_VERSION, rows: {} };
+        }
+
+        function _browserPublicFileKey(sheetName, rowNo) {
+            return String(sheetName || '') + '::' + String(rowNo || '').trim();
+        }
+
+        function loadBrowserPublicFilesState() {
+            try {
+                const raw = localStorage.getItem(LOCAL_PUBLIC_FILES_KEY);
+                if (!raw) return _defaultBrowserPublicFilesState();
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.version !== LOCAL_PUBLIC_FILES_VERSION || typeof parsed.rows !== 'object') {
+                    return _defaultBrowserPublicFilesState();
+                }
+                return { version: LOCAL_PUBLIC_FILES_VERSION, rows: parsed.rows || {} };
+            } catch (e) {
+                console.warn('Browser public files load error:', e);
+                return _defaultBrowserPublicFilesState();
+            }
+        }
+
+        function saveBrowserPublicFilesState(state) {
+            try {
+                localStorage.setItem(LOCAL_PUBLIC_FILES_KEY, JSON.stringify({
+                    version: LOCAL_PUBLIC_FILES_VERSION,
+                    rows: (state && state.rows) || {}
+                }));
+            } catch (e) {
+                console.warn('Browser public files save error:', e);
+            }
+        }
+
+        function setBrowserPublicFileLink(sheetName, rowNo, filesValue) {
+            const safeSheet = String(sheetName || '').trim();
+            const safeRowNo = String(rowNo || '').trim();
+            if (!safeSheet || !safeRowNo) return;
+            const state = loadBrowserPublicFilesState();
+            const key = _browserPublicFileKey(safeSheet, safeRowNo);
+            const safeValue = String(filesValue || '').trim();
+            if (!safeValue) delete state.rows[key];
+            else {
+                state.rows[key] = {
+                    sheetName: safeSheet,
+                    rowNo: safeRowNo,
+                    filesValue: safeValue,
+                    updatedAt: new Date().toISOString()
+                };
+            }
+            saveBrowserPublicFilesState(state);
+        }
+
+        function applyBrowserPublicFileOverrides() {
+            const state = loadBrowserPublicFilesState();
+            let applied = 0;
+            Object.values((state && state.rows) || {}).forEach(item => {
+                if (!item || !item.sheetName || !item.rowNo) return;
+                const rows = data[item.sheetName];
+                if (!Array.isArray(rows)) return;
+                const idx = rows.findIndex(r => String((r && r['No']) || '').trim() === String(item.rowNo || '').trim());
+                if (idx < 0) return;
+                rows[idx]['Files'] = String(item.filesValue || '');
+                applied += 1;
+            });
+            return applied;
+        }
+
         function applyForcedVisibilityRules() {
             Object.entries(FORCED_HIDDEN_ROW_NUMBERS).forEach(([sheetName, rowNumbers]) => {
                 if (!Array.isArray(data[sheetName])) data[sheetName] = [];
@@ -3463,6 +3534,7 @@
             });
 
             ensureRequiredPartsRows();
+            applyBrowserPublicFileOverrides();
         }
 
         // Key names (with literal newlines as they appear in data.json)
@@ -3811,6 +3883,7 @@
                 if (typeof updateStats === 'function') updateStats();
                 if (typeof filterTable === 'function') filterTable();
                 updateLastUpdated();
+                applyBrowserPublicFileOverrides();
                 console.log('✅ Live data loaded for', loadedLiveSheetCount, 'sheet(s)');
                 if (typeof showToast === 'function') showToast('✅ Live Data', null, 'toast-sm');
                 return;
@@ -3837,6 +3910,7 @@
                     if (typeof updateStats === 'function') updateStats();
                     if (typeof filterTable === 'function') filterTable();
                     updateLastUpdated();
+                    applyBrowserPublicFileOverrides();
                     console.log('✅ data.json loaded:', totalRows, 'rows');
                 }
             } catch(e) {
@@ -4146,11 +4220,15 @@
                                 html += `<td><span style="font-size:16px;filter:grayscale(100%) opacity(0.35);cursor:default;" title="Information to be provided following a firm expression of interest">📄</span></td>`;
                             } else {
                                 const fileLinksHtml = fileEntries.map((entry, fi) => {
-                                    const ext = entry.originalName.split('.').pop() || 'file';
+                                    const ext = (entry.originalName || 'file').split('.').pop() || 'file';
                                     const rowData = filteredData[index];
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                    return `<span class="file-public-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:inline-flex;align-items:center;cursor:pointer;"><a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${entry.originalName}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a></span>`;
+                                    const safeLabel = entry.originalName || ('File ' + (fi + 1));
+                                    return `<span class="file-public-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;max-width:220px;">
+                                        <a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${safeLabel}" aria-label="Open ${safeLabel}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
+                                        <a href="${entry.url}" class="file-row-link" target="_blank" rel="noopener" title="${safeLabel}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return activatePortalLink(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="font-size:10px;line-height:1.25;color:#2563eb;text-decoration:underline;word-break:break-all;max-width:180px;">${safeLabel}</a>
+                                    </span>`;
                                 }).join('');
                                 html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
                             }
@@ -4346,17 +4424,26 @@
         // Parse file entries (stored as url|name|dealNum separated by ;;)
         function parseFileEntries(filesValue) {
             if (!filesValue) return [];
-            // Handle both old comma-separated URLs and new ;; separated entries
+            function cleanUrl(raw) {
+                let url = String(raw || '').trim();
+                try {
+                    if (/%[0-9A-Fa-f]{2}/.test(url)) url = decodeURIComponent(url);
+                } catch(_) {}
+                return url;
+            }
             if (filesValue.includes(';;') || filesValue.includes('|')) {
                 return filesValue.split(';;').map(f => f.trim()).filter(f => f).map(entry => {
                     const parts = entry.split('|');
-                    return { url: parts[0] || entry, originalName: parts[1] || 'file', dealNum: parts[2] || '' };
-                });
+                    return {
+                        url: cleanUrl(parts[0] || entry),
+                        originalName: String(parts[1] || 'file').trim() || 'file',
+                        dealNum: String(parts[2] || '').trim()
+                    };
+                }).filter(entry => entry.url);
             } else {
-                // Legacy: comma-separated URLs
                 return filesValue.split(',').map(f => f.trim()).filter(f => f).map(f => ({
-                    url: f, originalName: 'file', dealNum: ''
-                }));
+                    url: cleanUrl(f), originalName: 'file', dealNum: ''
+                })).filter(entry => entry.url);
             }
         }
 
@@ -4497,6 +4584,9 @@
                     if (persisted && persisted.data && persisted.data[0]) {
                         sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
                     }
+                    if (colName === 'Files') {
+                        setBrowserPublicFileLink(sheetName, sheetData[rowIndex]['No'], sheetData[rowIndex]['Files']);
+                    }
                     if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                         recalcRow(sheetName, rowIndex);
                     }
@@ -4523,11 +4613,13 @@
                     if (colName === 'Files' && networkLike) {
                         const previewRow = { ...currentRow, ...nextRow };
                         sheetData[rowIndex] = previewRow;
+                        setBrowserPublicFileLink(sheetName, previewRow['No'], previewRow['Files']);
                         queuePendingUpsert(sheetName, previewRow, { changedColumn: colName, strictLive: true, previewPublic: true });
+                        applyBrowserPublicFileOverrides();
                         if (!_cellEditing) renderTable();
                         broadcastPortalChange('browser-preview-file-save', sheetName, previewRow['No']);
-                        updateStrictProgress(100, 'Saved in this browser only — live backend offline', 'pending', false, { autoClearMs: 5200 });
-                        showToast('⚠️ Fast browser save complete — live backend offline', 5200);
+                        updateStrictProgress(100, 'Browser public save complete — clickable in non-admin on this browser', 'success', false, { liveReady: true, autoClearMs: 5200 });
+                        showToast('✅ Browser public file link saved — backend offline', 5200);
                         return { ok: true, liveSaved: false, queued: true, browserPreview: true, verified: false, error: err && (err.message || String(err)) };
                     }
                     sheetData[rowIndex] = prevRow;
@@ -6410,9 +6502,9 @@ function toggleRowSelection(rowIndex, trEl) {
             }
 
             if (result && result.browserPreview) {
-                setAddLinkDraftStatus(rowIndex, { saving: false, progress: 100, statusText: 'Saved in this browser only — live backend offline', statusTone: 'pending', liveReady: false, autoClearMs: 5200 });
+                setAddLinkDraftStatus(rowIndex, { saving: false, progress: 100, statusText: 'Browser public save complete — clickable in non-admin on this browser', statusTone: 'success', liveReady: true, autoClearMs: 5200 });
                 if (!_cellEditing) renderTable();
-                showToast('⚠️ Visible in this browser now — live backend still offline', 5200);
+                showToast('✅ Public file link restored for this browser', 5200);
                 await new Promise(resolve => setTimeout(resolve, 700));
                 hideAddLinkInput(rowIndex, true);
                 return true;
