@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v105 -->
+    <!-- Build: v106 -->
     <style>
         * {
             margin: 0;
@@ -3887,9 +3887,9 @@
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
                                 return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-                                            <a href="${entry.url}" class="file-link" target="_blank" rel="noopener" title="Open: ${label}" onclick="return openPortalLink(event, this.href)" ontouchend="return openPortalLink(event, this.href)">📄</a>
+                                            <a href="${entry.url}" class="file-link" target="_blank" rel="noopener" title="Open: ${label}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
                                             <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
-                                            <a href="${entry.url}" target="_blank" rel="noopener" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;" title="${entry.url}" onclick="return openPortalLink(event, this.href)" ontouchend="return openPortalLink(event, this.href)">${entry.url}</a>
+                                            <a href="${entry.url}" target="_blank" rel="noopener" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;" title="${entry.url}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();editFileLinkUrl(${sdIdx},${fi})" title="Edit this hyperlink">Edit Link</button>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
                                             <span class="file-remove" onclick="event.stopPropagation();removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
@@ -3922,7 +3922,7 @@
                                     const rowData = filteredData[index];
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                    return `<a href="${entry.url}" class="file-link" target="_blank" rel="noopener" download="${dlName}" title="View/Download: ${entry.originalName}" onclick="return openPortalLink(event, this.href)" ontouchend="return openPortalLink(event, this.href)">📄</a>`;
+                                    return `<a href="${entry.url}" class="file-link" target="_blank" rel="noopener" download="${dlName}" title="View/Download: ${entry.originalName}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>`;
                                 }).join('');
                                 html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
                             }
@@ -5276,7 +5276,7 @@
                     } else {
                         displayVal = cardFiles.map((entry, fi) => {
                             const linkLabel = entry.originalName || ('File ' + (fi + 1));
-                            return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="return openPortalLink(event, this.href)" ontouchend="return openPortalLink(event, this.href)" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
+                            return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
                         }).join('');
                     }
                 }
@@ -5911,23 +5911,7 @@ function toggleRowSelection(rowIndex, trEl) {
         let _portalRealtimeStarted = false;
         let _portalReloadTimer = null;
 
-        function openPortalLink(event, url) {
-            try {
-                if (event) {
-                    if (typeof event.preventDefault === 'function') event.preventDefault();
-                    if (typeof event.stopPropagation === 'function') event.stopPropagation();
-                }
-                const finalUrl = String(url || '').trim();
-                if (!finalUrl) return false;
-                const opened = window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                if (!opened) window.location.href = finalUrl;
-            } catch (e) {
-                try { if (url) window.location.href = url; } catch (_) {}
-            }
-            return false;
-        }
-
-        function schedulePortalReload(delay) {
+                function schedulePortalReload(delay) {
             clearTimeout(_portalReloadTimer);
             _portalReloadTimer = setTimeout(() => {
                 if (typeof loadData === 'function') loadData();
