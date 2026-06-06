@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v119 -->
+    <!-- Build: v121 -->
     <style>
         * {
             margin: 0;
@@ -9065,6 +9065,260 @@ function updateAdminUI(isAdminMode) {
     } else {
         _bootV119();
     }
+})();
+</script>
+
+
+<script id="q3-github-save-v121">
+(function () {
+  if (window.__Q3_GITHUB_SAVE_V121__) return;
+  window.__Q3_GITHUB_SAVE_V121__ = true;
+
+  const TOKEN_KEYS = ['q3PortalGitHubTokenV121', 'q3PortalGitHubTokenV120', 'q3PortalGitHubTokenV119'];
+  const BTN_ID = 'portalGitHubConnectBtnV121';
+  const BADGE_ID = 'portalGitHubConnectBadgeV121';
+  const CONNECT_TEXT = 'Connect GitHub before saving Files links';
+  const CONNECT_ERR = 'GitHub token required — click Connect GitHub before saving file links';
+  const SUCCESS_TEXT = 'GitHub save complete — clickable in public view';
+  const PROMPT_TEXT = 'Paste a fine-grained GitHub token with Contents read/write access for Q3Consultancy/Aviation-Opportunities-Portal.';
+
+  function safeCall(fn) {
+    if (typeof fn !== 'function') return undefined;
+    try { return fn.apply(null, Array.prototype.slice.call(arguments, 1)); }
+    catch (err) { console.warn('v121 helper failed:', err); return undefined; }
+  }
+
+  function getToken() {
+    try {
+      const win = String(window.GITHUB_PORTAL_TOKEN || '').trim();
+      const local = TOKEN_KEYS.map(function (k) {
+        try { return String(localStorage.getItem(k) || '').trim(); } catch (_) { return ''; }
+      }).find(Boolean) || '';
+      const token = win || local || '';
+      if (token) {
+        window.GITHUB_PORTAL_TOKEN = token;
+        TOKEN_KEYS.forEach(function (k) { try { localStorage.setItem(k, token); } catch (_) {} });
+      }
+      return token;
+    } catch (_) {
+      return String(window.GITHUB_PORTAL_TOKEN || '').trim();
+    }
+  }
+
+  function setToken(token) {
+    const clean = String(token || '').trim();
+    if (!clean) return '';
+    window.GITHUB_PORTAL_TOKEN = clean;
+    TOKEN_KEYS.forEach(function (k) { try { localStorage.setItem(k, clean); } catch (_) {} });
+    return clean;
+  }
+
+  function clearToken() {
+    TOKEN_KEYS.forEach(function (k) { try { localStorage.removeItem(k); } catch (_) {} });
+    try { delete window.GITHUB_PORTAL_TOKEN; } catch (_) { window.GITHUB_PORTAL_TOKEN = ''; }
+  }
+
+  function isAdminMode() {
+    return !!window.isAdmin;
+  }
+
+  function hostNode() {
+    return document.querySelector('.role-toggle') || document.querySelector('header') || document.body;
+  }
+
+  function renderConnectState() {
+    const connected = !!getToken();
+    const admin = isAdminMode();
+    const btn = document.getElementById(BTN_ID);
+    const badge = document.getElementById(BADGE_ID);
+    if (btn) {
+      btn.textContent = connected ? '✅ GitHub Connected' : '🔐 Connect GitHub';
+      btn.style.display = admin ? 'inline-flex' : 'none';
+      btn.style.alignItems = 'center';
+      btn.style.gap = '6px';
+      btn.style.background = connected ? '#10b981' : '#1e5ba8';
+      btn.style.color = '#fff';
+      btn.style.border = 'none';
+      btn.style.padding = '6px 12px';
+      btn.style.borderRadius = '8px';
+      btn.style.fontWeight = '700';
+      btn.style.cursor = 'pointer';
+      btn.style.marginLeft = '8px';
+      btn.title = connected ? 'GitHub token ready for live data.json saves' : CONNECT_TEXT;
+    }
+    if (badge) {
+      badge.textContent = connected ? 'GitHub connected for live saves' : CONNECT_TEXT;
+      badge.style.display = admin ? 'inline-flex' : 'none';
+      badge.style.alignItems = 'center';
+      badge.style.marginLeft = '8px';
+      badge.style.padding = '6px 10px';
+      badge.style.borderRadius = '999px';
+      badge.style.fontSize = '11px';
+      badge.style.fontWeight = '700';
+      badge.style.whiteSpace = 'nowrap';
+      badge.style.background = connected ? '#dcfce7' : '#fee2e2';
+      badge.style.color = connected ? '#166534' : '#991b1b';
+      badge.style.border = '1px solid ' + (connected ? '#86efac' : '#fecaca');
+    }
+  }
+
+  function ensureConnectUi() {
+    const host = hostNode();
+    if (!host) return false;
+    let btn = document.getElementById(BTN_ID);
+    let badge = document.getElementById(BADGE_ID);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = BTN_ID;
+      btn.type = 'button';
+      btn.className = 'btn';
+      btn.addEventListener('click', function () { window.configurePortalGitHubTokenV121(); });
+      host.appendChild(btn);
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.id = BADGE_ID;
+      host.appendChild(badge);
+    }
+    renderConnectState();
+    return true;
+  }
+
+  function scheduleUiInstall() {
+    if (window.__Q3_V121_UI_RAF__) return;
+    window.__Q3_V121_UI_RAF__ = requestAnimationFrame(function () {
+      window.__Q3_V121_UI_RAF__ = 0;
+      ensureConnectUi();
+    });
+  }
+
+  async function configurePortalGitHubTokenV121() {
+    try {
+      const current = getToken();
+      const entered = prompt(PROMPT_TEXT, current || '');
+      if (!entered || !String(entered).trim()) throw new Error(CONNECT_ERR);
+      setToken(entered);
+      renderConnectState();
+      safeCall(showToast, '✅ GitHub connected for live portal saves', 3200);
+      return true;
+    } catch (err) {
+      renderConnectState();
+      safeCall(showToast, '❌ ' + (err && err.message ? err.message : CONNECT_ERR), 5200);
+      return false;
+    }
+  }
+
+  function canonicalFileUrl(rawUrl) {
+    const raw = String(rawUrl || '').trim();
+    if (!raw) return '';
+    let m = raw.match(/^https?:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i);
+    if (m) return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/edit?usp=sharing';
+    m = raw.match(/^https?:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/i);
+    if (m) return 'https://docs.google.com/document/d/' + m[1] + '/edit?usp=sharing';
+    m = raw.match(/^https?:\/\/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/i);
+    if (m) return 'https://docs.google.com/presentation/d/' + m[1] + '/edit?usp=sharing';
+    return raw;
+  }
+
+  const originalNormalize = (typeof window.normalizeLinkedFileUrl === 'function') ? window.normalizeLinkedFileUrl : null;
+  window.normalizeLinkedFileUrl = function (rawUrl) {
+    let normalized = rawUrl;
+    if (originalNormalize) {
+      try { normalized = originalNormalize(rawUrl); } catch (_) { normalized = rawUrl; }
+    }
+    return canonicalFileUrl(normalized);
+  };
+  try { normalizeLinkedFileUrl = window.normalizeLinkedFileUrl; } catch (_) {}
+
+  let wrappedSave = false;
+  let originalSaveFileLink = null;
+
+  function failureText(resultOrErr) {
+    const raw = resultOrErr && (resultOrErr.error || resultOrErr.reason || resultOrErr.message || resultOrErr);
+    const text = String(raw || '').trim();
+    if (!text) return 'Live GitHub save failed — check token permissions and repo access';
+    if (/token/i.test(text)) return CONNECT_ERR;
+    if (/live save not confirmed/i.test(text)) return 'GitHub save did not complete — check token permissions and repo access';
+    return text;
+  }
+
+  function setDraftError(rowIndex, text) {
+    safeCall(setAddLinkDraftStatus, rowIndex, {
+      saving: false,
+      progress: 0,
+      statusText: text,
+      statusTone: 'error',
+      liveReady: false,
+      autoClearMs: 6500
+    });
+  }
+
+  function installSaveWrapper() {
+    if (wrappedSave) return true;
+    if (typeof window.saveFileLink !== 'function') return false;
+    originalSaveFileLink = window.saveFileLink;
+    window.saveFileLink = async function saveFileLinkV121(rowIndex) {
+      renderConnectState();
+      if (!isAdminMode()) return originalSaveFileLink.apply(this, arguments);
+      if (!getToken()) {
+        setDraftError(rowIndex, CONNECT_ERR);
+        safeCall(showToast, '❌ ' + CONNECT_ERR, 5200);
+        ensureConnectUi();
+        return false;
+      }
+      try {
+        const result = await originalSaveFileLink.apply(this, arguments);
+        renderConnectState();
+        const ok = !!(result === true || (result && (result.ok || result.liveSaved)));
+        if (ok) {
+          safeCall(setAddLinkDraftStatus, rowIndex, {
+            saving: false,
+            progress: 100,
+            statusText: SUCCESS_TEXT,
+            statusTone: 'success',
+            liveReady: true,
+            autoClearMs: 4200
+          });
+          return result;
+        }
+        const text = failureText(result);
+        setDraftError(rowIndex, text);
+        safeCall(showToast, '❌ ' + text, 5200);
+        return result;
+      } catch (err) {
+        const text = failureText(err);
+        if (/token|401|403/i.test(text)) clearToken();
+        renderConnectState();
+        setDraftError(rowIndex, text);
+        safeCall(showToast, '❌ ' + text, 5200);
+        return false;
+      }
+    };
+    try { saveFileLink = window.saveFileLink; } catch (_) {}
+    wrappedSave = true;
+    return true;
+  }
+
+  function boot() {
+    ensureConnectUi();
+    installSaveWrapper();
+    renderConnectState();
+
+    const obs = new MutationObserver(function () { scheduleUiInstall(); installSaveWrapper(); renderConnectState(); });
+    if (document.body) {
+      obs.observe(document.body, { childList: true, subtree: true });
+      setTimeout(function () { try { obs.disconnect(); } catch (_) {} }, 12000);
+    }
+
+    console.log('✅ GitHub save UX patch v121 active');
+  }
+
+  window.configurePortalGitHubTokenV121 = configurePortalGitHubTokenV121;
+  window.clearPortalGitHubTokenV121 = function () { clearToken(); renderConnectState(); };
+  window.configurePortalGitHubTokenV120 = configurePortalGitHubTokenV121;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 })();
 </script>
 
