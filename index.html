@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v118 -->
+    <!-- Build: v119 -->
     <style>
         * {
             margin: 0;
@@ -8621,6 +8621,452 @@ function updateAdminUI(isAdminMode) {
 
       </div><!-- /upload-modal-box -->
     </div><!-- /uploadModal -->
+
+
+<script id="q3-github-save-v119">
+(function () {
+    if (window.__Q3_GITHUB_SAVE_V119__) return;
+    window.__Q3_GITHUB_SAVE_V119__ = true;
+
+    const PORTAL_GITHUB = {
+        owner: 'Q3Consultancy',
+        repo: 'Aviation-Opportunities-Portal',
+        branch: 'main',
+        path: 'data.json'
+    };
+    const GITHUB_TOKEN_KEY = 'q3PortalGitHubTokenV119';
+    const LEGACY_LOCAL_KEYS = [
+        'q3PortalPendingSyncV115',
+        'q3PortalPendingSyncV116',
+        'q3PortalPendingSyncV117',
+        'q3PortalPublicFilesV118'
+    ];
+    const SHEET_NAMES = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
+
+    function _safeCall(fn) {
+        if (typeof fn !== 'function') return undefined;
+        try {
+            return fn.apply(null, Array.prototype.slice.call(arguments, 1));
+        } catch (err) {
+            console.warn('v119 helper call failed:', err);
+            return undefined;
+        }
+    }
+
+    function _deepClone(v) {
+        try { return JSON.parse(JSON.stringify(v)); } catch (_) { return v; }
+    }
+
+    function _sortRows(rows) {
+        return (rows || []).sort((a, b) => (parseInt((a && a['No']) || 0, 10) || 0) - (parseInt((b && b['No']) || 0, 10) || 0));
+    }
+
+    function _cleanupLegacyLocalState() {
+        LEGACY_LOCAL_KEYS.forEach(function (key) {
+            try { localStorage.removeItem(key); } catch (_) {}
+        });
+    }
+
+    function _showToast(message, duration, cls) {
+        _safeCall(showToast, message, duration, cls);
+    }
+
+    function _setIndicator(percent, text, tone, sticky) {
+        _safeCall(setPortalLiveSaveIndicator, percent, text, tone || 'pending', sticky !== false);
+    }
+
+    function _clearIndicator(delayMs) {
+        _safeCall(clearPortalLiveSaveIndicator, delayMs || 0);
+    }
+
+    function _updateDraftProgress(options, percent, text, tone, saving, extra) {
+        _setIndicator(percent, text, tone || 'pending', true);
+        if (options && options.bindDraftProgress) {
+            _safeCall(
+                setAddLinkDraftStatus,
+                options.progressRowIndex !== undefined ? options.progressRowIndex : 0,
+                {
+                    saving: !!saving,
+                    progress: percent,
+                    statusText: text,
+                    statusTone: tone || 'pending',
+                    liveReady: !!(extra && extra.liveReady),
+                    autoClearMs: extra && extra.autoClearMs
+                }
+            );
+        } else if (extra && extra.autoClearMs) {
+            _clearIndicator(extra.autoClearMs);
+        }
+    }
+
+    function _githubApiUrl() {
+        return 'https://api.github.com/repos/' + PORTAL_GITHUB.owner + '/' + PORTAL_GITHUB.repo + '/contents/' + PORTAL_GITHUB.path;
+    }
+
+    function _githubRawUrl() {
+        return 'https://raw.githubusercontent.com/' + PORTAL_GITHUB.owner + '/' + PORTAL_GITHUB.repo + '/' + PORTAL_GITHUB.branch + '/' + PORTAL_GITHUB.path;
+    }
+
+    function _utf8ToBase64(str) {
+        const bytes = new TextEncoder().encode(String(str || ''));
+        let binary = '';
+        bytes.forEach(function (b) { binary += String.fromCharCode(b); });
+        return btoa(binary);
+    }
+
+    function _base64ToUtf8(b64) {
+        const binary = atob(String(b64 || '').replace(/\s+/g, ''));
+        const bytes = Uint8Array.from(binary, function (ch) { return ch.charCodeAt(0); });
+        return new TextDecoder().decode(bytes);
+    }
+
+    function _getGitHubToken() {
+        try {
+            return String(window.GITHUB_PORTAL_TOKEN || localStorage.getItem(GITHUB_TOKEN_KEY) || '').trim();
+        } catch (_) {
+            return String(window.GITHUB_PORTAL_TOKEN || '').trim();
+        }
+    }
+
+    function _storeGitHubToken(token) {
+        const clean = String(token || '').trim();
+        if (!clean) return '';
+        try { localStorage.setItem(GITHUB_TOKEN_KEY, clean); } catch (_) {}
+        window.GITHUB_PORTAL_TOKEN = clean;
+        return clean;
+    }
+
+    function _clearGitHubToken() {
+        try { localStorage.removeItem(GITHUB_TOKEN_KEY); } catch (_) {}
+        try { delete window.GITHUB_PORTAL_TOKEN; } catch (_) { window.GITHUB_PORTAL_TOKEN = ''; }
+    }
+
+    async function _ensureGitHubToken() {
+        const existing = _getGitHubToken();
+        if (existing) return existing;
+        if (typeof isAdmin !== 'undefined' && !isAdmin) {
+            throw new Error('GitHub token missing for authenticated save');
+        }
+        const entered = prompt('Enter a GitHub fine-grained token with Contents read/write access for Q3Consultancy/Aviation-Opportunities-Portal. The token is stored only in this browser to keep saves fast.');
+        if (!entered || !String(entered).trim()) {
+            throw new Error('GitHub token required to save portal changes');
+        }
+        return _storeGitHubToken(entered);
+    }
+
+    function _sheetColumnsFromReference(sheetName) {
+        let cols = [];
+        try {
+            cols = ((((window.__INLINE_DATA__ || {})[sheetName] || {}).columns) || []).slice();
+        } catch (_) {}
+        try {
+            (((typeof BASELINE_COL_ORDER !== 'undefined' && BASELINE_COL_ORDER[sheetName]) || [])).forEach(function (col) {
+                if (!cols.includes(col)) cols.push(col);
+            });
+        } catch (_) {}
+        return cols;
+    }
+
+    function _columnsForSheet(sheetName, rows) {
+        const cols = _sheetColumnsFromReference(sheetName);
+        const seen = new Set(cols);
+        (rows || []).forEach(function (row) {
+            Object.keys(row || {}).forEach(function (key) {
+                if (!key || key === '_docId') return;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    cols.push(key);
+                }
+            });
+        });
+        return cols;
+    }
+
+    function _rowsToRawSheet(sheetName, rows) {
+        const cleanRows = _sortRows((rows || []).map(function (row) {
+            const out = {};
+            Object.keys(row || {}).forEach(function (key) {
+                if (key === '_docId') return;
+                out[key] = row[key];
+            });
+            return out;
+        }));
+        const columns = _columnsForSheet(sheetName, cleanRows);
+        return {
+            columns: columns,
+            data: cleanRows.map(function (row) {
+                return columns.map(function (col) {
+                    return row[col] !== undefined ? row[col] : '';
+                });
+            })
+        };
+    }
+
+    function _buildRawDataFromCurrentState() {
+        const raw = {};
+        SHEET_NAMES.forEach(function (sheetName) {
+            const rows = (typeof data !== 'undefined' && data && Array.isArray(data[sheetName])) ? _deepClone(data[sheetName]) : [];
+            raw[sheetName] = _rowsToRawSheet(sheetName, rows);
+        });
+        return raw;
+    }
+
+    function _applyUiRefresh() {
+        _safeCall(applyForcedVisibilityRules);
+        _safeCall(normalizeAllStatuses);
+        _safeCall(renderFilters);
+        _safeCall(renderTable);
+        _safeCall(updateStats);
+        _safeCall(filterTable);
+        _safeCall(updateLastUpdated);
+    }
+
+    async function _fetchCanonicalDataJson() {
+        const urls = [
+            _githubRawUrl() + '?_ts=' + Date.now(),
+            'data.json?_ts=' + Date.now()
+        ];
+        let lastError = null;
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) throw new Error('status ' + res.status + ' for ' + url);
+                return await res.json();
+            } catch (err) {
+                lastError = err;
+            }
+        }
+        throw lastError || new Error('Unable to load canonical data.json');
+    }
+
+    async function _loadDataV119() {
+        _cleanupLegacyLocalState();
+        if (window.__INLINE_DATA__) {
+            try {
+                data = convertData(window.__INLINE_DATA__);
+            } catch (err) {
+                console.error('Inline portal data failed to load:', err);
+            }
+        } else if (typeof data === 'undefined' || !data) {
+            data = { 'Engines': [], 'Aircraft Sale': [], 'Aircraft Lease': [], 'Parts': [] };
+        }
+
+        try {
+            const raw = await _fetchCanonicalDataJson();
+            const ghData = convertData(raw);
+            SHEET_NAMES.forEach(function (sheetName) {
+                if (Array.isArray(ghData[sheetName]) && ghData[sheetName].length > 0) {
+                    data[sheetName] = ghData[sheetName];
+                } else if (!Array.isArray(data[sheetName])) {
+                    data[sheetName] = [];
+                }
+            });
+            console.log('✅ GitHub-backed data.json loaded');
+        } catch (err) {
+            console.warn('⚠️ GitHub-backed data.json unavailable — using inline data:', err && err.message ? err.message : err);
+        }
+
+        _applyUiRefresh();
+        const spinner = document.getElementById('engineSpinner');
+        if (spinner) {
+            spinner.classList.add('hidden');
+            setTimeout(function () { spinner.style.display = 'none'; }, 450);
+        }
+        return true;
+    }
+
+    async function _githubReadFileWithSha(token) {
+        const res = await fetch(_githubApiUrl() + '?ref=' + encodeURIComponent(PORTAL_GITHUB.branch), {
+            headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': 'Bearer ' + token,
+                'X-GitHub-Api-Version': '2022-11-28'
+            },
+            cache: 'no-store'
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error('GitHub read failed (' + res.status + '): ' + text.slice(0, 220));
+        }
+        const payload = await res.json();
+        let raw = null;
+        try {
+            raw = JSON.parse(_base64ToUtf8(payload.content || ''));
+        } catch (_) {
+            raw = _buildRawDataFromCurrentState();
+        }
+        return { sha: payload.sha, raw: raw };
+    }
+
+    async function _githubWriteRawData(raw, message) {
+        const token = await _ensureGitHubToken();
+        const current = await _githubReadFileWithSha(token);
+        const body = {
+            message: message || 'Update portal data.json from admin portal',
+            content: _utf8ToBase64(JSON.stringify(raw, null, 2)),
+            branch: PORTAL_GITHUB.branch,
+            sha: current.sha
+        };
+        const res = await fetch(_githubApiUrl(), {
+            method: 'PUT',
+            headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error('GitHub write failed (' + res.status + '): ' + text.slice(0, 220));
+        }
+        return res.json();
+    }
+
+    async function _persistCurrentStateToGitHub(message) {
+        const raw = _buildRawDataFromCurrentState();
+        return _githubWriteRawData(raw, message);
+    }
+
+    function _maybeAutoHide(row, colName, newValue) {
+        if (colName !== 'Status') return;
+        if (typeof isAdmin !== 'undefined' && !isAdmin) return;
+        const statusText = String(newValue || '').toLowerCase().trim();
+        if (statusText === 'closed' || statusText.includes('sold to another buyer')) {
+            row['Hidden'] = '1';
+        }
+    }
+
+    async function saveCell(rowIndex, colName, newValue, _noAutoHide, options) {
+        options = options || {};
+        const sheetName = getSheetName(currentTab);
+        const sheetData = data && data[sheetName];
+        if (!Array.isArray(sheetData) || !sheetData[rowIndex]) {
+            console.warn('v119 saveCell: row not found', sheetName, rowIndex);
+            return { ok: false, liveSaved: false, queued: false, reason: 'row-not-found' };
+        }
+
+        const previousRow = _deepClone(sheetData[rowIndex]);
+        const nextRow = _deepClone(sheetData[rowIndex]);
+        nextRow[colName] = newValue;
+        _maybeAutoHide(nextRow, colName, newValue);
+
+        try {
+            _updateDraftProgress(options, 12, colName === 'Files' ? 'Preparing GitHub save…' : 'Preparing GitHub update…', 'pending', true);
+            sheetData[rowIndex] = nextRow;
+            if (typeof KEY_SELLER_PRICE !== 'undefined' && typeof KEY_COMM_USD !== 'undefined' && (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD)) {
+                _safeCall(recalcRow, sheetName, rowIndex);
+            }
+            _updateDraftProgress(options, 38, 'Building data.json payload…', 'pending', true);
+            const rowLabel = String(nextRow['No'] || nextRow['Deal #'] || (rowIndex + 1));
+            const commitMessage = (colName === 'Files' ? 'Save portal file link' : 'Update portal cell') + ' (' + sheetName + ' #' + rowLabel + ' ' + colName + ')';
+            _updateDraftProgress(options, 72, 'Writing updated data.json to GitHub…', 'pending', true);
+            const result = await _persistCurrentStateToGitHub(commitMessage);
+            _updateDraftProgress(options, 88, colName === 'Files' ? 'GitHub commit complete — refreshing public data…' : 'GitHub commit complete — refreshing portal…', 'pending', true);
+            await _loadDataV119();
+            _updateDraftProgress(options, 100, colName === 'Files' ? 'GitHub save complete — clickable in public view' : 'GitHub save complete', 'success', false, { liveReady: true, autoClearMs: 4200 });
+            _showToast(colName === 'Files' ? '✅ File link saved to GitHub data.json' : '✅ Change saved to GitHub data.json', 3200);
+            return { ok: true, liveSaved: true, queued: false, result: result };
+        } catch (err) {
+            sheetData[rowIndex] = previousRow;
+            _safeCall(renderTable);
+            _updateDraftProgress(options, 0, colName === 'Files' ? 'GitHub save failed — public file link not updated' : 'GitHub save failed', 'error', false, { liveReady: false, autoClearMs: 5200 });
+            _showToast('❌ ' + (err && err.message ? err.message : 'GitHub save failed'), 5200);
+            console.error('v119 GitHub save error:', err);
+            return { ok: false, liveSaved: false, queued: false, reason: 'github-save-failed', error: err };
+        }
+    }
+
+    async function deleteDeal(rowIndex) {
+        if (typeof isAdmin !== 'undefined' && !isAdmin) return false;
+        const sheetName = getSheetName(currentTab);
+        const sheetData = data && data[sheetName];
+        if (!Array.isArray(sheetData) || !sheetData[rowIndex]) return false;
+        const label = String(sheetData[rowIndex]['Deal #'] || sheetData[rowIndex]['No'] || (rowIndex + 1));
+        if (!confirm('Delete entry ' + label + '? This will update GitHub data.json for all users.')) return false;
+
+        const removed = sheetData.splice(rowIndex, 1)[0];
+        _safeCall(renderTable);
+        try {
+            _setIndicator(38, 'Deleting row from GitHub data.json…', 'pending', true);
+            await _persistCurrentStateToGitHub('Delete portal row (' + sheetName + ' #' + label + ')');
+            await _loadDataV119();
+            _setIndicator(100, 'Delete complete', 'success', true);
+            _clearIndicator(3500);
+            _showToast('✅ Row deleted from GitHub data.json', 3200);
+            return true;
+        } catch (err) {
+            sheetData.splice(rowIndex, 0, removed);
+            _safeCall(renderTable);
+            _setIndicator(0, 'Delete failed', 'error', true);
+            _clearIndicator(5200);
+            _showToast('❌ ' + (err && err.message ? err.message : 'Delete failed'), 5200);
+            console.error('v119 delete error:', err);
+            return false;
+        }
+    }
+
+    function _disableDeadSupabaseAndLocalFallbacks() {
+        try { window.hasLiveSupabaseConfig = hasLiveSupabaseConfig = function () { return false; }; } catch (_) {}
+        try { window.fetchRowsFromSupabase = fetchRowsFromSupabase = async function () { return []; }; } catch (_) {}
+        try { window.probeLiveBackend = probeLiveBackend = async function () { return { ok: false, reason: 'Supabase disabled in v119' }; }; } catch (_) {}
+        try { window.persistRowStrictLive = persistRowStrictLive = async function () { throw new Error('Supabase save flow disabled in v119'); }; } catch (_) {}
+        try { window.withLiveTimeout = withLiveTimeout = async function (promise) { return await promise; }; } catch (_) {}
+        try { window.initPortalLiveSync = initPortalLiveSync = function () { return false; }; } catch (_) {}
+        try { window.schedulePortalReload = schedulePortalReload = function () { return false; }; } catch (_) {}
+        try { window.applyPendingSyncToData = applyPendingSyncToData = function () { return 0; }; } catch (_) {}
+        try { window.queuePendingUpsert = queuePendingUpsert = function () { return false; }; } catch (_) {}
+        try { window.clearPendingUpsert = clearPendingUpsert = function () { return false; }; } catch (_) {}
+        try { window.queuePendingDelete = queuePendingDelete = function () { return false; }; } catch (_) {}
+        try { window.clearPendingDelete = clearPendingDelete = function () { return false; }; } catch (_) {}
+        try { window.flushPendingSyncQueue = flushPendingSyncQueue = async function () { return { synced: 0, deleted: 0 }; }; } catch (_) {}
+        try { window.setBrowserPublicFileLink = setBrowserPublicFileLink = function () { return false; }; } catch (_) {}
+        try { window.applyBrowserPublicFileOverrides = applyBrowserPublicFileOverrides = function () { return 0; }; } catch (_) {}
+        _cleanupLegacyLocalState();
+    }
+
+    function _installOverrides() {
+        try { window.loadData = loadData = _loadDataV119; } catch (_) { window.loadData = _loadDataV119; }
+        try { window.saveCell = saveCell; } catch (_) { window.saveCell = saveCell; }
+        try { window.deleteDeal = deleteDeal; } catch (_) { window.deleteDeal = deleteDeal; }
+        window.configurePortalGitHubToken = async function () {
+            try {
+                await _ensureGitHubToken();
+                _showToast('✅ GitHub token stored in this browser', 2600);
+                return true;
+            } catch (err) {
+                _showToast('❌ ' + (err && err.message ? err.message : 'Token not saved'), 4200);
+                return false;
+            }
+        };
+        window.setPortalGitHubToken = _storeGitHubToken;
+        window.clearPortalGitHubToken = _clearGitHubToken;
+        window.portalGitHubSaveInfo = {
+            repo: PORTAL_GITHUB.owner + '/' + PORTAL_GITHUB.repo,
+            branch: PORTAL_GITHUB.branch,
+            path: PORTAL_GITHUB.path,
+            tokenStorageKey: GITHUB_TOKEN_KEY
+        };
+    }
+
+    function _bootV119() {
+        setTimeout(function () {
+            _loadDataV119();
+        }, 0);
+        console.log('✅ GitHub data.json patch v119 active');
+    }
+
+    _disableDeadSupabaseAndLocalFallbacks();
+    _installOverrides();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _bootV119, { once: true });
+    } else {
+        _bootV119();
+    }
+})();
+</script>
 
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
