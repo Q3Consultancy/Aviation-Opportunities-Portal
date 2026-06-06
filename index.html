@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v114 -->
+    <!-- Build: v115 -->
     <style>
         * {
             margin: 0;
@@ -4291,16 +4291,88 @@
         }
 
         // Save cell value
-        async function saveCell(rowIndex, colName, newValue, _noAutoHide) {
+        async function saveCell(rowIndex, colName, newValue, _noAutoHide, options) {
+            options = options || {};
+            const strictLive = !!options.strictLive || colName === 'Files';
+            const allowQueue = options.allowQueue !== false && !strictLive;
+            const reloadAfterSave = options.reloadAfterSave !== false;
+            const optimisticLocal = options.optimisticLocal !== false && !strictLive;
+
             const sheetName = getSheetName(currentTab);
             const sheetData = data[sheetName];
             if (!sheetData || !sheetData[rowIndex]) {
                 console.warn('saveCell: row', rowIndex, 'not found in', sheetName);
                 return { ok: false, liveSaved: false, queued: false, reason: 'row-not-found' };
             }
-            // 1. Update in-memory (always immediate)
-            sheetData[rowIndex][colName] = newValue;
-            queuePendingUpsert(sheetName, sheetData[rowIndex]);
+
+            const currentRow = sheetData[rowIndex];
+            const prevRow = JSON.parse(JSON.stringify(currentRow || {}));
+            const nextRow = JSON.parse(JSON.stringify(currentRow || {}));
+            nextRow[colName] = newValue;
+
+            if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
+                nextRow[colName] = newValue;
+            }
+
+            if (colName === 'Status' && !_noAutoHide && isAdmin) {
+                const _ns = (newValue || '').toLowerCase().trim();
+                if (_ns === 'closed' || _ns.includes('sold to another buyer')) {
+                    const _curHid = (nextRow['Hidden'] || '').toString().trim();
+                    if (_curHid !== '1') {
+                        nextRow['Hidden'] = '1';
+                    }
+                }
+            }
+
+            if (strictLive) {
+                if (!hasLiveSupabaseConfig()) {
+                    showToast(colName === 'Files' ? '❌ Link not saved live — database not ready' : '❌ Live database not ready — change not saved', 5200);
+                    return { ok: false, liveSaved: false, queued: false, reason: 'db-not-ready' };
+                }
+
+                const TABLE_MAP = {
+                    'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
+                    'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
+                };
+                const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
+
+                try {
+                    const strictResult = await persistRowStrictLive(tableName, nextRow, sheetName);
+                    const persisted = strictResult && strictResult.persisted;
+                    sheetData[rowIndex] = { ...currentRow, ...nextRow };
+                    if (persisted && persisted.data && persisted.data[0]) {
+                        sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
+                    }
+                    if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
+                        recalcRow(sheetName, rowIndex);
+                    }
+                    clearPendingUpsert(sheetName, sheetData[rowIndex]['No']);
+                    if (!_cellEditing) renderTable();
+                    showToast('✅ Saved live to portal: ' + colName, 3200);
+                    broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
+                    if (reloadAfterSave) {
+                        await loadData();
+                    }
+                    if (colName === 'Status' && !_noAutoHide && isAdmin) {
+                        const _ns = (newValue || '').toLowerCase().trim();
+                        if ((_ns === 'closed' || _ns.includes('sold to another buyer')) && String(nextRow['Hidden'] || '').trim() === '1') {
+                            setTimeout(() => saveCell(rowIndex, 'Hidden', '1', true, { strictLive: true, allowQueue: false, optimisticLocal: false, reloadAfterSave: true }), 150);
+                        }
+                    }
+                    return { ok: true, liveSaved: true, queued: false, verified: true };
+                } catch (err) {
+                    sheetData[rowIndex] = prevRow;
+                    if (!_cellEditing) renderTable();
+                    console.warn('Strict live save error (cell):', err && (err.message || err));
+                    showToast(colName === 'Files' ? '❌ Link not saved live — please retry' : '❌ Live save failed — nothing was saved', 5200);
+                    return { ok: false, liveSaved: false, queued: false, verified: false, error: err && (err.message || String(err)) };
+                }
+            }
+
+            sheetData[rowIndex] = { ...currentRow, ...nextRow };
+            if (allowQueue) {
+                queuePendingUpsert(sheetName, sheetData[rowIndex], { changedColumn: colName, strictLive: false });
+            }
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
             }
@@ -4331,28 +4403,17 @@
             const verifyPayload = mapToSupabase(_rowSnapshot, sheetName);
 
             try {
-                let persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
+                const strictResult = await persistRowStrictLive(tableName, _rowSnapshot, sheetName);
+                const persisted = strictResult && strictResult.persisted;
                 if (persisted && persisted.data && persisted.data[0]) {
                     sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
-                    verifyPayload.id = persisted.data[0].id || verifyPayload.id;
                 }
-                let verified = await verifyPersistedRow(tableName, verifyPayload);
-                if (!verified) {
-                    persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
-                    if (persisted && persisted.data && persisted.data[0]) {
-                        sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
-                        verifyPayload.id = persisted.data[0].id || verifyPayload.id;
-                    }
-                    verified = await verifyPersistedRow(tableName, verifyPayload);
-                }
-                if (!verified) throw new Error('Live verification failed');
-
                 console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
                 clearPendingUpsert(sheetName, sheetData[rowIndex]);
                 showToast('✅ Saved live to portal: ' + colName, 3200);
                 broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
-                if (colName === 'Status' || colName === 'Hidden' || colName === 'Files') {
-                    setTimeout(() => { loadData(); }, colName === 'Files' ? 260 : 120);
+                if (colName === 'Status' || colName === 'Hidden') {
+                    setTimeout(() => { loadData(); }, 120);
                 }
                 return { ok: true, liveSaved: true, queued: false, verified: true };
             } catch (err) {
@@ -4364,8 +4425,8 @@
                     clearPendingUpsert(sheetName, sheetData[rowIndex]);
                     showToast('✅ Saved live to portal: ' + colName, 3200);
                     broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
-                    if (colName === 'Status' || colName === 'Hidden' || colName === 'Files') {
-                        setTimeout(() => { loadData(); }, colName === 'Files' ? 260 : 120);
+                    if (colName === 'Status' || colName === 'Hidden') {
+                        setTimeout(() => { loadData(); }, 120);
                     }
                     return { ok: true, liveSaved: true, queued: false, verified: true };
                 }
@@ -6065,7 +6126,12 @@ function toggleRowSelection(rowIndex, trEl) {
             window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || draft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: true };
             if (!_cellEditing) renderTable();
 
-            const result = await saveCell(rowIndex, 'Files', newVal);
+            const result = await saveCell(rowIndex, 'Files', newVal, false, {
+                strictLive: true,
+                allowQueue: false,
+                optimisticLocal: false,
+                reloadAfterSave: true
+            });
             if (result && result.liveSaved) {
                 showToast('✅ File link saved live to portal', 3200);
                 hideAddLinkInput(rowIndex, true);
@@ -6078,7 +6144,7 @@ function toggleRowSelection(rowIndex, trEl) {
             return false;
         }
 
-        function renameFileLink(rowIndex, fileIdx) {
+        async function renameFileLink(rowIndex, fileIdx) {
             if (!isAdmin) return;
             const sheetName = getSheetName(currentTab);
             const existing = data[sheetName][rowIndex]['Files'] || '';
@@ -6094,10 +6160,15 @@ function toggleRowSelection(rowIndex, trEl) {
                 const dealNumPart = entry.dealNum ? '|' + entry.dealNum : '';
                 return (entry.url || '') + '|' + (entry.originalName || 'file') + dealNumPart;
             }).join(';;');
-            saveCell(rowIndex, 'Files', rebuilt);
+            await saveCell(rowIndex, 'Files', rebuilt, false, {
+                strictLive: true,
+                allowQueue: false,
+                optimisticLocal: false,
+                reloadAfterSave: true
+            });
         }
 
-        function editFileLinkUrl(rowIndex, fileIdx) {
+        async function editFileLinkUrl(rowIndex, fileIdx) {
             if (!isAdmin) return;
             const sheetName = getSheetName(currentTab);
             const existing = data[sheetName][rowIndex]['Files'] || '';
@@ -6114,17 +6185,27 @@ function toggleRowSelection(rowIndex, trEl) {
                 const dealNumPart = entry.dealNum ? '|' + entry.dealNum : '';
                 return (entry.url || '') + '|' + (entry.originalName || guessFileName(entry.url || '')) + dealNumPart;
             }).join(';;');
-            saveCell(rowIndex, 'Files', rebuilt);
+            await saveCell(rowIndex, 'Files', rebuilt, false, {
+                strictLive: true,
+                allowQueue: false,
+                optimisticLocal: false,
+                reloadAfterSave: true
+            });
         }
 
-        function removeFileLink(rowIndex, fileIdx) {
+        async function removeFileLink(rowIndex, fileIdx) {
             if (!isAdmin) return;
             if (!confirm('Remove this file link?')) return;
             const sheetName = getSheetName(currentTab);
             const existing  = data[sheetName][rowIndex]['Files'] || '';
             const entries   = existing.split(';;').map(e => e.trim()).filter(e => e);
             entries.splice(fileIdx, 1);
-            saveCell(rowIndex, 'Files', entries.join(';;'));
+            await saveCell(rowIndex, 'Files', entries.join(';;'), false, {
+                strictLive: true,
+                allowQueue: false,
+                optimisticLocal: false,
+                reloadAfterSave: true
+            });
         }
 
         function guessFileName(url) {
@@ -6645,15 +6726,34 @@ function toggleRowSelection(rowIndex, trEl) {
             throw lastError || new Error('Unknown Supabase persistence error');
         }
 
-        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV4';
+        async function persistRowStrictLive(tableName, rowSnapshot, sheetName) {
+            const verifyPayload = mapToSupabase({ ...rowSnapshot }, sheetName);
+            let persisted = await persistRowToSupabase(tableName, rowSnapshot, sheetName);
+            if (persisted && persisted.data && persisted.data[0]) {
+                verifyPayload.id = persisted.data[0].id || verifyPayload.id;
+            }
+            let verified = await verifyPersistedRow(tableName, verifyPayload);
+            if (!verified) {
+                persisted = await persistRowToSupabase(tableName, rowSnapshot, sheetName);
+                if (persisted && persisted.data && persisted.data[0]) {
+                    verifyPayload.id = persisted.data[0].id || verifyPayload.id;
+                }
+                verified = await verifyPersistedRow(tableName, verifyPayload);
+            }
+            if (!verified) throw new Error('Live verification failed');
+            return { persisted, verifyPayload, verified: true };
+        }
+
+        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV115';
+        const LOCAL_SYNC_QUEUE_VERSION = 115;
 
         function _defaultPendingSyncState() {
-            return { upserts: {}, deletes: [] };
+            return { version: LOCAL_SYNC_QUEUE_VERSION, upserts: {}, deletes: [] };
         }
 
         function cleanupLegacyPendingSyncState() {
             try {
-                ['q3PortalPendingSyncV2','q3PortalPendingSyncV3'].forEach(key => {
+                ['q3PortalPendingSyncV2','q3PortalPendingSyncV3','q3PortalPendingSyncV4'].forEach(key => {
                     if (key !== LOCAL_SYNC_QUEUE_KEY) localStorage.removeItem(key);
                 });
             } catch (e) {
@@ -6671,7 +6771,11 @@ function toggleRowSelection(rowIndex, trEl) {
                 const raw = localStorage.getItem(LOCAL_SYNC_QUEUE_KEY);
                 if (!raw) return _defaultPendingSyncState();
                 const parsed = JSON.parse(raw);
+                if (!parsed || parsed.version !== LOCAL_SYNC_QUEUE_VERSION) {
+                    return _defaultPendingSyncState();
+                }
                 return {
+                    version: LOCAL_SYNC_QUEUE_VERSION,
                     upserts: parsed && parsed.upserts ? parsed.upserts : {},
                     deletes: parsed && Array.isArray(parsed.deletes) ? parsed.deletes : []
                 };
@@ -6683,7 +6787,11 @@ function toggleRowSelection(rowIndex, trEl) {
 
         function savePendingSyncState(state) {
             try {
-                localStorage.setItem(LOCAL_SYNC_QUEUE_KEY, JSON.stringify(state || _defaultPendingSyncState()));
+                localStorage.setItem(LOCAL_SYNC_QUEUE_KEY, JSON.stringify({
+                    version: LOCAL_SYNC_QUEUE_VERSION,
+                    upserts: (state && state.upserts) || {},
+                    deletes: (state && state.deletes) || []
+                }));
             } catch (e) {
                 console.warn('Pending sync save error:', e);
             }
@@ -6693,7 +6801,8 @@ function toggleRowSelection(rowIndex, trEl) {
             return String(sheetName || '') + '::' + String(rowNo || '');
         }
 
-        function queuePendingUpsert(sheetName, row) {
+        function queuePendingUpsert(sheetName, row, meta) {
+            meta = meta || {};
             if (!sheetName || !row) return;
             const rowNo = String(row['No'] || '').trim();
             if (!rowNo) return;
@@ -6702,7 +6811,9 @@ function toggleRowSelection(rowIndex, trEl) {
                 sheetName,
                 rowNo,
                 row: JSON.parse(JSON.stringify(row)),
-                queuedAt: new Date().toISOString()
+                queuedAt: new Date().toISOString(),
+                changedColumn: meta.changedColumn || '',
+                strictLive: !!meta.strictLive
             };
             state.deletes = state.deletes.filter(d => !(d.sheetName === sheetName && String(d.rowNo || '') === rowNo));
             savePendingSyncState(state);
@@ -6747,6 +6858,7 @@ function toggleRowSelection(rowIndex, trEl) {
             let applied = 0;
             Object.values(state.upserts || {}).forEach(item => {
                 if (!item || !item.sheetName || !item.row) return;
+                if (item.changedColumn === 'Files' || item.strictLive) return;
                 if (!data[item.sheetName]) data[item.sheetName] = [];
                 const rows = data[item.sheetName];
                 const idx = rows.findIndex(r =>
@@ -6806,9 +6918,10 @@ function toggleRowSelection(rowIndex, trEl) {
                 try {
                     const tableName = TABLE_MAP[item.sheetName];
                     if (!tableName) continue;
-                    const result = await persistRowToSupabase(tableName, item.row, item.sheetName);
-                    if (result && result.data && result.data[0]) {
-                        const persistedId = String(result.data[0].id || result.data[0].no || item.row._docId || '');
+                    const strictResult = await persistRowStrictLive(tableName, item.row, item.sheetName);
+                    const persisted = strictResult && strictResult.persisted;
+                    if (persisted && persisted.data && persisted.data[0]) {
+                        const persistedId = String(persisted.data[0].id || persisted.data[0].no || item.row._docId || '');
                         item.row._docId = persistedId;
                         const rows = data[item.sheetName] || [];
                         const idx = rows.findIndex(r => String(r['No'] || '') === String(item.rowNo || ''));
