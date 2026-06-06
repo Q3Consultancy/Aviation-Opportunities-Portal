@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v111 -->
+    <!-- Build: v114 -->
     <style>
         * {
             margin: 0;
@@ -587,8 +587,35 @@
         .file-row-link {
             position: relative;
             z-index: 6;
-            cursor: pointer;
+            cursor: pointer !important;
             touch-action: manipulation;
+            pointer-events: auto !important;
+        }
+
+        .file-open-btn,
+        .file-open-btn:hover,
+        .file-open-btn:focus,
+        .file-row-link:hover,
+        .file-row-link:focus {
+            cursor: pointer !important;
+        }
+
+        .file-admin-item,
+        .file-links-list,
+        .file-upload-cell {
+            pointer-events: auto;
+        }
+
+        .file-admin-item[data-file-url],
+        .file-public-item[data-file-url] {
+            cursor: pointer !important;
+            pointer-events: auto !important;
+        }
+
+        .file-admin-item[data-file-url] .file-open-btn,
+        .file-public-item[data-file-url] .file-open-btn {
+            cursor: pointer !important;
+            pointer-events: auto !important;
         }
 
         .modal {
@@ -3948,13 +3975,21 @@
                     // Handle Files column
                     if (col === 'Files') {
                         if (isAdmin) {
+                            const sheetName = getSheetName(currentTab);
                             const fileEntries = parseFileEntries(value);
+                            const _addDraft = window.__activeAddLinkDraft || {};
+                            const _rowNoKey = String((row['No'] || '')).trim();
+                            const _addOpen = _addDraft && _addDraft.sheetName === sheetName && String(_addDraft.rowNo || '') === _rowNoKey;
+                            const _draftUrl = _addOpen ? escapeHtmlAttr(_addDraft.url || '') : '';
+                            const _draftLabel = _addOpen ? escapeHtmlAttr(_addDraft.label || '') : '';
+                            const _draftSaving = !!(_addOpen && _addDraft.saving);
+                            const _draftDisabled = _draftSaving ? 'disabled' : '';
                             const fileLinksHtml = fileEntries.map((entry, fi) => {
                                 const label = entry.originalName || 'File ' + (fi+1);
-                                return `<div class="file-admin-item" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+                                return `<div class="file-admin-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;cursor:pointer;">
                                             <a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="Open: ${label}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
-                                            <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
-                                            <a href="${entry.url}" target="_blank" rel="noopener" class="file-row-link" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:6;" title="${entry.url}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return activatePortalLink(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
+                                            <span style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="${label}">${label}</span>
+                                            <a href="${entry.url}" target="_blank" rel="noopener" class="file-row-link" style="flex:1 1 100%;font-size:10px;line-height:1.35;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:6;cursor:pointer;" title="${entry.url}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return activatePortalLink(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">${entry.url}</a>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();editFileLinkUrl(${sdIdx},${fi})" title="Edit this hyperlink">Edit Link</button>
                                             <button type="button" class="btn-link-save" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();renameFileLink(${sdIdx},${fi})" title="Rename this file">Rename</button>
                                             <span class="file-remove" onclick="event.stopPropagation();removeFileLink(${sdIdx},${fi})" title="Remove this link">✕</span>
@@ -3962,17 +3997,17 @@
                             }).join('');
                             html += `<td class="file-upload-cell" id="fcell-${sdIdx}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">
                                 <div class="file-links-list">${fileLinksHtml}</div>
-                                <button class="btn-add-link" onclick="event.stopPropagation();showAddLinkInput(${sdIdx})" title="Add Google Drive or any file link">＋ Add Link</button>
-                                <div class="add-link-row" id="addlink-${sdIdx}" style="display:none;" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">
-                                    <input type="text" class="add-link-input" id="linkinput-${sdIdx}"
+                                <button class="btn-add-link" ${_draftDisabled} onclick="event.stopPropagation();showAddLinkInput(${sdIdx})" title="Add Google Drive or any file link">＋ Add Link</button>
+                                <div class="add-link-row" id="addlink-${sdIdx}" style="display:${_addOpen ? 'flex' : 'none'};" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">
+                                    <input type="text" class="add-link-input" id="linkinput-${sdIdx}" value="${_draftUrl}"
                                            placeholder="Paste Google Drive / Dropbox / any URL here"
-                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()"
+                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" oninput="syncAddLinkDraftFromInputs(${sdIdx})" ${_draftDisabled}
                                            onkeydown="event.stopPropagation();if(event.key==='Enter')saveFileLink(${sdIdx})"/>
-                                    <input type="text" class="add-link-label" id="linklabel-${sdIdx}"
+                                    <input type="text" class="add-link-label" id="linklabel-${sdIdx}" value="${_draftLabel}"
                                            placeholder="File name (e.g. Engine Records.pdf)"
-                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()"/>
-                                    <button class="btn-link-save" onclick="event.stopPropagation();saveFileLink(${sdIdx})">Save</button>
-                                    <button class="btn-link-cancel" onclick="event.stopPropagation();hideAddLinkInput(${sdIdx})">Cancel</button>
+                                           onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" oninput="syncAddLinkDraftFromInputs(${sdIdx})" ${_draftDisabled}/>
+                                    <button class="btn-link-save" ${_draftDisabled} onclick="event.stopPropagation();saveFileLink(${sdIdx})">${_draftSaving ? 'Saving…' : 'Save'}</button>
+                                    <button class="btn-link-cancel" ${_draftDisabled} onclick="event.stopPropagation();hideAddLinkInput(${sdIdx})">Cancel</button>
                                 </div>
                             </td>`;
                         } else {
@@ -3987,7 +4022,7 @@
                                     const rowData = filteredData[index];
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
-                                    return `<a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${entry.originalName}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>`;
+                                    return `<span class="file-public-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:inline-flex;align-items:center;cursor:pointer;"><a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${entry.originalName}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a></span>`;
                                 }).join('');
                                 html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
                             }
@@ -4261,17 +4296,14 @@
             const sheetData = data[sheetName];
             if (!sheetData || !sheetData[rowIndex]) {
                 console.warn('saveCell: row', rowIndex, 'not found in', sheetName);
-                return;
+                return { ok: false, liveSaved: false, queued: false, reason: 'row-not-found' };
             }
             // 1. Update in-memory (always immediate)
             sheetData[rowIndex][colName] = newValue;
             queuePendingUpsert(sheetName, sheetData[rowIndex]);
-            // If Seller Price or Commission USD changed manually, recalc
             if (colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD) {
                 recalcRow(sheetName, rowIndex);
             }
-            // 2. Capture a stable snapshot before any re-render mutates helper rows.
-            //    This is critical for required Parts rows whose defaults are applied during render.
             if (colName === 'Status' && !_noAutoHide && isAdmin) {
                 const _ns = (newValue || '').toLowerCase().trim();
                 if (_ns === 'closed' || _ns.includes('sold to another buyer')) {
@@ -4285,41 +4317,61 @@
             const _rowSnapshot = JSON.parse(JSON.stringify(sheetData[rowIndex] || {}));
             if (!_cellEditing) renderTable();
 
-            // 3. Persist to Supabase
-            if (hasLiveSupabaseConfig()) {
-                try {
-                    const TABLE_MAP = {
-                        'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
-                        'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
-                    };
-                    const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
-                    const persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
+            if (!hasLiveSupabaseConfig()) {
+                console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
+                showToast('⚠️ Database not ready — change kept locally only', 5200);
+                return { ok: false, liveSaved: false, queued: true, reason: 'db-not-ready' };
+            }
+
+            const TABLE_MAP = {
+                'Engines': 'engines', 'Aircraft Sale': 'aircraft_sale',
+                'Aircraft Lease': 'aircraft_lease', 'Parts': 'parts'
+            };
+            const tableName = TABLE_MAP[sheetName] || sheetName.toLowerCase().replace(/ /g,'_');
+            const verifyPayload = mapToSupabase(_rowSnapshot, sheetName);
+
+            try {
+                let persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
+                if (persisted && persisted.data && persisted.data[0]) {
+                    sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
+                    verifyPayload.id = persisted.data[0].id || verifyPayload.id;
+                }
+                let verified = await verifyPersistedRow(tableName, verifyPayload);
+                if (!verified) {
+                    persisted = await persistRowToSupabase(tableName, _rowSnapshot, sheetName);
                     if (persisted && persisted.data && persisted.data[0]) {
                         sheetData[rowIndex]._docId = String(persisted.data[0].id || persisted.data[0].no || sheetData[rowIndex]._docId || '');
+                        verifyPayload.id = persisted.data[0].id || verifyPayload.id;
                     }
-                    console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
+                    verified = await verifyPersistedRow(tableName, verifyPayload);
+                }
+                if (!verified) throw new Error('Live verification failed');
+
+                console.log('✅ Cell saved to Supabase:', colName, '=', newValue, '(row no:', sheetData[rowIndex]['No'] || rowIndex + 1, ')');
+                clearPendingUpsert(sheetName, sheetData[rowIndex]);
+                showToast('✅ Saved live to portal: ' + colName, 3200);
+                broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
+                if (colName === 'Status' || colName === 'Hidden' || colName === 'Files') {
+                    setTimeout(() => { loadData(); }, colName === 'Files' ? 260 : 120);
+                }
+                return { ok: true, liveSaved: true, queued: false, verified: true };
+            } catch (err) {
+                console.warn('Supabase save error (cell):', err.message || err);
+                const _retryCell = await flushPendingSyncQueue(false);
+                let _verifiedAfterQueue = false;
+                try { _verifiedAfterQueue = await verifyPersistedRow(tableName, verifyPayload); } catch (_) {}
+                if ((_retryCell && !_retryCell.lastError && (_retryCell.pendingCount || 0) === 0) || _verifiedAfterQueue) {
                     clearPendingUpsert(sheetName, sheetData[rowIndex]);
                     showToast('✅ Saved live to portal: ' + colName, 3200);
                     broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
-                    if (colName === 'Status' || colName === 'Hidden') {
-                        setTimeout(() => { loadData(); }, 120);
+                    if (colName === 'Status' || colName === 'Hidden' || colName === 'Files') {
+                        setTimeout(() => { loadData(); }, colName === 'Files' ? 260 : 120);
                     }
-                } catch (err) {
-                    console.warn('Supabase save error (cell):', err.message || err);
-                    const _retryCell = await flushPendingSyncQueue(false);
-                    if (_retryCell && !_retryCell.lastError && (_retryCell.pendingCount || 0) === 0) {
-                        showToast('✅ Saved live to portal: ' + colName, 3200);
-                        broadcastPortalChange('cell-save', sheetName, sheetData[rowIndex]['No']);
-                        if (colName === 'Status' || colName === 'Hidden') {
-                            setTimeout(() => { loadData(); }, 120);
-                        } 
-                    } else {
-                        showToast('⚠️ Saved only in this browser — live portal update queued', 5200);
-                        setTimeout(() => { flushPendingSyncQueue(false); }, 1200);
-                    }
+                    return { ok: true, liveSaved: true, queued: false, verified: true };
                 }
-            } else {
-                console.log('ℹ️ Cell saved to memory (Supabase not ready):', colName, '=', newValue);
+                showToast('⚠️ Saved only in this browser — live portal update queued', 5200);
+                setTimeout(() => { flushPendingSyncQueue(true); }, 1200);
+                return { ok: false, liveSaved: false, queued: true, verified: false, error: err && (err.message || String(err)) };
             }
         }
 
@@ -5810,22 +5862,65 @@ function toggleRowSelection(rowIndex, trEl) {
         
         
         // ── Google Drive / URL Link Management ─────────────────────────────
-        function showAddLinkInput(rowIndex) {
-            const row = document.getElementById('addlink-' + rowIndex);
-            if (row) {
-                row.style.display = 'flex';
-                const inp = document.getElementById('linkinput-' + rowIndex);
-                if (inp) inp.focus();
-            }
+        window.__activeAddLinkDraft = window.__activeAddLinkDraft || null;
+
+        function escapeHtmlAttr(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
         }
 
-        function hideAddLinkInput(rowIndex) {
+        function _currentAddLinkRowMeta(rowIndex) {
+            const sheetName = getSheetName(currentTab);
+            const row = ((data[sheetName] || [])[rowIndex]) || {};
+            return { sheetName, rowIndex, rowNo: String(row['No'] || '').trim() };
+        }
+
+        function syncAddLinkDraftFromInputs(rowIndex) {
+            const draft = window.__activeAddLinkDraft || {};
+            const meta = _currentAddLinkRowMeta(rowIndex);
+            const urlInput = document.getElementById('linkinput-' + rowIndex);
+            const labelInput = document.getElementById('linklabel-' + rowIndex);
+            window.__activeAddLinkDraft = {
+                ...draft,
+                ...meta,
+                url: urlInput ? urlInput.value : (draft.url || ''),
+                label: labelInput ? labelInput.value : (draft.label || ''),
+                saving: !!draft.saving
+            };
+            return window.__activeAddLinkDraft;
+        }
+
+        function showAddLinkInput(rowIndex) {
+            const draft = syncAddLinkDraftFromInputs(rowIndex);
+            window.__activeAddLinkDraft = { ...draft, saving: false };
+            if (!_cellEditing) renderTable();
+            setTimeout(() => {
+                const row = document.getElementById('addlink-' + rowIndex);
+                if (row) row.style.display = 'flex';
+                const inp = document.getElementById('linkinput-' + rowIndex);
+                const lbl = document.getElementById('linklabel-' + rowIndex);
+                if (inp && window.__activeAddLinkDraft) inp.value = window.__activeAddLinkDraft.url || inp.value || '';
+                if (lbl && window.__activeAddLinkDraft) lbl.value = window.__activeAddLinkDraft.label || lbl.value || '';
+                if (inp) inp.focus();
+            }, 0);
+        }
+
+        function hideAddLinkInput(rowIndex, forceClose) {
+            const draft = window.__activeAddLinkDraft || {};
+            if (draft.saving && !forceClose) return;
+            const meta = _currentAddLinkRowMeta(rowIndex);
+            if (draft.sheetName && (draft.sheetName !== meta.sheetName || String(draft.rowNo || '') !== meta.rowNo) && !forceClose) return;
+            window.__activeAddLinkDraft = null;
             const row = document.getElementById('addlink-' + rowIndex);
             if (row) row.style.display = 'none';
             const inp = document.getElementById('linkinput-' + rowIndex);
             if (inp) inp.value = '';
             const lbl = document.getElementById('linklabel-' + rowIndex);
             if (lbl) lbl.value = '';
+            if (!_cellEditing) renderTable();
         }
 
         function normalizeLinkedFileUrl(rawUrl) {
@@ -5850,12 +5945,28 @@ function toggleRowSelection(rowIndex, trEl) {
                     if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) finalUrl = decodeURIComponent(finalUrl);
                 } catch(_) {}
             }
+            if (!finalUrl && el && el.getAttribute) {
+                finalUrl = el.getAttribute('href') || '';
+            }
             if (!finalUrl && el && el.closest) {
                 const item = el.closest('.file-admin-item, .file-links-list, td');
                 const siblingLink = item ? item.querySelector('a.file-row-link, a[href]') : null;
                 if (siblingLink) finalUrl = siblingLink.getAttribute('href') || siblingLink.textContent || '';
             }
             return String(finalUrl || '').trim();
+        }
+
+        function openExactPortalUrl(targetUrl) {
+            if (!targetUrl) return false;
+            try {
+                const win = window.open(targetUrl, '_blank', 'noopener');
+                if (win) {
+                    try { win.opener = null; } catch(_) {}
+                    return false;
+                }
+            } catch(_) {}
+            try { window.location.assign(targetUrl); } catch(_) {}
+            return false;
         }
 
         function activatePortalLink(event, url, el) {
@@ -5883,42 +5994,88 @@ function toggleRowSelection(rowIndex, trEl) {
                 try { event.preventDefault(); } catch(_) {}
             }
             const targetUrl = resolveExactFileUrl(urlOrEncoded, el);
-            if (!targetUrl) return false;
-            try {
-                const win = window.open(targetUrl, '_blank', 'noopener');
-                if (win) {
-                    try { win.opener = null; } catch(_) {}
-                    return false;
-                }
-            } catch(_) {}
-            try { window.location.assign(targetUrl); } catch(_) {}
-            return false;
+            return openExactPortalUrl(targetUrl);
         }
+
+        function installPortalFileDelegation() {
+            if (window.__portalFileDelegationInit) return;
+            window.__portalFileDelegationInit = true;
+
+            const triggerSelector = '.file-open-btn, .file-row-link, .file-admin-item[data-file-url], .file-public-item[data-file-url]';
+            const ignoreSelector = '.btn-link-save, .btn-link-cancel, .btn-add-link, .file-remove, input, textarea, select';
+
+            function getTrigger(event) {
+                const target = event.target && event.target.closest ? event.target.closest(triggerSelector) : null;
+                if (!target) return null;
+                if (event.target && event.target.closest && event.target.closest(ignoreSelector)) return null;
+                return target;
+            }
+
+            function handleOpen(event) {
+                const trigger = getTrigger(event);
+                if (!trigger) return;
+                try { event.stopPropagation(); } catch(_) {}
+                try { event.stopImmediatePropagation(); } catch(_) {}
+                try { event.preventDefault(); } catch(_) {}
+                const targetUrl = resolveExactFileUrl('', trigger);
+                openExactPortalUrl(targetUrl);
+            }
+
+            document.addEventListener('pointerdown', function(event) {
+                const trigger = getTrigger(event);
+                if (!trigger) return;
+                try { event.stopPropagation(); } catch(_) {}
+            }, true);
+
+            document.addEventListener('pointerup', handleOpen, true);
+            document.addEventListener('click', handleOpen, true);
+            document.addEventListener('touchend', handleOpen, true);
+
+            document.addEventListener('keydown', function(event) {
+                const trigger = getTrigger(event);
+                if (!trigger) return;
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                handleOpen(event);
+            }, true);
+        }
+
+        installPortalFileDelegation();
 
         const openPortalLink = activatePortalLink;
 
-        function saveFileLink(rowIndex) {
-            if (!isAdmin) return;
-            const urlInput   = document.getElementById('linkinput-' + rowIndex);
-            const nameInput  = document.getElementById('linklabel-' + rowIndex);
-            const rawUrl     = (urlInput  ? urlInput.value.trim()  : '');
-            const rawName    = (nameInput ? nameInput.value.trim() : '');
+        async function saveFileLink(rowIndex) {
+            if (!isAdmin) return false;
+            const draft = syncAddLinkDraftFromInputs(rowIndex);
+            const rawUrl = String((draft && draft.url) || '').trim();
+            const rawName = String((draft && draft.label) || '').trim();
 
             if (!rawUrl) {
                 alert('Please paste a URL first.');
-                return;
+                return false;
             }
 
             const finalUrl = normalizeLinkedFileUrl(rawUrl);
             const fileName = rawName || guessFileName(rawUrl);
-            const entry    = finalUrl + '|' + fileName;
+            const entry = finalUrl + '|' + fileName;
 
             const sheetName = getSheetName(currentTab);
-            const existing  = data[sheetName][rowIndex]['Files'] || '';
-            const newVal    = existing ? existing + ';;' + entry : entry;
+            const existing = data[sheetName][rowIndex]['Files'] || '';
+            const newVal = existing ? existing + ';;' + entry : entry;
 
-            saveCell(rowIndex, 'Files', newVal);
-            hideAddLinkInput(rowIndex);
+            window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || draft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: true };
+            if (!_cellEditing) renderTable();
+
+            const result = await saveCell(rowIndex, 'Files', newVal);
+            if (result && result.liveSaved) {
+                showToast('✅ File link saved live to portal', 3200);
+                hideAddLinkInput(rowIndex, true);
+                return true;
+            }
+
+            window.__activeAddLinkDraft = { ...(window.__activeAddLinkDraft || {}), ..._currentAddLinkRowMeta(rowIndex), url: rawUrl, label: rawName, saving: false };
+            if (!_cellEditing) renderTable();
+            showToast('⚠️ Live save not confirmed — editor kept open', 4800);
+            return false;
         }
 
         function renameFileLink(rowIndex, fileIdx) {
