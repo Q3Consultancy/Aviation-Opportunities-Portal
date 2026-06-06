@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v103 -->
+    <!-- Build: v104 -->
     <style>
         * {
             margin: 0;
@@ -5174,6 +5174,7 @@
                 hideLoginModal();
                 // Refresh table, filters, stats
                 normalizeAllStatuses();
+                applyPendingSyncToData();
                 renderTable();
                 renderFilters();
                 updateStats();
@@ -5438,6 +5439,7 @@
         }
 
         window.onload = async function() {
+            cleanupLegacyPendingSyncState();
             // Restore persisted column order from previous session
             try {
                 const _coStored = JSON.parse(localStorage.getItem('portalColOrder') || '{}');
@@ -6377,13 +6379,28 @@ function toggleRowSelection(rowIndex, trEl) {
             throw lastError || new Error('Unknown Supabase persistence error');
         }
 
-        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV2';
+        const LOCAL_SYNC_QUEUE_KEY = 'q3PortalPendingSyncV4';
 
         function _defaultPendingSyncState() {
             return { upserts: {}, deletes: [] };
         }
 
+        function cleanupLegacyPendingSyncState() {
+            try {
+                ['q3PortalPendingSyncV2','q3PortalPendingSyncV3'].forEach(key => {
+                    if (key !== LOCAL_SYNC_QUEUE_KEY) localStorage.removeItem(key);
+                });
+            } catch (e) {
+                console.warn('Legacy pending sync cleanup error:', e);
+            }
+        }
+
+        function shouldApplyPendingSyncState() {
+            return !!isAdmin;
+        }
+
         function loadPendingSyncState() {
+            cleanupLegacyPendingSyncState();
             try {
                 const raw = localStorage.getItem(LOCAL_SYNC_QUEUE_KEY);
                 if (!raw) return _defaultPendingSyncState();
@@ -6459,6 +6476,7 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         function applyPendingSyncToData() {
+            if (!shouldApplyPendingSyncState()) return 0;
             const state = loadPendingSyncState();
             let applied = 0;
             Object.values(state.upserts || {}).forEach(item => {
