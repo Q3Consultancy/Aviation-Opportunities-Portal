@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v123 -->
+    <!-- Build: v124 -->
     <style>
         * {
             margin: 0;
@@ -9069,20 +9069,22 @@ function updateAdminUI(isAdminMode) {
 </script>
 
 
-<script id="q3-github-save-v123">
+<script id="q3-github-save-v124">
 (function () {
-  if (window.__Q3_GITHUB_SAVE_V123__) return;
-  window.__Q3_GITHUB_SAVE_V123__ = true;
+  if (window.__Q3_GITHUB_SAVE_V124__) return;
+  window.__Q3_GITHUB_SAVE_V124__ = true;
 
-  const BTN_ID = 'portalGitHubConnectBtnV123';
-  const BADGE_ID = 'portalGitHubConnectBadgeV123';
+  const BTN_ID = 'portalGitHubConnectBtnV124';
+  const BADGE_ID = 'portalGitHubConnectBadgeV124';
   const NO_TOKEN_TEXT = 'GitHub token required — click Connect GitHub first';
   const SUCCESS_TEXT = 'GitHub save complete — clickable in public view';
+  let watchdogTimer = null;
+  let watchdogTicks = 0;
 
   function safeCall(fn) {
     if (typeof fn !== 'function') return undefined;
     try { return fn.apply(null, Array.prototype.slice.call(arguments, 1)); }
-    catch (err) { console.warn('v123 helper failed:', err); return undefined; }
+    catch (err) { console.warn('v124 helper failed:', err); return undefined; }
   }
 
   function tokenKey() {
@@ -9174,9 +9176,41 @@ function updateAdminUI(isAdminMode) {
     return true;
   }
 
-  function scheduleUi() {
-    setTimeout(ensureUi, 0);
-    setTimeout(renderConnectState, 0);
+  function hideSpinner(reason) {
+    const spinner = document.getElementById('engineSpinner');
+    if (!spinner) return false;
+    spinner.classList.add('hidden');
+    setTimeout(function () {
+      spinner.style.display = 'none';
+    }, 450);
+    console.log('✅ v124 spinner watchdog:', reason);
+    return true;
+  }
+
+  function dataLooksReady() {
+    try {
+      const d = window.data || {};
+      const total = ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'].reduce(function (sum, key) {
+        return sum + (Array.isArray(d[key]) ? d[key].length : 0);
+      }, 0);
+      if (total > 0) return true;
+    } catch (_) {}
+    try {
+      const rows = document.querySelectorAll('#dataTable tr');
+      if (rows && rows.length > 1) return true;
+    } catch (_) {}
+    try {
+      const text = (document.body && document.body.innerText) || '';
+      if (text.includes('Embraer 170/190 Parts') || text.includes('CFM56-7B') || text.includes('Trent')) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function kickRender() {
+    try { if (typeof renderFilters === 'function') renderFilters(); } catch (_) {}
+    try { if (typeof renderTable === 'function') renderTable(); } catch (_) {}
+    try { if (typeof updateStats === 'function') updateStats(); } catch (_) {}
+    try { if (typeof filterTable === 'function') filterTable(); } catch (_) {}
   }
 
   function nicerErrorText(result) {
@@ -9188,7 +9222,7 @@ function updateAdminUI(isAdminMode) {
     return raw;
   }
 
-  async function saveFileLinkV123(rowIndex) {
+  async function saveFileLinkV124(rowIndex) {
     if (!isAdminMode()) return false;
     ensureUi();
     renderConnectState();
@@ -9237,6 +9271,7 @@ function updateAdminUI(isAdminMode) {
       safeCall(setAddLinkDraftStatus, rowIndex, { saving: false, progress: 100, statusText: SUCCESS_TEXT, statusTone: 'success', liveReady: true, autoClearMs: 4200 });
       safeCall(showToast, '✅ File link saved to live portal', 3200);
       safeCall(hideAddLinkInput, rowIndex, false);
+      kickRender();
       return true;
     }
 
@@ -9247,33 +9282,68 @@ function updateAdminUI(isAdminMode) {
   }
 
   function installWrappers() {
-    if (typeof window.renderTable === 'function' && !window.__Q3_V123_RENDER_WRAPPED__) {
+    if (typeof window.renderTable === 'function' && !window.__Q3_V124_RENDER_WRAPPED__) {
       const originalRender = window.renderTable;
       window.renderTable = function () {
         const result = originalRender.apply(this, arguments);
-        scheduleUi();
+        ensureUi();
+        renderConnectState();
+        if (dataLooksReady()) hideSpinner('table-rendered');
         return result;
       };
       try { renderTable = window.renderTable; } catch (_) {}
-      window.__Q3_V123_RENDER_WRAPPED__ = true;
+      window.__Q3_V124_RENDER_WRAPPED__ = true;
     }
-    window.saveFileLink = saveFileLinkV123;
-    try { saveFileLink = saveFileLinkV123; } catch (_) {}
+    if (typeof window.loadData === 'function' && !window.__Q3_V124_LOAD_WRAPPED__) {
+      const originalLoad = window.loadData;
+      window.loadData = async function () {
+        const result = await originalLoad.apply(this, arguments);
+        ensureUi();
+        renderConnectState();
+        kickRender();
+        if (dataLooksReady()) hideSpinner('load-complete');
+        return result;
+      };
+      try { loadData = window.loadData; } catch (_) {}
+      window.__Q3_V124_LOAD_WRAPPED__ = true;
+    }
+    window.saveFileLink = saveFileLinkV124;
+    try { saveFileLink = saveFileLinkV124; } catch (_) {}
+  }
+
+  function startWatchdog() {
+    if (watchdogTimer) return;
+    watchdogTimer = setInterval(function () {
+      watchdogTicks += 1;
+      ensureUi();
+      installWrappers();
+      renderConnectState();
+      if (dataLooksReady()) {
+        kickRender();
+        hideSpinner('watchdog-data-ready');
+        clearInterval(watchdogTimer);
+        watchdogTimer = null;
+        return;
+      }
+      if (watchdogTicks >= 16) {
+        kickRender();
+        hideSpinner('watchdog-timeout');
+        clearInterval(watchdogTimer);
+        watchdogTimer = null;
+      }
+    }, 500);
   }
 
   function boot() {
     ensureUi();
     installWrappers();
     renderConnectState();
-    let ticks = 0;
-    const timer = setInterval(function () {
-      ticks += 1;
-      ensureUi();
-      installWrappers();
-      renderConnectState();
-      if (ticks >= 20) clearInterval(timer);
-    }, 500);
-    console.log('✅ GitHub save helper patch v123 active');
+    startWatchdog();
+    setTimeout(function () {
+      kickRender();
+      if (dataLooksReady()) hideSpinner('post-boot-data-ready');
+    }, 1000);
+    console.log('✅ GitHub save helper + loading watchdog patch v124 active');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
