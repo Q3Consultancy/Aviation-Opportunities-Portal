@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v122 -->
+    <!-- Build: v123 -->
     <style>
         * {
             margin: 0;
@@ -9069,15 +9069,21 @@ function updateAdminUI(isAdminMode) {
 </script>
 
 
-<script id="q3-github-save-v122">
+<script id="q3-github-save-v123">
 (function () {
-  if (window.__Q3_GITHUB_SAVE_V122__) return;
-  window.__Q3_GITHUB_SAVE_V122__ = true;
+  if (window.__Q3_GITHUB_SAVE_V123__) return;
+  window.__Q3_GITHUB_SAVE_V123__ = true;
 
-  const BTN_ID = 'portalGitHubConnectBtnV122';
-  const BADGE_ID = 'portalGitHubConnectBadgeV122';
-  let tries = 0;
-  let timer = null;
+  const BTN_ID = 'portalGitHubConnectBtnV123';
+  const BADGE_ID = 'portalGitHubConnectBadgeV123';
+  const NO_TOKEN_TEXT = 'GitHub token required — click Connect GitHub first';
+  const SUCCESS_TEXT = 'GitHub save complete — clickable in public view';
+
+  function safeCall(fn) {
+    if (typeof fn !== 'function') return undefined;
+    try { return fn.apply(null, Array.prototype.slice.call(arguments, 1)); }
+    catch (err) { console.warn('v123 helper failed:', err); return undefined; }
+  }
 
   function tokenKey() {
     try {
@@ -9087,26 +9093,26 @@ function updateAdminUI(isAdminMode) {
     }
   }
 
-  function hasToken() {
+  function getToken() {
     try {
-      return !!String(window.GITHUB_PORTAL_TOKEN || localStorage.getItem(tokenKey()) || '').trim();
+      return String(window.GITHUB_PORTAL_TOKEN || localStorage.getItem(tokenKey()) || '').trim();
     } catch (_) {
-      return !!String(window.GITHUB_PORTAL_TOKEN || '').trim();
+      return String(window.GITHUB_PORTAL_TOKEN || '').trim();
     }
-  }
-
-  function hostNode() {
-    return document.querySelector('.role-toggle') || document.querySelector('header') || document.body;
   }
 
   function isAdminMode() {
     try { return !!window.isAdmin; } catch (_) { return false; }
   }
 
-  function renderState() {
+  function hostNode() {
+    return document.querySelector('.role-toggle') || document.querySelector('header') || document.body;
+  }
+
+  function renderConnectState() {
     const btn = document.getElementById(BTN_ID);
     const badge = document.getElementById(BADGE_ID);
-    const connected = hasToken();
+    const connected = !!getToken();
     const admin = isAdminMode();
     if (btn) {
       btn.textContent = connected ? '✅ GitHub Connected' : '🔐 Connect GitHub';
@@ -9155,7 +9161,7 @@ function updateAdminUI(isAdminMode) {
             if (entered && String(entered).trim()) window.setPortalGitHubToken(String(entered).trim());
           }
         } catch (_) {}
-        renderState();
+        renderConnectState();
       };
       host.appendChild(btn);
     }
@@ -9164,29 +9170,114 @@ function updateAdminUI(isAdminMode) {
       badge.id = BADGE_ID;
       host.appendChild(badge);
     }
-    renderState();
+    renderConnectState();
     return true;
+  }
+
+  function scheduleUi() {
+    setTimeout(ensureUi, 0);
+    setTimeout(renderConnectState, 0);
+  }
+
+  function nicerErrorText(result) {
+    const raw = String((result && (result.error || result.reason || result.message)) || '').trim();
+    if (!raw) return 'GitHub live save failed — please retry';
+    if (/token/i.test(raw)) return NO_TOKEN_TEXT;
+    if (/save not confirmed/i.test(raw)) return 'GitHub live save failed — not visible in public mode yet';
+    if (/github/i.test(raw)) return raw;
+    return raw;
+  }
+
+  async function saveFileLinkV123(rowIndex) {
+    if (!isAdminMode()) return false;
+    ensureUi();
+    renderConnectState();
+
+    if (!getToken()) {
+      try {
+        if (typeof window.configurePortalGitHubToken === 'function') {
+          await window.configurePortalGitHubToken();
+        }
+      } catch (_) {}
+      renderConnectState();
+      if (!getToken()) {
+        safeCall(setAddLinkDraftStatus, rowIndex, { saving: false, progress: 0, statusText: NO_TOKEN_TEXT, statusTone: 'error', liveReady: false, autoClearMs: 6500 });
+        safeCall(showToast, '❌ ' + NO_TOKEN_TEXT, 5200);
+        return false;
+      }
+    }
+
+    const draft = (typeof window.syncAddLinkDraftFromInputs === 'function') ? window.syncAddLinkDraftFromInputs(rowIndex) : null;
+    const rawUrl = String((draft && draft.url) || '').trim();
+    const rawName = String((draft && draft.label) || '').trim();
+    if (!rawUrl) {
+      alert('Please paste a URL first.');
+      return false;
+    }
+
+    const finalUrl = (typeof window.normalizeLinkedFileUrl === 'function') ? window.normalizeLinkedFileUrl(rawUrl) : rawUrl;
+    const fileName = rawName || ((typeof window.guessFileName === 'function') ? window.guessFileName(finalUrl) : 'File');
+    const entry = finalUrl + '|' + fileName;
+    const sheetName = (typeof window.getSheetName === 'function') ? window.getSheetName(window.currentTab) : 'Parts';
+    const existing = (((window.data || {})[sheetName] || [])[rowIndex] || {})['Files'] || '';
+    const newValue = existing ? existing + ';;' + entry : entry;
+
+    safeCall(setAddLinkDraftStatus, rowIndex, { saving: true, progress: 12, statusText: 'Saving to GitHub…', statusTone: 'pending', liveReady: false });
+
+    const result = await window.saveCell(rowIndex, 'Files', newValue, false, {
+      strictLive: true,
+      allowQueue: false,
+      optimisticLocal: false,
+      reloadAfterSave: true,
+      progressRowIndex: rowIndex,
+      bindDraftProgress: true
+    });
+
+    if (result && result.liveSaved) {
+      safeCall(setAddLinkDraftStatus, rowIndex, { saving: false, progress: 100, statusText: SUCCESS_TEXT, statusTone: 'success', liveReady: true, autoClearMs: 4200 });
+      safeCall(showToast, '✅ File link saved to live portal', 3200);
+      safeCall(hideAddLinkInput, rowIndex, false);
+      return true;
+    }
+
+    const message = nicerErrorText(result);
+    safeCall(setAddLinkDraftStatus, rowIndex, { saving: false, progress: 0, statusText: message, statusTone: 'error', liveReady: false, autoClearMs: 6500 });
+    safeCall(showToast, '❌ ' + message, 5200);
+    return false;
+  }
+
+  function installWrappers() {
+    if (typeof window.renderTable === 'function' && !window.__Q3_V123_RENDER_WRAPPED__) {
+      const originalRender = window.renderTable;
+      window.renderTable = function () {
+        const result = originalRender.apply(this, arguments);
+        scheduleUi();
+        return result;
+      };
+      try { renderTable = window.renderTable; } catch (_) {}
+      window.__Q3_V123_RENDER_WRAPPED__ = true;
+    }
+    window.saveFileLink = saveFileLinkV123;
+    try { saveFileLink = saveFileLinkV123; } catch (_) {}
   }
 
   function boot() {
     ensureUi();
-    timer = setInterval(function () {
-      tries += 1;
+    installWrappers();
+    renderConnectState();
+    let ticks = 0;
+    const timer = setInterval(function () {
+      ticks += 1;
       ensureUi();
-      renderState();
-      if (tries >= 20) {
-        clearInterval(timer);
-        timer = null;
-      }
+      installWrappers();
+      renderConnectState();
+      if (ticks >= 20) clearInterval(timer);
     }, 500);
-    console.log('✅ GitHub save helper UI patch v122 active');
+    console.log('✅ GitHub save helper patch v123 active');
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 })();
 </script>
 
