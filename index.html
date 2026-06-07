@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v128 -->
+    <!-- Build: v130 -->
     <style>
         * {
             margin: 0;
@@ -8621,79 +8621,62 @@ function updateAdminUI(isAdminMode) {
 
       </div><!-- /upload-modal-box -->
     </div><!-- /uploadModal -->
+
 <script>
-  window.PORTAL_SAVE_ENDPOINT = 'https://q3-portal-save-worker.q3aviationportal.workers.dev/portal-save';
-  window.PORTAL_PUBLIC_DATA_URL = 'data.json';
+  window.PORTAL_WORKER_BASE = 'https://q3-portal-save-worker-v2.q3aviationportal.workers.dev';
+  window.PORTAL_SAVE_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-save';
+  window.PORTAL_DATA_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-data';
+  window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
+  window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script id="q3-backend-save-patch-v128">
+<script id="q3-worker-only-portal-v130">
 (function () {
   'use strict';
 
+  const WORKER_BASE = window.PORTAL_WORKER_BASE || '';
   const SAVE_ENDPOINT = window.PORTAL_SAVE_ENDPOINT || '';
-  const PUBLIC_DATA_URL = window.PORTAL_PUBLIC_DATA_URL || 'data.json';
+  const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
+  const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
+  const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
+  const AUTH_KEY = 'q3PortalAdminTokenV130';
 
-  if (!SAVE_ENDPOINT) {
-    console.error('v128 backend-save patch: missing PORTAL_SAVE_ENDPOINT');
+  if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
+    console.error('v130 worker-only patch: missing worker config');
     return;
   }
 
   window.__PORTAL_RAW__ = window.__PORTAL_RAW__ || null;
 
-  function deepClone(obj) {
-    return JSON.parse(JSON.stringify(obj));
-  }
-
-  function safeCall(fn, ...args) {
-    try {
-      if (typeof fn === 'function') return fn(...args);
-    } catch (err) {
-      console.warn('safeCall error:', err);
-    }
-  }
-
+  function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+  function safeCall(fn, ...args) { try { if (typeof fn === 'function') return fn(...args); } catch (err) { console.warn('safeCall error:', err); } }
   function toast(message, type) {
-    if (typeof window.showToast === 'function') {
-      try { return window.showToast(message, type || 'success'); } catch (_) {}
-    }
-    if (typeof window._showToast === 'function') {
-      try { return window._showToast(message, 3200); } catch (_) {}
-    }
+    if (typeof window.showToast === 'function') { try { return window.showToast(message, type || 'success'); } catch (_) {} }
+    if (typeof window._showToast === 'function') { try { return window._showToast(message, 3200); } catch (_) {} }
     console.log('[toast]', message);
   }
-
   function hideSpinnerSafe() {
     const spinner = document.getElementById('engineSpinner');
     if (!spinner) return;
     spinner.classList.add('hidden');
     setTimeout(() => { spinner.style.display = 'none'; }, 450);
   }
-
-  function cleanupGitHubUi() {
-    [
-      '[id^="portalGitHubConnectBtn"]',
-      '[id^="portalGitHubConnectBadge"]',
-      '[id^="portalGitHubConnectBtnPanel"]'
-    ].forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => {
-        el.style.display = 'none';
-        el.setAttribute('aria-hidden', 'true');
-      });
+  function cleanupLegacyUi() {
+    ['[id^="portalGitHubConnectBtn"]','[id^="portalGitHubConnectBadge"]','[id^="portalGitHubConnectBtnPanel"]'].forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => { el.remove(); });
     });
-
     window.configurePortalGitHubToken = async function () {
-      toast('No GitHub token is required in this build', 'success');
+      toast('Browser GitHub tokens are disabled in v130', 'success');
       return true;
     };
     window.setPortalGitHubToken = function () { return true; };
     window.clearPortalGitHubToken = function () { return true; };
     window.portalGitHubSaveInfo = null;
   }
-
   function getSheetNames() {
-    if (Array.isArray(window.SHEET_NAMES) && window.SHEET_NAMES.length) return window.SHEET_NAMES;
-    return ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
+    return (Array.isArray(window.SHEET_NAMES) && window.SHEET_NAMES.length)
+      ? window.SHEET_NAMES
+      : ['Engines', 'Aircraft Sale', 'Aircraft Lease', 'Parts'];
   }
-
   function getCurrentSheetName() {
     try {
       if (typeof window.getSheetName === 'function' && typeof window.currentTab !== 'undefined') {
@@ -8703,7 +8686,6 @@ function updateAdminUI(isAdminMode) {
     if (typeof window.currentTab === 'string' && window.currentTab) return window.currentTab;
     return 'Engines';
   }
-
   function ensureRawShape(raw) {
     const out = raw && typeof raw === 'object' ? deepClone(raw) : {};
     getSheetNames().forEach(name => {
@@ -8713,12 +8695,8 @@ function updateAdminUI(isAdminMode) {
     });
     return out;
   }
-
   function convertRawToMemory(raw) {
-    if (typeof window.convertData === 'function') {
-      return window.convertData(raw);
-    }
-
+    if (typeof window.convertData === 'function') return window.convertData(raw);
     const mem = {};
     Object.keys(raw || {}).forEach(sheet => {
       const section = raw[sheet] || {};
@@ -8726,21 +8704,29 @@ function updateAdminUI(isAdminMode) {
       const rows = Array.isArray(section.data) ? section.data : [];
       mem[sheet] = rows.map(row => {
         const obj = {};
-        cols.forEach((col, idx) => {
-          obj[col] = row[idx] ?? '';
-        });
+        cols.forEach((col, idx) => { obj[col] = row[idx] ?? ''; });
         return obj;
       });
     });
     return mem;
   }
-
   function assignStateFromRaw(raw) {
     const normalized = ensureRawShape(raw);
     window.__PORTAL_RAW__ = normalized;
     window.data = convertRawToMemory(normalized);
   }
-
+  function applyInlineDataIfPresent() {
+    try {
+      if (window.__INLINE_DATA__) {
+        assignStateFromRaw(window.__INLINE_DATA__);
+        console.log('✅ v130 inline portal data loaded');
+        return true;
+      }
+    } catch (err) {
+      console.warn('v130 inline load failed:', err);
+    }
+    return false;
+  }
   function refreshUi() {
     safeCall(window.applyForcedVisibilityRules);
     safeCall(window.normalizeAllStatuses);
@@ -8749,142 +8735,117 @@ function updateAdminUI(isAdminMode) {
     safeCall(window.updateStats);
     safeCall(window.filterTable);
     safeCall(window.updateLastUpdated);
-    cleanupGitHubUi();
+    cleanupLegacyUi();
     hideSpinnerSafe();
   }
-
-  async function fetchCanonicalDataJson() {
-    const urls = [
-      PUBLIC_DATA_URL + '?_ts=' + Date.now(),
-      'https://raw.githubusercontent.com/Q3Consultancy/Aviation-Opportunities-Portal/main/data.json?_ts=' + Date.now()
-    ];
-
-    let lastError = null;
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) throw new Error('status ' + res.status + ' for ' + url);
-        return await res.json();
-      } catch (err) {
-        lastError = err;
-      }
-    }
-    throw lastError || new Error('Unable to load canonical data.json');
-  }
-
-  async function loadDataViaPublicJson() {
-    try {
-      const raw = await fetchCanonicalDataJson();
-      assignStateFromRaw(raw);
-      refreshUi();
-      console.log('✅ v128 public data.json loaded');
-      return true;
-    } catch (err) {
-      console.error('v128 load failed:', err);
-      refreshUi();
-      return false;
-    }
-  }
-
   function getRawColIndex(sheetName, colName) {
     const raw = window.__PORTAL_RAW__;
     const section = raw && raw[sheetName];
     if (!section || !Array.isArray(section.columns)) return -1;
     return section.columns.indexOf(colName);
   }
-
   function updateRawCell(sheetName, rowIndex, colName, value) {
     const raw = window.__PORTAL_RAW__;
     if (!raw || !raw[sheetName]) throw new Error('Section not found: ' + sheetName);
-
     const colIndex = getRawColIndex(sheetName, colName);
     if (colIndex < 0) throw new Error('Column not found: ' + colName);
-
-    if (!Array.isArray(raw[sheetName].data[rowIndex])) {
-      throw new Error('Row not found: ' + rowIndex);
-    }
-
+    if (!Array.isArray(raw[sheetName].data[rowIndex])) throw new Error('Row not found: ' + rowIndex);
     raw[sheetName].data[rowIndex][colIndex] = value;
   }
-
   function maybeAutoHide(sheetName, rowIndex, colName, value) {
     if (colName !== 'Status') return;
     const statusText = String(value || '').toLowerCase().trim();
     if (!(statusText === 'closed' || statusText.includes('sold to another buyer'))) return;
-
     const hiddenIdx = getRawColIndex(sheetName, 'Hidden');
     if (hiddenIdx >= 0 && window.__PORTAL_RAW__ && window.__PORTAL_RAW__[sheetName] && Array.isArray(window.__PORTAL_RAW__[sheetName].data[rowIndex])) {
       window.__PORTAL_RAW__[sheetName].data[rowIndex][hiddenIdx] = '1';
     }
-
     if (window.data && window.data[sheetName] && window.data[sheetName][rowIndex]) {
       window.data[sheetName][rowIndex]['Hidden'] = '1';
     }
   }
-
-  async function postSaveToBackend(payload) {
+  function getAdminToken() { try { return localStorage.getItem(AUTH_KEY) || ''; } catch (_) { return ''; } }
+  function setAdminToken(token) { try { localStorage.setItem(AUTH_KEY, token); } catch (_) {} }
+  function clearAdminToken() { try { localStorage.removeItem(AUTH_KEY); } catch (_) {} }
+  async function ensureAdminToken(forcePrompt) {
+    let token = getAdminToken();
+    if (token && !forcePrompt) return token;
+    const password = window.prompt('Enter admin save password');
+    if (!password) throw new Error('Admin login cancelled');
+    const res = await fetch(AUTH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok || !body.token) throw new Error(body.error || 'Admin authentication failed');
+    setAdminToken(body.token);
+    toast('✅ Admin authentication ready', 'success');
+    return body.token;
+  }
+  async function fetchWorkerData() {
+    const res = await fetch(DATA_ENDPOINT + '?_ts=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('Worker data load failed (' + res.status + ')');
+    const body = await res.json().catch(() => ({}));
+    if (!body || !body.ok || !body.raw) throw new Error(body.error || 'Worker returned invalid data');
+    return body.raw;
+  }
+  async function loadDataWorkerOnly() {
+    try {
+      const hadInline = applyInlineDataIfPresent();
+      if (hadInline) refreshUi();
+      const raw = await fetchWorkerData();
+      assignStateFromRaw(raw);
+      refreshUi();
+      console.log('✅ v130 worker portal-data loaded');
+      return true;
+    } catch (err) {
+      console.error('v130 worker-only load failed:', err);
+      const hadInline = applyInlineDataIfPresent();
+      if (hadInline) {
+        refreshUi();
+        toast('⚠️ Live refresh failed — showing embedded data snapshot', 'error');
+        return true;
+      }
+      refreshUi();
+      toast('❌ Load Fail: worker data unavailable', 'error');
+      return false;
+    }
+  }
+  async function postSaveToWorker(payload, forcePrompt) {
+    const token = await ensureAdminToken(!!forcePrompt);
     const res = await fetch(SAVE_ENDPOINT, {
       method: 'POST',
-      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
       },
       body: JSON.stringify(payload)
     });
-
-    let body = null;
-    try {
-      body = await res.json();
-    } catch (_) {
-      body = null;
-    }
-
+    const body = await res.json().catch(() => ({}));
     if (res.status === 401) {
-      throw new Error((body && body.error) || 'Admin session not authenticated');
+      clearAdminToken();
+      if (!forcePrompt) return postSaveToWorker(payload, true);
+      throw new Error(body.error || 'Admin session not authenticated');
     }
-
-    if (!res.ok) {
-      throw new Error((body && body.error) || ('Save endpoint failed (' + res.status + ')'));
-    }
-
-    return body || { ok: true };
+    if (!res.ok || !body.ok) throw new Error(body.error || ('Worker save failed (' + res.status + ')'));
+    return body;
   }
-
-  async function saveCellViaEndpoint(rowIndex, colName, newValue, _noAutoHide, options) {
+  async function saveCellWorkerOnly(rowIndex, colName, newValue, _noAutoHide, options) {
     options = options || {};
     const sheetName = getCurrentSheetName();
-
     if (!window.data || !Array.isArray(window.data[sheetName]) || !window.data[sheetName][rowIndex]) {
-      console.warn('v128 saveCell: row not found', sheetName, rowIndex);
       return { ok: false, liveSaved: false, queued: false, reason: 'row-not-found' };
     }
-
     const prevRaw = deepClone(window.__PORTAL_RAW__);
     const prevData = deepClone(window.data);
-
     try {
       window.data[sheetName][rowIndex][colName] = newValue;
       updateRawCell(sheetName, rowIndex, colName, newValue);
       maybeAutoHide(sheetName, rowIndex, colName, newValue);
       refreshUi();
-
-      const payload = {
-        op: 'saveCell',
-        sheetName,
-        rowIndex,
-        colName,
-        newValue,
-        raw: window.__PORTAL_RAW__,
-        pageUrl: location.href,
-        ts: Date.now()
-      };
-
-      const result = await postSaveToBackend(payload);
-
-      if (result && result.raw && typeof result.raw === 'object') {
-        assignStateFromRaw(result.raw);
-      }
-
+      const result = await postSaveToWorker({ op: 'saveCell', sheetName, rowIndex, colName, newValue, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
       toast(colName === 'Files' ? '✅ File link saved live' : '✅ Change saved live', 'success');
       return { ok: true, liveSaved: true, queued: false, result };
@@ -8892,51 +8853,27 @@ function updateAdminUI(isAdminMode) {
       window.__PORTAL_RAW__ = prevRaw;
       window.data = prevData;
       refreshUi();
-      console.error('v128 saveCell failed:', err);
+      console.error('v130 saveCell failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'Save failed'), 'error');
       return { ok: false, liveSaved: false, queued: false, error: err };
     }
   }
-
-  async function deleteDealViaEndpoint(rowIndex) {
+  async function deleteDealWorkerOnly(rowIndex) {
     const sheetName = getCurrentSheetName();
-
     if (typeof window.isAdmin !== 'undefined' && !window.isAdmin) return false;
     if (!window.data || !Array.isArray(window.data[sheetName]) || !window.data[sheetName][rowIndex]) return false;
-
-    const label = String(
-      (window.data[sheetName][rowIndex] && (window.data[sheetName][rowIndex]['Deal #'] || window.data[sheetName][rowIndex]['No'])) ||
-      (rowIndex + 1)
-    );
-
-    if (!confirm('Delete entry ' + label + '? This will update the live portal for all users.')) {
-      return false;
-    }
-
+    const label = String((window.data[sheetName][rowIndex] && (window.data[sheetName][rowIndex]['Deal #'] || window.data[sheetName][rowIndex]['No'])) || (rowIndex + 1));
+    if (!confirm('Delete entry ' + label + '? This will update the live portal for all users.')) return false;
     const prevRaw = deepClone(window.__PORTAL_RAW__);
     const prevData = deepClone(window.data);
-
     try {
       window.data[sheetName].splice(rowIndex, 1);
       if (window.__PORTAL_RAW__ && window.__PORTAL_RAW__[sheetName] && Array.isArray(window.__PORTAL_RAW__[sheetName].data)) {
         window.__PORTAL_RAW__[sheetName].data.splice(rowIndex, 1);
       }
-
       refreshUi();
-
-      const result = await postSaveToBackend({
-        op: 'deleteRow',
-        sheetName,
-        rowIndex,
-        raw: window.__PORTAL_RAW__,
-        pageUrl: location.href,
-        ts: Date.now()
-      });
-
-      if (result && result.raw && typeof result.raw === 'object') {
-        assignStateFromRaw(result.raw);
-      }
-
+      const result = await postSaveToWorker({ op: 'deleteRow', sheetName, rowIndex, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
       toast('✅ Row deleted live', 'success');
       return true;
@@ -8944,231 +8881,118 @@ function updateAdminUI(isAdminMode) {
       window.__PORTAL_RAW__ = prevRaw;
       window.data = prevData;
       refreshUi();
-      console.error('v128 delete failed:', err);
+      console.error('v130 delete failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'Delete failed'), 'error');
       return false;
     }
   }
-
   function normalizeFileUrl(url) {
     const raw = String(url || '').trim();
     if (!raw) return '';
-    if (typeof window.normalizeLinkedFileUrl === 'function') {
-      try { return window.normalizeLinkedFileUrl(raw); } catch (_) {}
-    }
+    if (typeof window.normalizeLinkedFileUrl === 'function') { try { return window.normalizeLinkedFileUrl(raw); } catch (_) {} }
     return raw;
   }
-
   function findLinkInput(rowIndex, kind) {
-    const exactIds = kind === 'url'
-      ? [`linkurl-${rowIndex}`, `fileurl-${rowIndex}`, `addlinkurl-${rowIndex}`]
-      : [`linklabel-${rowIndex}`, `filelabel-${rowIndex}`, `addlinklabel-${rowIndex}`];
-
-    for (const id of exactIds) {
-      const el = document.getElementById(id);
-      if (el) return el;
-    }
-
+    const exactIds = kind === 'url' ? [`linkurl-${rowIndex}`, `fileurl-${rowIndex}`, `addlinkurl-${rowIndex}`] : [`linklabel-${rowIndex}`, `filelabel-${rowIndex}`, `addlinklabel-${rowIndex}`];
+    for (const id of exactIds) { const el = document.getElementById(id); if (el) return el; }
     const selectors = kind === 'url'
-      ? [
-          `[data-row-index="${rowIndex}"] .add-link-url`,
-          `[data-row="${rowIndex}"] .add-link-url`,
-          `[data-row-index="${rowIndex}"] input[placeholder*="URL"]`,
-          `[data-row="${rowIndex}"] input[placeholder*="URL"]`
-        ]
-      : [
-          `[data-row-index="${rowIndex}"] .add-link-label`,
-          `[data-row="${rowIndex}"] .add-link-label`,
-          `[data-row-index="${rowIndex}"] input[placeholder*="Label"]`,
-          `[data-row="${rowIndex}"] input[placeholder*="Label"]`
-        ];
-
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-
+      ? [`[data-row-index="${rowIndex}"] .add-link-url`, `[data-row="${rowIndex}"] .add-link-url`, `[data-row-index="${rowIndex}"] input[placeholder*="URL"]`, `[data-row="${rowIndex}"] input[placeholder*="URL"]`]
+      : [`[data-row-index="${rowIndex}"] .add-link-label`, `[data-row="${rowIndex}"] .add-link-label`, `[data-row-index="${rowIndex}"] input[placeholder*="Label"]`, `[data-row="${rowIndex}"] input[placeholder*="Label"]`];
+    for (const sel of selectors) { const el = document.querySelector(sel); if (el) return el; }
     const inputs = Array.from(document.querySelectorAll('input'));
     return inputs.find(el => {
       const p = String(el.placeholder || '').toLowerCase();
       const id = String(el.id || '').toLowerCase();
       const cls = String(el.className || '').toLowerCase();
-      if (kind === 'url') {
-        return p.includes('url') || p.includes('google drive') || id.includes('linkurl') || cls.includes('add-link-url');
-      }
+      if (kind === 'url') return p.includes('url') || p.includes('google drive') || id.includes('linkurl') || cls.includes('add-link-url');
       return p.includes('label') || id.includes('linklabel') || cls.includes('add-link-label');
     }) || null;
   }
-
   function buildFilesValue(existingValue, url, label) {
     const normalized = normalizeFileUrl(url);
     const nextItem = normalized + '|' + (label || 'Open File');
-
     const existing = String(existingValue || '').trim();
     if (!existing) return nextItem;
-
     const items = existing.split('\n').map(s => s.trim()).filter(Boolean);
     let replaced = false;
-
     const merged = items.map(item => {
       const itemUrl = item.split('|')[0].trim();
-      if (itemUrl === normalized) {
-        replaced = true;
-        return nextItem;
-      }
+      if (itemUrl === normalized) { replaced = true; return nextItem; }
       return item;
     });
-
     if (!replaced) merged.push(nextItem);
     return merged.join('\n');
   }
-
-  async function saveFileLinkViaEndpoint(rowIndex) {
+  async function saveFileLinkWorkerOnly(rowIndex) {
     try {
       const urlInput = findLinkInput(rowIndex, 'url');
       const labelInput = findLinkInput(rowIndex, 'label');
-
       const url = String(urlInput && urlInput.value || '').trim();
       const label = String(labelInput && labelInput.value || '').trim();
-
-      if (!url) {
-        toast('Enter a file URL first', 'error');
-        return { ok: false, reason: 'missing-url' };
-      }
-
+      if (!url) { toast('Enter a file URL first', 'error'); return { ok: false, reason: 'missing-url' }; }
       const sheetName = getCurrentSheetName();
       const row = window.data && window.data[sheetName] && window.data[sheetName][rowIndex];
-      if (!row) {
-        toast('Could not find the selected row', 'error');
-        return { ok: false, reason: 'row-not-found' };
-      }
-
+      if (!row) { toast('Could not find the selected row', 'error'); return { ok: false, reason: 'row-not-found' }; }
       const nextFiles = buildFilesValue(row['Files'] || '', url, label);
-      const result = await saveCellViaEndpoint(rowIndex, 'Files', nextFiles, false, {
-        strictLive: true,
-        optimisticLocal: true,
-        reloadAfterSave: false
-      });
-
+      const result = await saveCellWorkerOnly(rowIndex, 'Files', nextFiles, false, { strictLive: true, optimisticLocal: true, reloadAfterSave: false });
       if (result && result.ok) {
         if (urlInput) urlInput.value = '';
         if (labelInput) labelInput.value = '';
         refreshUi();
       }
-
       return result;
     } catch (err) {
-      console.error('v128 saveFileLink failed:', err);
+      console.error('v130 saveFileLink failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'File save failed'), 'error');
       return { ok: false, error: err };
     }
   }
-
-  function installOverrides() {
-    window.loadData = loadDataViaPublicJson;
-    window.saveCell = saveCellViaEndpoint;
-    window.deleteDeal = deleteDealViaEndpoint;
-    window.saveFileLink = saveFileLinkViaEndpoint;
-
-    window.saveFileLinkV121 = saveFileLinkViaEndpoint;
-    window.saveFileLinkV122 = saveFileLinkViaEndpoint;
-    window.saveFileLinkV123 = saveFileLinkViaEndpoint;
-    window.saveFileLinkV124 = saveFileLinkViaEndpoint;
-    window.saveFileLinkV125 = saveFileLinkViaEndpoint;
-
-    cleanupGitHubUi();
+  async function workerHealthCheck() {
+    try {
+      const res = await fetch(HEALTH_ENDPOINT + '?_ts=' + Date.now(), { cache: 'no-store' });
+      return await res.json().catch(() => ({}));
+    } catch (err) {
+      return { ok: false, error: String(err && err.message ? err.message : err) };
+    }
   }
-
+  function installOverrides() {
+    window.loadData = loadDataWorkerOnly;
+    window.saveCell = saveCellWorkerOnly;
+    window.deleteDeal = deleteDealWorkerOnly;
+    window.saveFileLink = saveFileLinkWorkerOnly;
+    window.saveFileLinkV121 = saveFileLinkWorkerOnly;
+    window.saveFileLinkV122 = saveFileLinkWorkerOnly;
+    window.saveFileLinkV123 = saveFileLinkWorkerOnly;
+    window.saveFileLinkV124 = saveFileLinkWorkerOnly;
+    window.saveFileLinkV125 = saveFileLinkWorkerOnly;
+    window.portalBackendHealthCheckV130 = workerHealthCheck;
+    cleanupLegacyUi();
+  }
   function installLoadingWatchdog() {
     let ticks = 0;
-    const maxTicks = 12;
-
     const timer = setInterval(() => {
       ticks += 1;
       const hasRows = !!window.data && Object.values(window.data).some(arr => Array.isArray(arr) && arr.length > 0);
-      if (hasRows) {
-        hideSpinnerSafe();
-        clearInterval(timer);
-        return;
-      }
-
-      if (ticks >= maxTicks) {
-        hideSpinnerSafe();
+      if (hasRows || ticks >= 16) {
+        refreshUi();
         clearInterval(timer);
       }
     }, 500);
   }
-
   async function boot() {
     installOverrides();
+    applyInlineDataIfPresent();
+    refreshUi();
     installLoadingWatchdog();
-
     setTimeout(async () => {
       installOverrides();
-      await loadDataViaPublicJson();
+      await loadDataWorkerOnly();
     }, 50);
-
-    [300, 800, 1500, 2500].forEach(ms => {
-      setTimeout(() => {
-        installOverrides();
-        cleanupGitHubUi();
-      }, ms);
-    });
-
-    console.log('✅ Backend save patch v128 active');
+    [300, 800, 1500, 2500].forEach(ms => setTimeout(() => { installOverrides(); cleanupLegacyUi(); }, ms));
+    console.log('✅ Worker-only portal patch v130 active');
   }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
-})();
-</script>
-
-<script id="q3-loading-stability-v128">
-(function () {
-  function hideSpinnerSafe() {
-    const spinner = document.getElementById('engineSpinner');
-    if (!spinner) return;
-    spinner.classList.add('hidden');
-    setTimeout(function () { spinner.style.display = 'none'; }, 450);
-  }
-
-  function hasRows() {
-    const d = window.data;
-    if (!d || typeof d !== 'object') return false;
-    return Object.values(d).some(function (arr) { return Array.isArray(arr) && arr.length > 0; });
-  }
-
-  function tick() {
-    if (hasRows()) {
-      try { if (typeof window.renderTable === 'function') window.renderTable(); } catch (_) {}
-      try { if (typeof window.updateStats === 'function') window.updateStats(); } catch (_) {}
-      hideSpinnerSafe();
-      return true;
-    }
-    return false;
-  }
-
-  let count = 0;
-  const timer = setInterval(function () {
-    count += 1;
-    if (tick() || count >= 16) {
-      hideSpinnerSafe();
-      clearInterval(timer);
-    }
-  }, 500);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      setTimeout(tick, 250);
-      setTimeout(hideSpinnerSafe, 6500);
-    }, { once: true });
-  } else {
-    setTimeout(tick, 250);
-    setTimeout(hideSpinnerSafe, 6500);
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 })();
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
