@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v134 -->
+    <!-- Build: v135 -->
     <style>
         * {
             margin: 0;
@@ -8628,8 +8628,8 @@ function updateAdminUI(isAdminMode) {
   window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
   window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script>window.__Q3_V134_ADMIN_FIX__=true;</script>
-<script id="q3-worker-only-portal-v134">
+<script>window.__Q3_V135_ADMIN_FIX__=true;</script>
+<script id="q3-worker-only-portal-v135">
 (function () {
   'use strict';
 
@@ -8638,7 +8638,7 @@ function updateAdminUI(isAdminMode) {
   const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
   const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV134';
+  const AUTH_KEY = 'q3PortalAdminTokenV135';
 
   if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
     console.error('v132 worker-only patch: missing worker config');
@@ -9045,14 +9045,22 @@ function updateAdminUI(isAdminMode) {
 })();
 </script>
 
-<script id="q3-v134-admin-interaction-fix">
+<script id="q3-v135-admin-interaction-fix">
 (function(){
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV134';
+  const AUTH_KEY = 'q3PortalAdminTokenV135';
 
   function getToken(){ try { return localStorage.getItem(AUTH_KEY) || ''; } catch(_) { return ''; } }
   function setToken(token){ try { localStorage.setItem(AUTH_KEY, token); } catch(_) {} }
   function clearToken(){ try { localStorage.removeItem(AUTH_KEY); } catch(_) {} }
+  function setAdminFlag(flag){
+    try { isAdmin = !!flag; } catch(_) {}
+    window.isAdmin = !!flag;
+    try { document.body.classList.toggle('admin-mode', !!flag); } catch(_) {}
+  }
+  function getAdminFlag(){
+    try { return !!isAdmin; } catch(_) { return !!window.isAdmin; }
+  }
   function hideLegacyModal(){
     const modal = document.getElementById('loginModal');
     if (modal) {
@@ -9062,7 +9070,7 @@ function updateAdminUI(isAdminMode) {
     }
   }
   function applyAdminChrome(){
-    window.isAdmin = true;
+    setAdminFlag(true);
     hideLegacyModal();
     if (typeof window.updateAdminUI === 'function') window.updateAdminUI(true);
     const lb = document.getElementById('loginBtn');
@@ -9106,7 +9114,7 @@ function updateAdminUI(isAdminMode) {
   window.showLoginModal = function(){ hideLegacyModal(); return false; };
   window.hideLoginModal = hideLegacyModal;
   window.toggleAdmin = async function(){
-    if (window.isAdmin) return true;
+    if (getAdminFlag()) return true;
     try {
       await authenticate(false);
       return true;
@@ -9119,7 +9127,7 @@ function updateAdminUI(isAdminMode) {
   window.login = function(){ return window.toggleAdmin(); };
   window.logout = function(){
     clearToken();
-    window.isAdmin = false;
+    setAdminFlag(false);
     hideLegacyModal();
     const lb = document.getElementById('loginBtn');
     const logb = document.getElementById('logoutBtn');
@@ -9141,7 +9149,7 @@ function updateAdminUI(isAdminMode) {
   document.addEventListener('DOMContentLoaded', function(){
     hideLegacyModal();
     if (window.location.hash === '#admin') {
-      setTimeout(function(){ if (!window.isAdmin) window.toggleAdmin(); }, 250);
+      setTimeout(function(){ if (!getAdminFlag()) window.toggleAdmin(); }, 250);
     }
   }, { once:true });
 })();
