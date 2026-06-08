@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v140 -->
+    <!-- Build: v141 -->
     <style>
         * {
             margin: 0;
@@ -2988,6 +2988,7 @@
         let selectedRows = new Set();
         let selectionMode = false;  // rows only clickable after 'Place my Interest' // tracks row indices for "Place my Interest"
         let currentTab = 'engines';
+        try { window.currentTab = currentTab; } catch (_) {}
         let rawData = {};
         let data = {};
         let sortColumn = null;
@@ -5268,6 +5269,7 @@
             if (mb) { mb.classList.remove('active'); mb.title = 'Select one or more rows first'; }
             updateInterestButton();
             currentTab = tab;
+            try { window.currentTab = currentTab; } catch (_) {}
             sortColumn = null;
             sortDirection = 'asc';
             columnFilters = {};
@@ -8681,11 +8683,15 @@ function updateAdminUI(isAdminMode) {
   }
   function getCurrentSheetName() {
     try {
-      if (typeof window.getSheetName === 'function' && typeof window.currentTab !== 'undefined') {
-        return window.getSheetName(window.currentTab);
+      if (typeof currentTab === 'string' && currentTab && typeof getSheetName === 'function') {
+        return getSheetName(currentTab) || 'Engines';
       }
     } catch (_) {}
-    if (typeof window.currentTab === 'string' && window.currentTab) return window.currentTab;
+    try {
+      if (typeof window.getSheetName === 'function' && typeof window.currentTab === 'string' && window.currentTab) {
+        return window.getSheetName(window.currentTab) || 'Engines';
+      }
+    } catch (_) {}
     return 'Engines';
   }
   function ensureRawShape(raw) {
@@ -9297,6 +9303,7 @@ function updateAdminUI(isAdminMode) {
   }, { once:true });
 })();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
