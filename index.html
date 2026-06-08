@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v138 -->
+    <!-- Build: v139 -->
     <style>
         * {
             margin: 0;
@@ -8690,10 +8690,25 @@ function updateAdminUI(isAdminMode) {
   }
   function ensureRawShape(raw) {
     const out = raw && typeof raw === 'object' ? deepClone(raw) : {};
+    const ADMIN_SCHEMA = {
+      'Engines': ['Condition', 'Comments', 'Entry Owner', 'Hidden'],
+      'Aircraft Sale': ['Condition', 'Comments', 'Entry Owner', 'Hidden'],
+      'Aircraft Lease': ['Condition', 'Comments', 'Entry Owner', 'Hidden'],
+      'Parts': ['Condition', 'Comments', 'Entry Owner', 'Hidden']
+    };
     getSheetNames().forEach(name => {
       if (!out[name] || typeof out[name] !== 'object') out[name] = { columns: [], data: [] };
       if (!Array.isArray(out[name].columns)) out[name].columns = [];
       if (!Array.isArray(out[name].data)) out[name].data = [];
+      const required = ADMIN_SCHEMA[name] || [];
+      required.forEach(col => {
+        if (!out[name].columns.includes(col)) out[name].columns.push(col);
+      });
+      out[name].data = out[name].data.map(row => {
+        const arr = Array.isArray(row) ? row.slice() : [];
+        while (arr.length < out[name].columns.length) arr.push('');
+        return arr;
+      });
     });
     return out;
   }
@@ -9064,8 +9079,20 @@ function updateAdminUI(isAdminMode) {
     setPortalDirty(true, 'Commission change staged — click Save to publish live');
     return true;
   }
+  function adminEditingActive() {
+    return !!((typeof window.isAdmin !== 'undefined' && window.isAdmin) || (typeof isAdmin !== 'undefined' && isAdmin) || window.location.hash === '#admin' || document.body.classList.contains('admin-mode'));
+  }
   function installOverrides() {
-    window.loadData = loadDataWorkerOnly;
+    window.loadData = async function() {
+      if (adminEditingActive()) return true;
+      return loadDataWorkerOnly();
+    };
+    window.initPortalLiveSync = function(){ return false; };
+    try {
+      if (window._portalRealtimeChannel && typeof window._portalRealtimeChannel.unsubscribe === 'function') {
+        window._portalRealtimeChannel.unsubscribe();
+      }
+    } catch (_) {}
     window.saveCell = saveCellWorkerOnly;
     window.deleteDeal = deleteDealWorkerOnly;
     window.saveFileLink = saveFileLinkWorkerOnly;
@@ -9100,7 +9127,7 @@ function updateAdminUI(isAdminMode) {
       await loadDataWorkerOnly();
     }, 50);
     [300, 800, 1500, 2500].forEach(ms => setTimeout(() => { installOverrides(); cleanupLegacyUi(); }, ms));
-    console.log('✅ Worker-only portal patch v136 active');
+    console.log('✅ Worker-only portal patch v139 active');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
