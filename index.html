@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v132 -->
+    <!-- Build: v133 -->
     <style>
         * {
             margin: 0;
@@ -8629,8 +8629,8 @@ function updateAdminUI(isAdminMode) {
   window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
   window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script>window.__Q3_V132_RECOVERY__=true;</script>
-<script id="q3-worker-only-portal-v132">
+<script>window.__Q3_V133_OVERLAY_FIX__=true;</script>
+<script id="q3-worker-only-portal-v133">
 (function () {
   'use strict';
 
@@ -8639,7 +8639,7 @@ function updateAdminUI(isAdminMode) {
   const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
   const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV132';
+  const AUTH_KEY = 'q3PortalAdminTokenV133';
 
   if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
     console.error('v132 worker-only patch: missing worker config');
@@ -9003,6 +9003,46 @@ function updateAdminUI(isAdminMode) {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
+})();
+</script>
+
+<script id="q3-v133-overlay-fix">
+(function(){
+  function hide(){
+    var s=document.getElementById('engineSpinner');
+    if(!s) return;
+    s.classList.add('hidden');
+    s.style.opacity='0';
+    s.style.pointerEvents='none';
+    setTimeout(function(){ s.style.display='none'; }, 150);
+  }
+  function hasVisibleData(){
+    try {
+      var stats=document.querySelector('#statsGrid .stat-value');
+      if(stats && /\d+/.test((stats.textContent||''))){
+        var n=parseInt((stats.textContent||'').match(/\d+/)[0],10);
+        if(n>0) return true;
+      }
+      var rows=document.querySelectorAll('#dataTable tr');
+      if(rows && rows.length>1) return true;
+      var tableText=(document.getElementById('dataTable')||{}).textContent||'';
+      if(tableText && !/No data available/i.test(tableText) && tableText.trim().length>40) return true;
+      if(window.data && Object.values(window.data).some(function(a){ return Array.isArray(a) && a.length>0; })) return true;
+    } catch(_){}
+    return false;
+  }
+  function tick(){ if(hasVisibleData()) hide(); }
+  document.addEventListener('DOMContentLoaded', function(){
+    tick();
+    setTimeout(tick, 300);
+    setTimeout(tick, 800);
+    setTimeout(tick, 1500);
+    setTimeout(tick, 2500);
+    setTimeout(hide, 4500);
+    var obs = new MutationObserver(function(){ if(hasVisibleData()) hide(); });
+    obs.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+    window.addEventListener('load', function(){ setTimeout(tick, 100); });
+  }, {once:true});
 })();
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
