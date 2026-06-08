@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v133 -->
+    <!-- Build: v134 -->
     <style>
         * {
             margin: 0;
@@ -4225,9 +4225,8 @@
                                     const dealNum = rowData ? (rowData['Deal #'] || rowData['No'] || (index+1)) : (index+1);
                                     const dlName = `Q3 Consultancy - ${dealNum} - ${sheetLabel}.${ext}`;
                                     const safeLabel = entry.originalName || ('File ' + (fi + 1));
-                                    return `<span class="file-public-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;max-width:220px;">
-                                        <a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${safeLabel}" aria-label="Open ${safeLabel}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">📄</a>
-                                        <a href="${entry.url}" class="file-row-link" target="_blank" rel="noopener" title="${safeLabel}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return activatePortalLink(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="font-size:10px;line-height:1.25;color:#2563eb;text-decoration:underline;word-break:break-all;max-width:180px;">${safeLabel}</a>
+                                    return `<span class="file-public-item" data-file-url="${encodeURIComponent(entry.url || '')}" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;min-width:18px;">
+                                        <a href="${entry.url}" class="file-open-btn" target="_blank" rel="noopener" title="View/Download: ${safeLabel}" aria-label="Open ${safeLabel}" data-file-url="${encodeURIComponent(entry.url || '')}" onclick="return openPortalFileButton(event, this.dataset.fileUrl, this)" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center;">📄</a>
                                     </span>`;
                                 }).join('');
                                 html += `<td onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()">${fileLinksHtml}</td>`;
@@ -5715,7 +5714,7 @@
                     } else {
                         displayVal = cardFiles.map((entry, fi) => {
                             const linkLabel = entry.originalName || ('File ' + (fi + 1));
-                            return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:5;" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
+                            return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:inline-flex;align-items:center;justify-content:center;margin-top:4px;color:#2563eb;text-decoration:none;position:relative;z-index:5;font-size:16px;line-height:1;" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}" aria-label="Open file: ${linkLabel}">📄</a>`;
                         }).join('');
                     }
                 }
@@ -5735,7 +5734,7 @@
                 if (cardFiles.length) {
                     const fileHtml = cardFiles.map((entry, fi) => {
                         const linkLabel = entry.originalName || ('File ' + (fi + 1));
-                        return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:block;margin-top:4px;color:#2563eb;text-decoration:underline;word-break:break-all;position:relative;z-index:5;" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}">📄 ${linkLabel}</a>`;
+                        return `<a href="${entry.url}" target="_blank" rel="noopener" class="file-link" style="display:inline-flex;align-items:center;justify-content:center;margin-top:4px;color:#2563eb;text-decoration:none;position:relative;z-index:5;font-size:16px;line-height:1;" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Open file: ${linkLabel}" aria-label="Open file: ${linkLabel}">📄</a>`;
                     }).join('');
                     rows += `<div class="rdc-row"><span class="rdc-label">Files</span><span class="rdc-value">${fileHtml}</span></div>`;
                 }
@@ -8629,8 +8628,8 @@ function updateAdminUI(isAdminMode) {
   window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
   window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script>window.__Q3_V133_OVERLAY_FIX__=true;</script>
-<script id="q3-worker-only-portal-v133">
+<script>window.__Q3_V134_ADMIN_FIX__=true;</script>
+<script id="q3-worker-only-portal-v134">
 (function () {
   'use strict';
 
@@ -8639,7 +8638,7 @@ function updateAdminUI(isAdminMode) {
   const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
   const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV133';
+  const AUTH_KEY = 'q3PortalAdminTokenV134';
 
   if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
     console.error('v132 worker-only patch: missing worker config');
@@ -9043,6 +9042,108 @@ function updateAdminUI(isAdminMode) {
     obs.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
     window.addEventListener('load', function(){ setTimeout(tick, 100); });
   }, {once:true});
+})();
+</script>
+
+<script id="q3-v134-admin-interaction-fix">
+(function(){
+  const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
+  const AUTH_KEY = 'q3PortalAdminTokenV134';
+
+  function getToken(){ try { return localStorage.getItem(AUTH_KEY) || ''; } catch(_) { return ''; } }
+  function setToken(token){ try { localStorage.setItem(AUTH_KEY, token); } catch(_) {} }
+  function clearToken(){ try { localStorage.removeItem(AUTH_KEY); } catch(_) {} }
+  function hideLegacyModal(){
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+      modal.classList.remove('show');
+      modal.style.display = 'none';
+      modal.style.pointerEvents = 'none';
+    }
+  }
+  function applyAdminChrome(){
+    window.isAdmin = true;
+    hideLegacyModal();
+    if (typeof window.updateAdminUI === 'function') window.updateAdminUI(true);
+    const lb = document.getElementById('loginBtn');
+    const logb = document.getElementById('logoutBtn');
+    const rb = document.getElementById('roleBadge');
+    if (lb) lb.style.display = 'none';
+    if (logb) logb.style.display = 'inline-block';
+    if (rb) {
+      rb.textContent = '🔐 Admin';
+      rb.classList.add('admin');
+      rb.style.display = '';
+    }
+    if (typeof window.normalizeAllStatuses === 'function') window.normalizeAllStatuses();
+    if (typeof window.applyPendingSyncToData === 'function') window.applyPendingSyncToData();
+    if (typeof window.renderTable === 'function') window.renderTable();
+    if (typeof window.renderFilters === 'function') window.renderFilters();
+    if (typeof window.updateStats === 'function') window.updateStats();
+    if (typeof window.applyFreezeToTable === 'function') setTimeout(window.applyFreezeToTable, 60);
+  }
+  async function authenticate(forcePrompt){
+    const existing = getToken();
+    if (existing && !forcePrompt) {
+      applyAdminChrome();
+      return existing;
+    }
+    const password = window.prompt('Enter admin password');
+    if (!password) throw new Error('Admin login cancelled');
+    const res = await fetch(AUTH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok || !body.token) throw new Error(body.error || 'Admin authentication failed');
+    setToken(body.token);
+    applyAdminChrome();
+    if (typeof window.showToast === 'function') window.showToast('✅ Admin mode ready', 2600);
+    return body.token;
+  }
+
+  window.showLoginModal = function(){ hideLegacyModal(); return false; };
+  window.hideLoginModal = hideLegacyModal;
+  window.toggleAdmin = async function(){
+    if (window.isAdmin) return true;
+    try {
+      await authenticate(false);
+      return true;
+    } catch (err) {
+      hideLegacyModal();
+      if (err && err.message && !/cancelled/i.test(err.message)) alert(err.message);
+      return false;
+    }
+  };
+  window.login = function(){ return window.toggleAdmin(); };
+  window.logout = function(){
+    clearToken();
+    window.isAdmin = false;
+    hideLegacyModal();
+    const lb = document.getElementById('loginBtn');
+    const logb = document.getElementById('logoutBtn');
+    const rb = document.getElementById('roleBadge');
+    if (lb) lb.style.display = 'inline-block';
+    if (logb) logb.style.display = 'none';
+    if (rb) {
+      rb.textContent = 'External Viewer';
+      rb.classList.remove('admin');
+      rb.style.display = 'none';
+    }
+    if (typeof window.updateAdminUI === 'function') window.updateAdminUI(false);
+    if (typeof window.renderTable === 'function') window.renderTable();
+    if (typeof window.renderFilters === 'function') window.renderFilters();
+    if (typeof window.updateStats === 'function') window.updateStats();
+    return true;
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    hideLegacyModal();
+    if (window.location.hash === '#admin') {
+      setTimeout(function(){ if (!window.isAdmin) window.toggleAdmin(); }, 250);
+    }
+  }, { once:true });
 })();
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
