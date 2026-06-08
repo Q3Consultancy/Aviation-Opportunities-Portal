@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v139 -->
+    <!-- Build: v140 -->
     <style>
         * {
             margin: 0;
@@ -9082,6 +9082,19 @@ function updateAdminUI(isAdminMode) {
   function adminEditingActive() {
     return !!((typeof window.isAdmin !== 'undefined' && window.isAdmin) || (typeof isAdmin !== 'undefined' && isAdmin) || window.location.hash === '#admin' || document.body.classList.contains('admin-mode'));
   }
+  function installAdminEventFirewall() {
+    if (window.__portalAdminFirewallInstalled) return;
+    window.__portalAdminFirewallInstalled = true;
+    const blocker = function(e) {
+      if (!adminEditingActive()) return;
+      try { e.stopImmediatePropagation(); } catch (_) {}
+    };
+    try { window.addEventListener('pageshow', blocker, true); } catch (_) {}
+    try { window.addEventListener('online', blocker, true); } catch (_) {}
+    try { window.addEventListener('storage', blocker, true); } catch (_) {}
+    try { document.addEventListener('visibilitychange', blocker, true); } catch (_) {}
+    try { document.addEventListener('supabaseReady', blocker, true); } catch (_) {}
+  }
   function installOverrides() {
     window.loadData = async function() {
       if (adminEditingActive()) return true;
@@ -9118,6 +9131,7 @@ function updateAdminUI(isAdminMode) {
     }, 500);
   }
   async function boot() {
+    installAdminEventFirewall();
     installOverrides();
     applyInlineDataIfPresent();
     refreshUi();
@@ -9127,7 +9141,7 @@ function updateAdminUI(isAdminMode) {
       await loadDataWorkerOnly();
     }, 50);
     [300, 800, 1500, 2500].forEach(ms => setTimeout(() => { installOverrides(); cleanupLegacyUi(); }, ms));
-    console.log('✅ Worker-only portal patch v139 active');
+    console.log('✅ Worker-only portal patch v140 active');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
