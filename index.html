@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v137 -->
+    <!-- Build: v138 -->
     <style>
         * {
             margin: 0;
@@ -8871,33 +8871,55 @@ function updateAdminUI(isAdminMode) {
     if (!res.ok || !body.ok) throw new Error(body.error || ('Worker save failed (' + res.status + ')'));
     return body;
   }
+  function setPortalDirty(flag, reason) {
+    window.__portalDirty = !!flag;
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+      saveBtn.textContent = flag ? '💾 Save *' : '💾 Save';
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '';
+    }
+    if (flag) {
+      const msg = reason || 'Changes staged locally — click Save to publish live';
+      toast(msg, 'pending');
+    }
+    return !!flag;
+  }
+  function applyLocalCellChange(sheetName, rowIndex, colName, newValue) {
+    const resolvedColName = resolveRawColumnName(sheetName, colName);
+    if (!window.data || !Array.isArray(window.data[sheetName]) || !window.data[sheetName][rowIndex]) {
+      throw new Error('Row not found: ' + rowIndex);
+    }
+    window.data[sheetName][rowIndex][colName] = newValue;
+    if (resolvedColName && resolvedColName !== colName) {
+      window.data[sheetName][rowIndex][resolvedColName] = newValue;
+    }
+    updateRawCell(sheetName, rowIndex, resolvedColName, newValue);
+    maybeAutoHide(sheetName, rowIndex, resolvedColName, newValue);
+    if ((resolvedColName === KEY_SELLER_PRICE || resolvedColName === KEY_COMM_USD || resolvedColName === KEY_COMM_PCT || colName === KEY_SELLER_PRICE || colName === KEY_COMM_USD || colName === KEY_COMM_PCT) && typeof recalcRow === 'function') {
+      recalcRow(sheetName, rowIndex);
+      rebuildRawFromMemory();
+    }
+    refreshUi();
+    return resolvedColName;
+  }
   async function saveCellWorkerOnly(rowIndex, colName, newValue, _noAutoHide, options) {
     options = options || {};
     const sheetName = getCurrentSheetName();
     if (!window.data || !Array.isArray(window.data[sheetName]) || !window.data[sheetName][rowIndex]) {
-      return { ok: false, liveSaved: false, queued: false, reason: 'row-not-found' };
+      return { ok: false, liveSaved: false, queued: true, reason: 'row-not-found' };
     }
     const prevRaw = deepClone(window.__PORTAL_RAW__);
     const prevData = deepClone(window.data);
     try {
-      const resolvedColName = resolveRawColumnName(sheetName, colName);
-      window.data[sheetName][rowIndex][colName] = newValue;
-      if (resolvedColName && resolvedColName !== colName) {
-        window.data[sheetName][rowIndex][resolvedColName] = newValue;
-      }
-      updateRawCell(sheetName, rowIndex, resolvedColName, newValue);
-      maybeAutoHide(sheetName, rowIndex, resolvedColName, newValue);
-      refreshUi();
-      const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
-      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
-      refreshUi();
-      toast(colName === 'Files' ? '✅ File link saved live' : '✅ Change saved live', 'success');
-      return { ok: true, liveSaved: true, queued: false, result };
+      applyLocalCellChange(sheetName, rowIndex, colName, newValue);
+      setPortalDirty(true, colName === 'Files' ? 'File change staged — click Save to publish live' : 'Change staged — click Save to publish live');
+      return { ok: true, liveSaved: false, queued: true };
     } catch (err) {
       window.__PORTAL_RAW__ = prevRaw;
       window.data = prevData;
       refreshUi();
-      console.error('v137 saveCell failed:', err);
+      console.error('v138 saveCell failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'Save failed'), 'error');
       return { ok: false, liveSaved: false, queued: false, error: err };
     }
@@ -8907,7 +8929,7 @@ function updateAdminUI(isAdminMode) {
     if (typeof window.isAdmin !== 'undefined' && !window.isAdmin) return false;
     if (!window.data || !Array.isArray(window.data[sheetName]) || !window.data[sheetName][rowIndex]) return false;
     const label = String((window.data[sheetName][rowIndex] && (window.data[sheetName][rowIndex]['Deal #'] || window.data[sheetName][rowIndex]['No'])) || (rowIndex + 1));
-    if (!confirm('Delete entry ' + label + '? This will update the live portal for all users.')) return false;
+    if (!confirm('Delete entry ' + label + '? Click Save afterwards to publish this deletion live.')) return false;
     const prevRaw = deepClone(window.__PORTAL_RAW__);
     const prevData = deepClone(window.data);
     try {
@@ -8916,16 +8938,13 @@ function updateAdminUI(isAdminMode) {
         window.__PORTAL_RAW__[sheetName].data.splice(rowIndex, 1);
       }
       refreshUi();
-      const result = await postSaveToWorker({ action: 'deleteRow', sheetName, rowIndex, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
-      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
-      refreshUi();
-      toast('✅ Row deleted live', 'success');
+      setPortalDirty(true, 'Row deletion staged — click Save to publish live');
       return true;
     } catch (err) {
       window.__PORTAL_RAW__ = prevRaw;
       window.data = prevData;
       refreshUi();
-      console.error('v130 delete failed:', err);
+      console.error('v138 delete failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'Delete failed'), 'error');
       return false;
     }
@@ -9013,15 +9032,20 @@ function updateAdminUI(isAdminMode) {
       const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
       if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
+      setPortalDirty(false);
+      if (typeof broadcastPortalChange === 'function') {
+        try { broadcastPortalChange('bulk-save', getCurrentSheetName(), ''); } catch (_) {}
+      }
       toast('✅ Hard-saved to live portal', 'success');
       return true;
     } catch (err) {
       console.error('saveChangesWorkerOnly failed:', err);
+      setPortalDirty(true);
       toast('❌ ' + (err && err.message ? err.message : 'Hard save failed'), 'error');
       return false;
     } finally {
       if (saveBtn) {
-        saveBtn.textContent = '💾 Save';
+        saveBtn.textContent = window.__portalDirty ? '💾 Save *' : '💾 Save';
         saveBtn.disabled = false;
         saveBtn.style.opacity = '';
       }
@@ -9037,17 +9061,8 @@ function updateAdminUI(isAdminMode) {
     if (typeof recalcRow === 'function') recalcRow(sheetName, rowIndex);
     rebuildRawFromMemory();
     refreshUi();
-    try {
-      const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
-      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
-      refreshUi();
-      toast('✅ Commission updated live', 'success');
-      return true;
-    } catch (err) {
-      console.error('updateCommPctWorkerOnly failed:', err);
-      toast('❌ ' + (err && err.message ? err.message : 'Commission save failed'), 'error');
-      return false;
-    }
+    setPortalDirty(true, 'Commission change staged — click Save to publish live');
+    return true;
   }
   function installOverrides() {
     window.loadData = loadDataWorkerOnly;
