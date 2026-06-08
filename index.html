@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v135 -->
+    <!-- Build: v136 -->
     <style>
         * {
             margin: 0;
@@ -8628,8 +8628,8 @@ function updateAdminUI(isAdminMode) {
   window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
   window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script>window.__Q3_V135_ADMIN_FIX__=true;</script>
-<script id="q3-worker-only-portal-v135">
+<script>window.__Q3_V136_SAVE_FIX__=true;</script>
+<script id="q3-worker-only-portal-v136">
 (function () {
   'use strict';
 
@@ -8638,7 +8638,7 @@ function updateAdminUI(isAdminMode) {
   const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
   const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV135';
+  const AUTH_KEY = 'q3PortalAdminTokenV136';
 
   if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
     console.error('v132 worker-only patch: missing worker config');
@@ -8717,6 +8717,17 @@ function updateAdminUI(isAdminMode) {
   function getPortalDataStore() {
     try { if (typeof data !== 'undefined' && data) return data; } catch (_) {}
     return window.data || {};
+  }
+  function rebuildRawFromMemory() {
+    const raw = ensureRawShape(window.__PORTAL_RAW__ || {});
+    const mem = getPortalDataStore() || {};
+    getSheetNames().forEach(name => {
+      const cols = Array.isArray(raw[name].columns) ? raw[name].columns : [];
+      const rows = Array.isArray(mem[name]) ? mem[name] : [];
+      raw[name].data = rows.map(row => cols.map(col => row && row[col] !== undefined ? row[col] : ''));
+    });
+    window.__PORTAL_RAW__ = raw;
+    return raw;
   }
   function assignStateFromRaw(raw) {
     const normalized = ensureRawShape(raw);
@@ -8853,7 +8864,7 @@ function updateAdminUI(isAdminMode) {
       updateRawCell(sheetName, rowIndex, colName, newValue);
       maybeAutoHide(sheetName, rowIndex, colName, newValue);
       refreshUi();
-      const result = await postSaveToWorker({ op: 'saveCell', sheetName, rowIndex, colName, newValue, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      const result = await postSaveToWorker({ action: 'saveCell', sheetName, rowIndex, colName, newValue, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
       if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
       toast(colName === 'Files' ? '✅ File link saved live' : '✅ Change saved live', 'success');
@@ -8881,7 +8892,7 @@ function updateAdminUI(isAdminMode) {
         window.__PORTAL_RAW__[sheetName].data.splice(rowIndex, 1);
       }
       refreshUi();
-      const result = await postSaveToWorker({ op: 'deleteRow', sheetName, rowIndex, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      const result = await postSaveToWorker({ action: 'deleteRow', sheetName, rowIndex, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
       if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
       toast('✅ Row deleted live', 'success');
@@ -8964,11 +8975,63 @@ function updateAdminUI(isAdminMode) {
       return { ok: false, error: String(err && err.message ? err.message : err) };
     }
   }
+  async function saveChangesWorkerOnly() {
+    const isAdminFlag = (typeof window.isAdmin !== 'undefined' ? !!window.isAdmin : false) || (typeof isAdmin !== 'undefined' ? !!isAdmin : false);
+    if (!isAdminFlag) return false;
+    const saveBtn = document.getElementById('saveBtn');
+    try {
+      if (saveBtn) {
+        saveBtn.textContent = '💾 Saving…';
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = '0.7';
+      }
+      rebuildRawFromMemory();
+      const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
+      refreshUi();
+      toast('✅ Hard-saved to live portal', 'success');
+      return true;
+    } catch (err) {
+      console.error('saveChangesWorkerOnly failed:', err);
+      toast('❌ ' + (err && err.message ? err.message : 'Hard save failed'), 'error');
+      return false;
+    } finally {
+      if (saveBtn) {
+        saveBtn.textContent = '💾 Save';
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '';
+      }
+    }
+  }
+  async function updateCommPctWorkerOnly(rowIndex, pctValue) {
+    const isAdminFlag = (typeof window.isAdmin !== 'undefined' ? !!window.isAdmin : false) || (typeof isAdmin !== 'undefined' ? !!isAdmin : false);
+    if (!isAdminFlag) return false;
+    const sheetName = getCurrentSheetName();
+    const pct = parseFloat(pctValue);
+    if (!window.data || !window.data[sheetName] || !window.data[sheetName][rowIndex]) return false;
+    window.data[sheetName][rowIndex][KEY_COMM_PCT] = (!isNaN(pct) && pct >= 0 && pct <= 100) ? pct : '';
+    if (typeof recalcRow === 'function') recalcRow(sheetName, rowIndex);
+    rebuildRawFromMemory();
+    refreshUi();
+    try {
+      const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
+      refreshUi();
+      toast('✅ Commission updated live', 'success');
+      return true;
+    } catch (err) {
+      console.error('updateCommPctWorkerOnly failed:', err);
+      toast('❌ ' + (err && err.message ? err.message : 'Commission save failed'), 'error');
+      return false;
+    }
+  }
   function installOverrides() {
     window.loadData = loadDataWorkerOnly;
     window.saveCell = saveCellWorkerOnly;
     window.deleteDeal = deleteDealWorkerOnly;
     window.saveFileLink = saveFileLinkWorkerOnly;
+    window.saveChanges = saveChangesWorkerOnly;
+    window.updateCommPct = updateCommPctWorkerOnly;
     window.saveFileLinkV121 = saveFileLinkWorkerOnly;
     window.saveFileLinkV122 = saveFileLinkWorkerOnly;
     window.saveFileLinkV123 = saveFileLinkWorkerOnly;
@@ -8998,7 +9061,7 @@ function updateAdminUI(isAdminMode) {
       await loadDataWorkerOnly();
     }, 50);
     [300, 800, 1500, 2500].forEach(ms => setTimeout(() => { installOverrides(); cleanupLegacyUi(); }, ms));
-    console.log('✅ Worker-only portal patch v132 active');
+    console.log('✅ Worker-only portal patch v136 active');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
@@ -9048,7 +9111,7 @@ function updateAdminUI(isAdminMode) {
 <script id="q3-v135-admin-interaction-fix">
 (function(){
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV135';
+  const AUTH_KEY = 'q3PortalAdminTokenV136';
 
   function getToken(){ try { return localStorage.getItem(AUTH_KEY) || ''; } catch(_) { return ''; } }
   function setToken(token){ try { localStorage.setItem(AUTH_KEY, token); } catch(_) {} }
