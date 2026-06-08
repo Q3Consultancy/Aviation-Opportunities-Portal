@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v136 -->
+    <!-- Build: v137 -->
     <style>
         * {
             margin: 0;
@@ -6646,6 +6646,8 @@ function toggleRowSelection(rowIndex, trEl) {
         let _portalReloadTimer = null;
 
                 function schedulePortalReload(delay) {
+            const adminActive = !!((typeof window.isAdmin !== 'undefined' && window.isAdmin) || (typeof isAdmin !== 'undefined' && isAdmin) || window.location.hash === '#admin' || document.body.classList.contains('admin-mode'));
+            if (adminActive) return;
             clearTimeout(_portalReloadTimer);
             _portalReloadTimer = setTimeout(() => {
                 if (typeof loadData === 'function') loadData();
@@ -8758,16 +8760,34 @@ function updateAdminUI(isAdminMode) {
     cleanupLegacyUi();
     hideSpinnerSafe();
   }
+  function normalizePortalColumnName(name) {
+    return String(name || '').replace(/\s+/g, ' ').trim();
+  }
+  function resolveRawColumnName(sheetName, colName) {
+    const raw = window.__PORTAL_RAW__;
+    const section = raw && raw[sheetName];
+    const cols = section && Array.isArray(section.columns) ? section.columns : [];
+    if (!cols.length) return String(colName || '');
+    if (cols.indexOf(colName) >= 0) return colName;
+    const wanted = normalizePortalColumnName(colName);
+    const exactNormalized = cols.find(col => normalizePortalColumnName(col) === wanted);
+    if (exactNormalized) return exactNormalized;
+    const compactWanted = wanted.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const loose = cols.find(col => normalizePortalColumnName(col).toLowerCase().replace(/[^a-z0-9]/g, '') === compactWanted);
+    return loose || String(colName || '');
+  }
   function getRawColIndex(sheetName, colName) {
     const raw = window.__PORTAL_RAW__;
     const section = raw && raw[sheetName];
     if (!section || !Array.isArray(section.columns)) return -1;
-    return section.columns.indexOf(colName);
+    const resolved = resolveRawColumnName(sheetName, colName);
+    return section.columns.indexOf(resolved);
   }
   function updateRawCell(sheetName, rowIndex, colName, value) {
     const raw = window.__PORTAL_RAW__;
     if (!raw || !raw[sheetName]) throw new Error('Section not found: ' + sheetName);
-    const colIndex = getRawColIndex(sheetName, colName);
+    const resolvedColName = resolveRawColumnName(sheetName, colName);
+    const colIndex = getRawColIndex(sheetName, resolvedColName);
     if (colIndex < 0) throw new Error('Column not found: ' + colName);
     if (!Array.isArray(raw[sheetName].data[rowIndex])) throw new Error('Row not found: ' + rowIndex);
     raw[sheetName].data[rowIndex][colIndex] = value;
@@ -8860,11 +8880,15 @@ function updateAdminUI(isAdminMode) {
     const prevRaw = deepClone(window.__PORTAL_RAW__);
     const prevData = deepClone(window.data);
     try {
+      const resolvedColName = resolveRawColumnName(sheetName, colName);
       window.data[sheetName][rowIndex][colName] = newValue;
-      updateRawCell(sheetName, rowIndex, colName, newValue);
-      maybeAutoHide(sheetName, rowIndex, colName, newValue);
+      if (resolvedColName && resolvedColName !== colName) {
+        window.data[sheetName][rowIndex][resolvedColName] = newValue;
+      }
+      updateRawCell(sheetName, rowIndex, resolvedColName, newValue);
+      maybeAutoHide(sheetName, rowIndex, resolvedColName, newValue);
       refreshUi();
-      const result = await postSaveToWorker({ action: 'saveCell', sheetName, rowIndex, colName, newValue, raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
+      const result = await postSaveToWorker({ action: 'bulkSave', raw: window.__PORTAL_RAW__, pageUrl: location.href, ts: Date.now() });
       if (result && result.raw && typeof result.raw === 'object') assignStateFromRaw(result.raw);
       refreshUi();
       toast(colName === 'Files' ? '✅ File link saved live' : '✅ Change saved live', 'success');
@@ -8873,7 +8897,7 @@ function updateAdminUI(isAdminMode) {
       window.__PORTAL_RAW__ = prevRaw;
       window.data = prevData;
       refreshUi();
-      console.error('v130 saveCell failed:', err);
+      console.error('v137 saveCell failed:', err);
       toast('❌ ' + (err && err.message ? err.message : 'Save failed'), 'error');
       return { ok: false, liveSaved: false, queued: false, error: err };
     }
@@ -9217,6 +9241,7 @@ function updateAdminUI(isAdminMode) {
   }, { once:true });
 })();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
