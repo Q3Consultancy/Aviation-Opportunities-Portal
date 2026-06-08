@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v131 -->
+    <!-- Build: v132 -->
     <style>
         * {
             margin: 0;
@@ -8629,8 +8629,8 @@ function updateAdminUI(isAdminMode) {
   window.PORTAL_AUTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-auth';
   window.PORTAL_HEALTH_ENDPOINT = window.PORTAL_WORKER_BASE + '/portal-health';
 </script>
-<script>window.__Q3_V131_RESTORED_INLINE__=true;</script>
-<script id="q3-worker-only-portal-v131">
+<script>window.__Q3_V132_RECOVERY__=true;</script>
+<script id="q3-worker-only-portal-v132">
 (function () {
   'use strict';
 
@@ -8639,10 +8639,10 @@ function updateAdminUI(isAdminMode) {
   const DATA_ENDPOINT = window.PORTAL_DATA_ENDPOINT || '';
   const AUTH_ENDPOINT = window.PORTAL_AUTH_ENDPOINT || '';
   const HEALTH_ENDPOINT = window.PORTAL_HEALTH_ENDPOINT || '';
-  const AUTH_KEY = 'q3PortalAdminTokenV131';
+  const AUTH_KEY = 'q3PortalAdminTokenV132';
 
   if (!WORKER_BASE || !SAVE_ENDPOINT || !DATA_ENDPOINT || !AUTH_ENDPOINT) {
-    console.error('v131 worker-only patch: missing worker config');
+    console.error('v132 worker-only patch: missing worker config');
     return;
   }
 
@@ -8666,7 +8666,7 @@ function updateAdminUI(isAdminMode) {
       document.querySelectorAll(sel).forEach(el => { el.remove(); });
     });
     window.configurePortalGitHubToken = async function () {
-      toast('Browser GitHub tokens are disabled in v130', 'success');
+      toast('Browser GitHub tokens are disabled in v132', 'success');
       return true;
     };
     window.setPortalGitHubToken = function () { return true; };
@@ -8711,20 +8711,29 @@ function updateAdminUI(isAdminMode) {
     });
     return mem;
   }
+  function setPortalDataStore(memoryData) {
+    try { data = memoryData; } catch (_) {}
+    window.data = memoryData;
+  }
+  function getPortalDataStore() {
+    try { if (typeof data !== 'undefined' && data) return data; } catch (_) {}
+    return window.data || {};
+  }
   function assignStateFromRaw(raw) {
     const normalized = ensureRawShape(raw);
     window.__PORTAL_RAW__ = normalized;
-    window.data = convertRawToMemory(normalized);
+    const memoryData = convertRawToMemory(normalized);
+    setPortalDataStore(memoryData);
   }
   function applyInlineDataIfPresent() {
     try {
       if (window.__INLINE_DATA__) {
         assignStateFromRaw(window.__INLINE_DATA__);
-        console.log('✅ v130 inline portal data loaded');
+        console.log('✅ v132 inline portal data loaded');
         return true;
       }
     } catch (err) {
-      console.warn('v130 inline load failed:', err);
+      console.warn('v132 inline load failed:', err);
     }
     return false;
   }
@@ -8798,10 +8807,10 @@ function updateAdminUI(isAdminMode) {
       const raw = await fetchWorkerData();
       assignStateFromRaw(raw);
       refreshUi();
-      console.log('✅ v130 worker portal-data loaded');
+      console.log('✅ v132 worker portal-data loaded');
       return true;
     } catch (err) {
-      console.error('v130 worker-only load failed:', err);
+      console.error('v132 worker-only load failed:', err);
       const hadInline = applyInlineDataIfPresent();
       if (hadInline) {
         refreshUi();
@@ -8966,7 +8975,7 @@ function updateAdminUI(isAdminMode) {
     window.saveFileLinkV123 = saveFileLinkWorkerOnly;
     window.saveFileLinkV124 = saveFileLinkWorkerOnly;
     window.saveFileLinkV125 = saveFileLinkWorkerOnly;
-    window.portalBackendHealthCheckV130 = workerHealthCheck;
+    window.portalBackendHealthCheckV132 = workerHealthCheck;
     cleanupLegacyUi();
   }
   function installLoadingWatchdog() {
@@ -8990,7 +8999,7 @@ function updateAdminUI(isAdminMode) {
       await loadDataWorkerOnly();
     }, 50);
     [300, 800, 1500, 2500].forEach(ms => setTimeout(() => { installOverrides(); cleanupLegacyUi(); }, ms));
-    console.log('✅ Worker-only portal patch v130 active');
+    console.log('✅ Worker-only portal patch v132 active');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
