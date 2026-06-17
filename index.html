@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Opportunities Portal</title>
-    <!-- Build: v141 -->
+    <!-- Build: v142 -->
     <style>
         * {
             margin: 0;
@@ -6344,10 +6344,47 @@ function toggleRowSelection(rowIndex, trEl) {
         }
 
         function normalizeLinkedFileUrl(rawUrl) {
-            let finalUrl = rawUrl;
-            const gdMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (gdMatch) {
-                finalUrl = 'https://drive.google.com/file/d/' + gdMatch[1] + '/view';
+            let finalUrl = String(rawUrl || '').trim();
+            if (!finalUrl) return '';
+            try {
+                if (/%[0-9A-Fa-f]{2}/.test(finalUrl)) finalUrl = decodeURIComponent(finalUrl);
+            } catch(_) {}
+            try {
+                const u = new URL(finalUrl);
+                const host = (u.hostname || '').toLowerCase();
+                const path = u.pathname || '';
+                const q = u.searchParams;
+                let m;
+
+                if (host === 'docs.google.com') {
+                    if ((m = path.match(/^\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/))) {
+                        return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/edit';
+                    }
+                    if ((m = path.match(/^\/document\/d\/([a-zA-Z0-9_-]+)/))) {
+                        return 'https://docs.google.com/document/d/' + m[1] + '/edit';
+                    }
+                    if ((m = path.match(/^\/presentation\/d\/([a-zA-Z0-9_-]+)/))) {
+                        return 'https://docs.google.com/presentation/d/' + m[1] + '/edit';
+                    }
+                    if ((m = path.match(/^\/forms\/d\/([a-zA-Z0-9_-]+)/))) {
+                        return 'https://docs.google.com/forms/d/' + m[1] + '/viewform';
+                    }
+                }
+
+                if (host === 'drive.google.com') {
+                    if ((m = path.match(/^\/file\/d\/([a-zA-Z0-9_-]+)/))) {
+                        return 'https://drive.google.com/file/d/' + m[1] + '/view';
+                    }
+                    const openId = q.get('id');
+                    if (openId) {
+                        return 'https://drive.google.com/file/d/' + openId + '/view';
+                    }
+                }
+            } catch(_) {
+                const gs = finalUrl.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i);
+                if (gs) return 'https://docs.google.com/spreadsheets/d/' + gs[1] + '/edit';
+                const gd = finalUrl.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/i) || finalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (gd) return 'https://drive.google.com/file/d/' + gd[1] + '/view';
             }
             return finalUrl;
         }
@@ -6373,7 +6410,7 @@ function toggleRowSelection(rowIndex, trEl) {
                 const siblingLink = item ? item.querySelector('a.file-row-link, a[href]') : null;
                 if (siblingLink) finalUrl = siblingLink.getAttribute('href') || siblingLink.textContent || '';
             }
-            return String(finalUrl || '').trim();
+            return normalizeLinkedFileUrl(String(finalUrl || '').trim());
         }
 
         function openExactPortalUrl(targetUrl) {
